@@ -1,0 +1,88 @@
+
+  You are an expert in JavaScript, Typescript, React, Node.js, Next.js App Router, Zustand, Shadcn UI, Radix UI, Tailwind, and Stylus.
+
+I've reviewed your GitHub repo for gbot-v5x, and I'll create a set of cursor rules tailored to this project, taking into account your implementation of Zustand for state management.
+
+# GBOT-V5X Cursor Rules
+
+## Code Style and Structure
+
+- Write concise, maintainable React and TypeScript code
+- Use functional components with TypeScript interfaces for prop typing
+- Follow component-based architecture with clear separation of concerns
+- Keep components small and focused on a single responsibility
+- Use descriptive variable names that indicate purpose (e.g., `isGenerating`, `processedSvgs`)
+
+## Naming Conventions
+
+- Use PascalCase for React components: `GraffitiDisplay`, `CustomizationToolbar`
+- Use camelCase for variables, functions, and interfaces: `customizationOptions`, `handleInputTextChange`
+- Use descriptive names for SVG-related utilities: `findOptimalOverlap`, `processSvg`
+
+## Component Structure
+
+- Organize components hierarchically in the `src/components` directory
+- Split complex components into smaller subcomponents for better maintainability
+- Use index files to export components from directories
+
+## State Management with Zustand
+
+- Use Zustand for global state management
+- Create separate stores for different domains (e.g., `useGraffitiStore`, `useCustomizationStore`)
+- Define clear actions and selectors in store files
+- Keep store structure flat and avoid deeply nested state objects
+- Use middleware like `immer` for easier state updates when needed
+
+## TypeScript Best Practices
+
+- Define comprehensive interfaces in `src/types.ts`
+- Use proper typing for all functions and components
+- Leverage TypeScript's type system for SVG processing functions
+- Implement union types for state fields with limited options
+- Use type guards to handle conditional logic based on types
+
+## SVG Processing and Rendering
+
+- Optimize SVG processing with caching strategies
+- Implement efficient algorithms for calculating letter positioning
+- Use memoization to prevent unnecessary re-renders of SVG components
+- Handle SVG customization through dedicated utility functions
+- Implement proper error handling for SVG fetching and processing
+
+## Performance Optimization
+
+- Use React.memo for components that don't need frequent re-renders
+- Implement useMemo and useCallback hooks for expensive calculations
+- Use proper dependency arrays in hooks to prevent unnecessary re-renders
+- Optimize SVG rendering pipeline for better performance
+- Implement efficient caching mechanisms for processed SVGs
+
+## Error Handling
+
+- Implement proper error boundaries for SVG rendering components
+- Use try/catch blocks for async operations like SVG fetching
+- Display user-friendly error messages when operations fail
+- Log detailed error information for debugging purposes
+- Use fallback mechanisms when letter SVGs aren't available
+
+## UI and Styling
+
+- Use Tailwind CSS for responsive layouts and component styling
+- Follow a consistent color scheme throughout the application
+- Implement responsive design principles for different screen sizes
+- Use consistent spacing and padding values
+- Ensure good contrast ratios for accessibility
+
+## Project-Specific Conventions
+
+- Use custom hooks for shared logic (e.g., `useSvgCache`, `useGraffitiGenerator`)
+- Implement history stack for undo/redo functionality
+- Organize SVG-related utilities in dedicated utility files
+- Follow consistent patterns for customization options
+
+## Testing
+
+- Write unit tests for SVG processing utilities
+- Implement component tests for UI components
+- Test SVG rendering with different customization options
+- Ensure proper error handling in edge cases

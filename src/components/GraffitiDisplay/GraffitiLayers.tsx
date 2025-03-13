@@ -1,0 +1,222 @@
+// src/components/GraffitiDisplay/GraffitiLayers.tsx
+import React, { useEffect } from 'react';
+import { ProcessedSvg, CustomizationOptions } from '../../types';
+import { customizeSvg, createStampSvg } from '../../utils/svgCustomizationUtils';
+
+interface GraffitiLayersProps {
+  processedSvgs: ProcessedSvg[];
+  positions: number[];
+  customizationOptions: CustomizationOptions;
+}
+
+const GraffitiLayers: React.FC<GraffitiLayersProps> = ({ 
+  processedSvgs, 
+  positions, 
+  customizationOptions
+}) => {
+  // Add debugging to check what's actually in processedSvgs
+  useEffect(() => {
+    console.log('GraffitiLayers received:', {
+      svgCount: processedSvgs.length,
+      letterSample: processedSvgs.map(svg => svg.letter).join(''),
+      firstSvg: processedSvgs[0]?.letter
+    });
+  }, [processedSvgs]);
+
+  // Early return if no processed SVGs
+  if (processedSvgs.length === 0) return null;
+  
+  // Create arrays for each layer type
+  const shieldElements: JSX.Element[] = [];
+  const shadowShieldElements: JSX.Element[] = [];
+  const shadowElements: JSX.Element[] = [];
+  const stampElements: JSX.Element[] = [];
+  const mainElements: JSX.Element[] = [];
+  
+  // Process all SVGs in a single pass
+  processedSvgs.forEach((item, index) => {
+    // Log each item's letter for debugging
+    console.log(`Processing SVG ${index}: letter="${item.letter}", isSpace=${item.isSpace}`);
+    
+    // Skip processing spaces for most effects
+    if (!item.isSpace) {
+      // 1. Shield layer
+      if (customizationOptions.shieldEnabled) {
+        const shieldOptions = {
+          ...customizationOptions,
+          // We'll handle shadow effect separately to prevent duplicates
+          shadowEffectEnabled: false
+        };
+        
+        shieldElements.push(
+          <div
+            key={`shield-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: '200px',
+              height: '200px',
+              zIndex: 1, // Lowest z-index for shield
+              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+              transformOrigin: 'center center',
+              overflow: 'visible'
+            }}
+            dangerouslySetInnerHTML={{ 
+              __html: createStampSvg(item.svg, item.isSpace, shieldOptions) 
+            }}
+          />
+        );
+      }
+      
+      // 2. Shadow shield layer
+      if (customizationOptions.shadowEffectEnabled && customizationOptions.shieldEnabled) {
+        const shadowShieldOptions = {
+          ...customizationOptions,
+          shieldEnabled: true,
+          // Only render the shadow shield, no other effects
+          stampEnabled: false, 
+          shadowShieldOnly: true
+        };
+        
+        shadowShieldElements.push(
+          <div
+            key={`shadow-shield-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: '200px',
+              height: '200px',
+              zIndex: 2, // z-index for shadow shield
+              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
+                        translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+              transformOrigin: 'center center',
+              overflow: 'visible'
+            }}
+            dangerouslySetInnerHTML={{ 
+              __html: customizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
+            }}
+          />
+        );
+      }
+      
+      // 3. Shadow layer
+      if (customizationOptions.shadowEffectEnabled) {
+        const shadowOptions = {
+          ...customizationOptions,
+          shieldEnabled: false, // No shield for shadow
+          shadowOnly: true
+        };
+        
+        shadowElements.push(
+          <div
+            key={`shadow-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: '200px',
+              height: '200px',
+              zIndex: 3, // z-index for shadow
+              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
+                        translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+              transformOrigin: 'center center',
+              overflow: 'visible'
+            }}
+            dangerouslySetInnerHTML={{ 
+              __html: customizeSvg(item.svg, item.isSpace, shadowOptions) 
+            }}
+          />
+        );
+      }
+      
+      // 4. Stamp outline layer
+      if (customizationOptions.stampEnabled) {
+        const stampOnlyOptions = {
+          ...customizationOptions,
+          shieldEnabled: false,
+          shadowEffectEnabled: false
+        };
+        
+        stampElements.push(
+          <div
+            key={`stamp-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: '200px',
+              height: '200px',
+              zIndex: 4, // z-index for stamp
+              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+              transformOrigin: 'center center',
+              overflow: 'visible'
+            }}
+            dangerouslySetInnerHTML={{ 
+              __html: createStampSvg(item.svg, item.isSpace, stampOnlyOptions) 
+            }}
+          />
+        );
+      }
+    }
+    
+    // 5. Main content layer (including spaces as empty divs)
+    if (item.isSpace) {
+      // Just a placeholder for spaces
+      mainElements.push(
+        <div
+          key={`main-${index}`}
+          style={{
+            position: 'absolute',
+            left: `${positions[index]}px`,
+            top: 0,
+            width: `${item.width}px`,
+            height: `${item.height}px`,
+            overflow: 'visible'
+          }}
+        />
+      );
+    } else {
+      // Use the processed SVG content directly instead of hardcoding the path
+      const contentOptions = {
+        ...customizationOptions,
+        contentOnly: true // Only render the main content, no effects
+      };
+      
+      mainElements.push(
+        <div
+          key={`main-${index}`}
+          style={{
+            position: 'absolute',
+            left: `${positions[index]}px`,
+            top: 0,
+            width: '200px',
+            height: '200px',
+            zIndex: 5 + (processedSvgs.length - index), // Highest z-index for main content
+            transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+            transformOrigin: 'center center',
+            overflow: 'visible' // Important: allow effects to extend beyond boundaries
+          }}
+          className="hover:z-50"
+          dangerouslySetInnerHTML={{ 
+            __html: customizeSvg(item.svg, item.isSpace, contentOptions) 
+          }}
+        />
+      );
+    }
+  });
+  
+  // Return all layers in the correct order
+  return (
+    <>
+      {shieldElements}
+      {shadowShieldElements}
+      {shadowElements}
+      {stampElements}
+      {mainElements}
+    </>
+  );
+};
+
+export default GraffitiLayers;

@@ -1,0 +1,524 @@
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { ProcessedSvg, CustomizationOptions } from '../types';
+import { Undo2, Redo2 } from 'lucide-react';
+import { customizeSvg, createStampSvg } from '../utils/svgCustomizationUtils';
+
+interface GraffitiDisplayProps {
+  isGenerating: boolean;
+  processedSvgs: ProcessedSvg[];
+  positions: number[];
+  contentWidth: number;
+  contentHeight: number;
+  containerScale: number;
+  customizationOptions: CustomizationOptions;
+  customizationHistory?: CustomizationOptions[];
+  currentHistoryIndex?: number;
+  onUndoRedo?: (newIndex: number) => void;
+}
+
+export const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({ 
+  isGenerating, 
+  processedSvgs, 
+  positions,
+  contentWidth,
+  contentHeight,
+  containerScale,
+  customizationOptions,
+  customizationHistory = [],
+  currentHistoryIndex = -1,
+  onUndoRedo
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [displayDimensions, setDisplayDimensions] = useState({ width: 0, height: 0 });
+  
+  // Update dimensions when container resizes, maintaining 16:9 aspect ratio
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        // Calculate dimensions maintaining 16:9 aspect ratio
+        const containerWidth = containerRef.current.clientWidth - 32; // account for padding
+        
+        // Determine height based on 16:9 aspect ratio
+        // For 16:9, height = width * (9/16)
+        const aspectRatio = 16/9;
+        const calculatedHeight = containerWidth / aspectRatio;
+        
+        setDisplayDimensions({
+          width: containerWidth,
+          height: calculatedHeight
+        });
+      }
+    };
+    
+    // Initialize dimensions
+    updateDimensions();
+    
+    // Set up resize observer
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+    };
+  }, []);
+  
+  // Calculate the actual bounds including shadow effects
+  const totalBounds = useMemo(() => {
+    if (processedSvgs.length === 0 || !customizationOptions.shadowEffectEnabled) {
+      return {
+        width: contentWidth,
+        height: contentHeight,
+        offsetX: 0,
+        offsetY: 0
+      };
+    }
+
+    // Base content dimensions
+    let minX = 0;
+    let maxX = contentWidth;
+    let minY = 0;
+    let maxY = contentHeight;
+
+    // Calculate the extended bounds due to shadow
+    if (customizationOptions.shadowEffectEnabled) {
+      // Shadow extends the bounding box in the direction of the offset
+      if (customizationOptions.shadowEffectOffsetX < 0) {
+        // Shadow extends to the left
+        minX += customizationOptions.shadowEffectOffsetX;
+      } else {
+        // Shadow extends to the right
+        maxX += customizationOptions.shadowEffectOffsetX;
+      }
+
+      if (customizationOptions.shadowEffectOffsetY < 0) {
+        // Shadow extends upward
+        minY += customizationOptions.shadowEffectOffsetY;
+      } else {
+        // Shadow extends downward
+        maxY += customizationOptions.shadowEffectOffsetY;
+      }
+      
+      // Add extra padding for stamp width if shadow has stamp effect
+      if (customizationOptions.stampEnabled) {
+        const stampPadding = customizationOptions.stampWidth / 2;
+        minX -= stampPadding;
+        maxX += stampPadding;
+        minY -= stampPadding;
+        maxY += stampPadding;
+      }
+      
+      // Add extra padding for shield if used with shadow
+      if (customizationOptions.shieldEnabled) {
+        const shieldPadding = customizationOptions.shieldWidth;
+        minX -= shieldPadding;
+        maxX += shieldPadding;
+        minY -= shieldPadding;
+        maxY += shieldPadding;
+      }
+    }
+    
+    // Add extra padding for stamp effect on base content
+    if (customizationOptions.stampEnabled) {
+      const stampPadding = customizationOptions.stampWidth / 2;
+      if (minX > -stampPadding) minX = -stampPadding;
+      maxX += stampPadding;
+      if (minY > -stampPadding) minY = -stampPadding;
+      maxY += stampPadding;
+    }
+
+    // Add extra padding for shield on base content
+    if (customizationOptions.shieldEnabled) {
+      const shieldPadding = customizationOptions.shieldWidth;
+      if (minX > -shieldPadding) minX = -shieldPadding;
+      maxX += shieldPadding;
+      if (minY > -shieldPadding) minY = -shieldPadding;
+      maxY += shieldPadding;
+    }
+
+    // Calculate total dimensions and offset
+    return {
+      width: maxX - minX,
+      height: maxY - minY,
+      offsetX: minX,
+      offsetY: minY
+    };
+  }, [
+    contentWidth, 
+    contentHeight, 
+    customizationOptions.shadowEffectEnabled,
+    customizationOptions.shadowEffectOffsetX,
+    customizationOptions.shadowEffectOffsetY,
+    customizationOptions.stampEnabled,
+    customizationOptions.stampWidth,
+    customizationOptions.shieldEnabled,
+    customizationOptions.shieldWidth,
+    processedSvgs.length
+  ]);
+  
+  // Calculate the optimal scale factor based on dynamic bounds
+  const scaleFactor = useMemo(() => {
+    if (contentWidth === 0 || contentHeight === 0 || displayDimensions.width === 0) {
+      return containerScale;
+    }
+    
+    // Calculate scale based on ONLY the base content dimensions
+    // Do NOT include any effect sizes in this calculation
+    const widthScale = displayDimensions.width / contentWidth;
+    const heightScale = displayDimensions.height / contentHeight;
+    
+    // Determine a dynamic scaling coefficient based on the number of characters
+    // For 4 or fewer characters, use a smaller coefficient to prevent them from being too large
+    const letterCount = processedSvgs.filter(svg => !svg.isSpace).length;
+    let scaleCoefficient = 0.7; // Default coefficient
+    
+    if (letterCount <= 4) {
+      // Scale down more for fewer characters
+      // For 1-2 letters: 0.45, 3 letters: 0.5, 4 letters: 0.55
+      scaleCoefficient = 0.5 + (letterCount * 0.03);
+    } else if (letterCount <= 8) {
+      // Medium length words get a slightly larger coefficient
+      scaleCoefficient = 0.7;
+    }
+    
+    // Use the smaller scale to ensure content fits completely, but don't cap at 1.0
+    // This allows scaling up when there's room
+    return Math.min(widthScale, heightScale) * scaleCoefficient; 
+  }, [contentWidth, contentHeight, displayDimensions.width, displayDimensions.height, containerScale, processedSvgs]);
+  
+  // Background styles
+  const backgroundStyle = customizationOptions.backgroundEnabled
+    ? { backgroundColor: customizationOptions.backgroundColor }
+    : {
+        backgroundImage: `
+          linear-gradient(45deg, #ccc 25%, transparent 45%), 
+          linear-gradient(-45deg, #ccc 25%, transparent 25%), 
+          linear-gradient(45deg, transparent 75%, #ccc 75%), 
+          linear-gradient(-45deg, transparent 75%, #ccc 75%)
+        `,
+        backgroundSize: '20px 20px',
+        backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+        backgroundColor: '#efefef'
+      };
+
+  // Function to handle undo/redo
+  const handleUndoRedo = (direction: 'undo' | 'redo') => {
+    if (!onUndoRedo || customizationHistory.length === 0) return;
+    
+    const newIndex = direction === 'undo' 
+      ? Math.max(0, currentHistoryIndex - 1)
+      : Math.min(customizationHistory.length - 1, currentHistoryIndex + 1);
+    
+    // Only trigger if the index actually changes
+    if (newIndex !== currentHistoryIndex) {
+      onUndoRedo(newIndex);
+    }
+  };
+
+  // Memoize the rendered SVG layers
+  const renderLayers = useMemo(() => {
+    // Early return if no processed SVGs
+    if (processedSvgs.length === 0) return null;
+    
+    // Create elements arrays for each layer type
+    const shieldElements: JSX.Element[] = [];
+    const shadowShieldElements: JSX.Element[] = [];
+    const shadowElements: JSX.Element[] = [];
+    const stampElements: JSX.Element[] = [];
+    const mainElements: JSX.Element[] = [];
+    
+    // Process all SVGs in a single pass
+    processedSvgs.forEach((item, index) => {
+      // Skip processing spaces for most effects
+      if (!item.isSpace) {
+        // 1. Shield layer
+        if (customizationOptions.shieldEnabled) {
+          const shieldOptions = {
+            ...customizationOptions,
+            // We'll handle shadow effect separately to prevent duplicates
+            shadowEffectEnabled: false
+          };
+          
+          shieldElements.push(
+            <div
+              key={`shield-${index}`}
+              style={{
+                position: 'absolute',
+                left: `${positions[index]}px`,
+                top: 0,
+                width: '200px',
+                height: '200px',
+                zIndex: 1, // Lowest z-index for shield
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transformOrigin: 'center center',
+                overflow: 'visible'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: createStampSvg(item.svg, item.isSpace, shieldOptions) 
+              }}
+            />
+          );
+        }
+        
+        // 2. Shadow shield layer
+        if (customizationOptions.shadowEffectEnabled && customizationOptions.shieldEnabled) {
+          const shadowShieldOptions = {
+            ...customizationOptions,
+            shieldEnabled: true,
+            // Only render the shadow shield, no other effects
+            stampEnabled: false, 
+            shadowShieldOnly: true
+          };
+          
+          shadowShieldElements.push(
+            <div
+              key={`shadow-shield-${index}`}
+              style={{
+                position: 'absolute',
+                left: `${positions[index]}px`,
+                top: 0,
+                width: '200px',
+                height: '200px',
+                zIndex: 2, // z-index for shadow shield
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
+                          translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+                transformOrigin: 'center center',
+                overflow: 'visible'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: customizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
+              }}
+            />
+          );
+        }
+        
+        // 3. Shadow layer
+        if (customizationOptions.shadowEffectEnabled) {
+          const shadowOptions = {
+            ...customizationOptions,
+            shieldEnabled: false, // No shield for shadow
+            shadowOnly: true
+          };
+          
+          shadowElements.push(
+            <div
+              key={`shadow-${index}`}
+              style={{
+                position: 'absolute',
+                left: `${positions[index]}px`,
+                top: 0,
+                width: '200px',
+                height: '200px',
+                zIndex: 3, // z-index for shadow
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
+                          translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+                transformOrigin: 'center center',
+                overflow: 'visible'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: customizeSvg(item.svg, item.isSpace, shadowOptions) 
+              }}
+            />
+          );
+        }
+        
+        // 4. Stamp outline layer
+        if (customizationOptions.stampEnabled) {
+          const stampOnlyOptions = {
+            ...customizationOptions,
+            shieldEnabled: false,
+            shadowEffectEnabled: false
+          };
+          
+          stampElements.push(
+            <div
+              key={`stamp-${index}`}
+              style={{
+                position: 'absolute',
+                left: `${positions[index]}px`,
+                top: 0,
+                width: '200px',
+                height: '200px',
+                zIndex: 4, // z-index for stamp
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transformOrigin: 'center center',
+                overflow: 'visible'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: createStampSvg(item.svg, item.isSpace, stampOnlyOptions) 
+              }}
+            />
+          );
+        }
+      }
+      
+      // 5. Main content layer (including spaces as empty divs)
+      if (item.isSpace) {
+        // Just a placeholder for spaces
+        mainElements.push(
+          <div
+            key={`main-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: `${item.width}px`,
+              height: `${item.height}px`,
+              overflow: 'visible'
+            }}
+          />
+        );
+      } else {
+        // Create options for main content only - no stamp, shield or shadow
+        const contentOnlyOptions = {
+          ...customizationOptions,
+          stampEnabled: false,
+          shieldEnabled: false,
+          shadowEffectEnabled: false,
+          contentOnly: true
+        };
+        
+        mainElements.push(
+          <div
+            key={`main-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${positions[index]}px`,
+              top: 0,
+              width: '200px',
+              height: '200px',
+              zIndex: 5 + (processedSvgs.length - index), // Highest z-index for main content
+              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+              transformOrigin: 'center center',
+              overflow: 'visible' // Important: allow effects to extend beyond boundaries
+            }}
+            className="hover:z-50"
+            dangerouslySetInnerHTML={{ 
+              __html: customizeSvg(item.svg, item.isSpace, contentOnlyOptions) 
+            }}
+          />
+        );
+      }
+    });
+    
+    // Return all layers in the correct order
+    return (
+      <>
+        {shieldElements}
+        {shadowShieldElements}
+        {shadowElements}
+        {stampElements}
+        {mainElements}
+      </>
+    );
+  }, [
+    processedSvgs, 
+    positions, 
+    customizationOptions.fillEnabled,
+    customizationOptions.fillColor,
+    customizationOptions.stampEnabled, 
+    customizationOptions.stampColor,
+    customizationOptions.stampWidth,
+    customizationOptions.shieldEnabled,
+    customizationOptions.shieldColor,
+    customizationOptions.shieldWidth,
+    customizationOptions.shadowEffectEnabled,
+    customizationOptions.shadowEffectOffsetX,
+    customizationOptions.shadowEffectOffsetY,
+    customizationOptions.shineEnabled,
+    customizationOptions.shineColor,
+    customizationOptions.shineOpacity,
+    customizationOptions.strokeEnabled,
+    customizationOptions.strokeColor,
+    customizationOptions.strokeWidth
+  ]);
+
+  return (
+    <div 
+      ref={containerRef}
+      style={{ 
+        ...backgroundStyle,
+        overflow: 'hidden',
+        position: 'relative',
+        width: '100%'
+      }}
+      className="border-2 border-dashed border-gray-200 rounded-xl p-4 w-full flex items-center justify-center"
+    >
+      {/* Undo/Redo buttons */}
+      {customizationHistory.length > 0 && !isGenerating && (
+        <div className="absolute bottom-2 left-2 z-50 flex gap-1">
+          <button
+            onClick={() => handleUndoRedo('undo')}
+            disabled={currentHistoryIndex <= 0}
+            className={`bg-white bg-opacity-70 hover:bg-opacity-100 p-1 rounded-md shadow-sm transition-all ${
+              currentHistoryIndex <= 0 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            title="Undo"
+          >
+            <Undo2 size={18} className="text-gray-700" />
+          </button>
+          <button
+            onClick={() => handleUndoRedo('redo')}
+            disabled={currentHistoryIndex >= customizationHistory.length - 1}
+            className={`bg-white bg-opacity-70 hover:bg-opacity-100 p-1 rounded-md shadow-sm transition-all ${
+              currentHistoryIndex >= customizationHistory.length - 1 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            title="Redo"
+          >
+            <Redo2 size={18} className="text-gray-700" />
+          </button>
+        </div>
+      )}
+
+      {isGenerating ? (
+        <div 
+          style={{
+            width: '100%',
+            paddingBottom: '56.25%', /* 16:9 Aspect Ratio (9/16 = 0.5625) */
+            position: 'relative'
+          }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-gray-500 animate-pulse">Generating your graffiti...</div>
+          </div>
+        </div>
+      ) : processedSvgs.length > 0 ? (
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            paddingBottom: '56.25%', /* 16:9 Aspect Ratio (9/16 = 0.5625) */
+            overflow: 'visible' // Allow overflow to see effects
+          }}
+        >
+          {/* Content container with fixed scale and adjusted positioning */}
+          <div
+            ref={contentRef}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: `${contentWidth}px`,
+              height: `${contentHeight}px`,
+              transform: `translate(-50%, -50%) scale(${scaleFactor})`,
+              transformOrigin: 'center center',
+              overflow: 'visible'
+            }}
+          >
+            {/* Render all memoized layers */}
+            {renderLayers}
+          </div>
+        </div>
+      ) : (
+        <div className="text-gray-400 text-center">
+          <p className="text-xl mb-2">Your graffiti will appear here</p>
+          <p className="text-sm">Enter some text and hit generate!</p>
+        </div>
+      )}
+    </div>
+  );
+};
