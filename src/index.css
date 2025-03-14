@@ -2,15 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optimize animations for mobile devices */
+/* Optimize animations for all devices */
 @layer base {
   /* Apply hardware acceleration for animations */
   .animate-hardware {
     will-change: transform, opacity;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
-    -webkit-perspective: 1000;
-    perspective: 1000;
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
   }

@@ -60,43 +60,24 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
   
   // Add keyframe animation for the cascading effect
   useEffect(() => {
-    // Detect if we're on a mobile device
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
     // Create a style element for our keyframe animation if it doesn't exist
     if (!document.getElementById('letter-animation-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'letter-animation-style';
       
-      // Different animation timing for mobile vs desktop
-      const mobileKeyframes = `
+      // Simple, reliable animation that works across browsers
+      styleEl.innerHTML = `
         @keyframes letterPopIn {
-          0% { transform: scale(0.7); opacity: 1; }
-          40% { transform: scale(1.03); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
+          0% { opacity: 0; transform: scale(0.8); }
+          100% { opacity: 1; transform: scale(1); }
         }
         
         @keyframes containerFadeIn {
-          0% { opacity: 1; }
+          0% { opacity: 0; }
           100% { opacity: 1; }
         }
       `;
       
-      const desktopKeyframes = `
-        @keyframes letterPopIn {
-          0% { transform: scale(0.7); opacity: 1; }
-          30% { transform: scale(1.05); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        
-        @keyframes containerFadeIn {
-          0% { opacity: 1; }
-          100% { opacity: 1; }
-        }
-      `;
-      
-      // Use the appropriate keyframes based on device
-      styleEl.innerHTML = isMobile ? mobileKeyframes : desktopKeyframes;
       document.head.appendChild(styleEl);
       
       // Clean up on unmount
@@ -132,18 +113,17 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       setIsReady(false);
       setIsAnimating(false);
       
-      // Use a single RAF for better performance
-      requestAnimationFrame(() => {
+      // Use a simple timeout to ensure DOM is ready before animation
+      setTimeout(() => {
         setIsReady(true);
         setIsAnimating(true);
         
         // Reset animation state after animation completes
-        // Use the total animation duration (base + delay per letter)
-        const totalDuration = 800 + (processedSvgs.length * 20);
+        const totalDuration = 800 + (processedSvgs.length * 25);
         setTimeout(() => {
           setIsAnimating(false);
         }, totalDuration);
-      });
+      }, 50); // Small delay to ensure DOM is ready
     } else if (!isReady) {
       // Content hasn't changed but we need to show it (e.g. after initial mount)
       setIsReady(true);

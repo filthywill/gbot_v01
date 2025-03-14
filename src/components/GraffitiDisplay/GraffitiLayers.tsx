@@ -39,9 +39,9 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
   // Detect if we're on a mobile device
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   
-  // Calculate animation delay per letter - adjust for mobile
-  const ANIMATION_DELAY_PER_LETTER = isMobile ? 40 : 20; // milliseconds - longer delay on mobile
-  const ANIMATION_DURATION = isMobile ? 400 : 300; // milliseconds - longer duration on mobile
+  // Calculate animation delay per letter - consistent across all browsers
+  const ANIMATION_DELAY_PER_LETTER = 25; // milliseconds
+  const ANIMATION_DURATION = 350; // milliseconds
   
   // Process all SVGs in a single pass
   processedSvgs.forEach((item, index) => {
