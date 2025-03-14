@@ -1,0 +1,59 @@
+/* src/styles/historyControls.css */
+.history-control-button {
+  transition: transform 0.1s ease-in-out;
+  transform-origin: center;
+  touch-action: manipulation;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.history-control-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .history-control-button:hover:not(:disabled) {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+
+/* Fade in animation for the controls */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 0.75;
+    transform: translateY(0);
+  }
+}
+
+.history-controls-container {
+  animation: fadeIn 0.4s ease-out forwards;
+  opacity: 0.8;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.history-controls-container:hover {
+  opacity: 1;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .history-control-button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  
+  .history-controls-container {
+    bottom: 4px;
+    left: 4px;
+  }
+} 
