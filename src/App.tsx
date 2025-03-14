@@ -73,13 +73,13 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto py-2 sm:py-4 px-2 sm:px-4 lg:px-6 flex justify-between items-center">
+        <div className="max-w-[800px] mx-auto py-2 sm:py-4 px-2 sm:px-4 lg:px-6 flex justify-between items-center">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">GraffitiSOFT</h1>
         </div>
       </header>
       
       <main className="flex-grow">
-        <div className="max-w-7xl mx-auto py-1 sm:py-4 px-1 sm:px-2 lg:px-4">
+        <div className="max-w-[800px] mx-auto py-1 sm:py-4 px-1 sm:px-2 lg:px-4">
           <div className="px-0 py-0 sm:py-2">
             <div className="flex flex-col gap-1 sm:gap-4">
               {/* Top section: Input and Preview */}
@@ -164,7 +164,7 @@ function App() {
       </main>
       
       <footer className="bg-white shadow-inner">
-        <div className="max-w-7xl mx-auto py-2 sm:py-3 px-2 sm:px-4 lg:px-6">
+        <div className="max-w-[800px] mx-auto py-2 sm:py-3 px-2 sm:px-4 lg:px-6">
           <p className="text-center text-gray-500 text-sm">
             Graffiti Generator &copy; {new Date().getFullYear()}
           </p>
