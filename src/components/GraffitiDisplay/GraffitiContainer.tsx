@@ -27,16 +27,22 @@ const GraffitiContainer: React.FC<GraffitiContainerProps> = ({
       };
 
   return (
-    <div 
-      style={{ 
-        ...backgroundStyle,
-        overflow: 'hidden',
-        position: 'relative',
-        width: '100%'
-      }}
-      className="border-2 border-dashed border-gray-200 rounded-xl p-4 w-full flex items-center justify-center"
-    >
-      {children}
+    <div className="w-full h-full relative">
+      {/* This inner div contains the actual content */}
+      <div 
+        style={{ 
+          ...backgroundStyle,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: 'hidden'
+        }}
+        className="border border-gray-300 sm:border-2 md:border-4 rounded-md sm:rounded-lg md:rounded-xl flex items-center justify-center"
+      >
+        {children}
+      </div>
     </div>
   );
 };

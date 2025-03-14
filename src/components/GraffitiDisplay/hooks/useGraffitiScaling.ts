@@ -23,16 +23,8 @@ export const useGraffitiScaling = (
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayDimensions, setDisplayDimensions] = useState({ width: 0, height: 0 });
   
-  // Extract options to minimize dependency changes
-  const { 
-    shadowEffectEnabled, 
-    shadowEffectOffsetX, 
-    shadowEffectOffsetY,
-    stampEnabled,
-    stampWidth,
-    shieldEnabled,
-    shieldWidth
-  } = options;
+  // We're not using these options anymore since we simplified the scaling calculation
+  // But we keep the parameter for API compatibility
   
   // Update dimensions when container resizes
   useEffect(() => {
@@ -40,12 +32,30 @@ export const useGraffitiScaling = (
     
     const updateDimensions = () => {
       if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth - 32;
+        // Get the container dimensions
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight;
+        
+        // Calculate available space with a small margin for padding
+        // Increase the margin to make content smaller (e.g., 0.9 = 90% of container)
+        const availableWidth = containerWidth * 0.9; // Reduced from 0.95
+        const availableHeight = containerHeight * 0.9; // Reduced from 0.95
+        
+        // Maintain aspect ratio while maximizing available space
         const aspectRatio = 16/9;
-        const calculatedHeight = containerWidth / aspectRatio;
+        
+        // Calculate dimensions that fit within the container
+        let calculatedWidth = availableWidth;
+        let calculatedHeight = calculatedWidth / aspectRatio;
+        
+        // If height exceeds container, recalculate based on height
+        if (calculatedHeight > availableHeight) {
+          calculatedHeight = availableHeight;
+          calculatedWidth = calculatedHeight * aspectRatio;
+        }
         
         setDisplayDimensions({
-          width: containerWidth,
+          width: calculatedWidth,
           height: calculatedHeight
         });
       }
@@ -63,128 +73,72 @@ export const useGraffitiScaling = (
     };
   }, []);
   
-  // Calculate total bounds (including effects)
-  const totalBounds = useMemo(() => {
-    if (processedSvgs.length === 0 || !shadowEffectEnabled) {
-      return {
-        width: contentWidth,
-        height: contentHeight,
-        offsetX: 0,
-        offsetY: 0
-      };
-    }
-
-    // Base content dimensions
-    let minX = 0;
-    let maxX = contentWidth;
-    let minY = 0;
-    let maxY = contentHeight;
-
-    // Calculate the extended bounds due to shadow
-    if (shadowEffectEnabled) {
-      // Shadow extends the bounding box in the direction of the offset
-      if (shadowEffectOffsetX < 0) {
-        // Shadow extends to the left
-        minX += shadowEffectOffsetX;
-      } else {
-        // Shadow extends to the right
-        maxX += shadowEffectOffsetX;
-      }
-
-      if (shadowEffectOffsetY < 0) {
-        // Shadow extends upward
-        minY += shadowEffectOffsetY;
-      } else {
-        // Shadow extends downward
-        maxY += shadowEffectOffsetY;
-      }
-      
-      // Add extra padding for stamp width if shadow has stamp effect
-      if (stampEnabled) {
-        const stampPadding = stampWidth / 2;
-        minX -= stampPadding;
-        maxX += stampPadding;
-        minY -= stampPadding;
-        maxY += stampPadding;
-      }
-      
-      // Add extra padding for shield if used with shadow
-      if (shieldEnabled) {
-        const shieldPadding = shieldWidth;
-        minX -= shieldPadding;
-        maxX += shieldPadding;
-        minY -= shieldPadding;
-        maxY += shieldPadding;
-      }
-    }
-    
-    // Add extra padding for stamp effect on base content
-    if (stampEnabled) {
-      const stampPadding = stampWidth / 2;
-      if (minX > -stampPadding) minX = -stampPadding;
-      maxX += stampPadding;
-      if (minY > -stampPadding) minY = -stampPadding;
-      maxY += stampPadding;
-    }
-
-    // Add extra padding for shield on base content
-    if (shieldEnabled) {
-      const shieldPadding = shieldWidth;
-      if (minX > -shieldPadding) minX = -shieldPadding;
-      maxX += shieldPadding;
-      if (minY > -shieldPadding) minY = -shieldPadding;
-      maxY += shieldPadding;
-    }
-
-    // Calculate total dimensions and offset
-    return {
-      width: maxX - minX,
-      height: maxY - minY,
-      offsetX: minX,
-      offsetY: minY
-    };
-  }, [
-    contentWidth, 
-    contentHeight, 
-    shadowEffectEnabled,
-    shadowEffectOffsetX,
-    shadowEffectOffsetY,
-    stampEnabled,
-    stampWidth,
-    shieldEnabled,
-    shieldWidth,
-    processedSvgs.length
-  ]);
-  
-  // Calculate scale factor
+  // Calculate scale factor with improved mobile responsiveness
   const scaleFactor = useMemo(() => {
     if (contentWidth === 0 || contentHeight === 0 || displayDimensions.width === 0) {
       return containerScale;
     }
     
+    // Calculate basic scale factors
     const widthScale = displayDimensions.width / contentWidth;
     const heightScale = displayDimensions.height / contentHeight;
     
-    const letterCount = processedSvgs.filter(svg => !svg.isSpace).length;
-    let scaleCoefficient = 0.7;
+    // Use the smaller scale to ensure content fits
+    let baseScale = Math.min(widthScale, heightScale);
     
-    if (letterCount <= 4) {
-      scaleCoefficient = 0.5 + (letterCount * 0.03);
-    } else if (letterCount <= 8) {
-      scaleCoefficient = 0.7;
+    // Adjust scale based on letter count for better display
+    const letterCount = processedSvgs.filter(svg => !svg.isSpace).length;
+    
+    // Dynamic scaling coefficient based on letter count and screen size
+    // Default value reduced to make output smaller
+    let scaleCoefficient = 0.75; // Default reduced from 0.85
+    
+    // For mobile (smaller width), use more aggressive scaling
+    const isMobileView = displayDimensions.width < 500;
+    
+    if (isMobileView) {
+      // More aggressive scaling for mobile - all values reduced
+      if (letterCount <= 3) {
+        scaleCoefficient = 0.6; // Reduced from 0.85
+      } else if (letterCount <= 4) {
+        scaleCoefficient = 0.75; // Reduced from 0.8
+      } else if (letterCount <= 5) {
+        scaleCoefficient = 0.85; // Reduced from 0.8
+      } else if (letterCount <= 7) {
+        scaleCoefficient = 0.95; // Reduced from 0.8
+      } else if (letterCount <= 10) {
+        scaleCoefficient = 0.95; // Reduced from 0.75
+      } else {
+        scaleCoefficient = 1; // Reduced from 0.7
+      }
+    } else {
+      // Standard scaling for larger screens - all values reduced
+      if (letterCount <= 3) {
+        scaleCoefficient = 0.65; // Reduced from 0.85
+      } else if (letterCount <= 4) {
+        scaleCoefficient = 0.7;
+      } else if (letterCount <= 5) {
+        scaleCoefficient = 0.85;
+      } else if (letterCount <= 7) {
+        scaleCoefficient = 0.9;
+      } else if (letterCount <= 10) {
+        scaleCoefficient = 0.95; // Reduced from 0.8
+      
+      } else {
+        scaleCoefficient = 0.99; // Reduced from 0.75
+      }
     }
     
-    return Math.min(widthScale, heightScale) * scaleCoefficient;
+    // Apply the coefficient to get the final scale
+    return baseScale * scaleCoefficient;
   }, [
     contentWidth, 
     contentHeight, 
     displayDimensions.width, 
     displayDimensions.height, 
-    containerScale, 
-    processedSvgs.length,
-    // Count the actual letters, not just total SVGs
-    ...processedSvgs.map(svg => svg.isSpace)
+    containerScale,
+    processedSvgs
   ]);
   
-  return { displayDimensions, containerRef, scaleFactor, totalBounds };
+  return { displayDimensions, containerRef, scaleFactor };
 };

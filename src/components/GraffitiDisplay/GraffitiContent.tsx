@@ -58,31 +58,35 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
     }
   );
   
-  // Add keyframe animation for the pop effect
+  // Add keyframe animation for the cascading effect
   useEffect(() => {
     // Create a style element for our keyframe animation if it doesn't exist
-    if (!document.getElementById('pop-animation-style')) {
+    if (!document.getElementById('letter-animation-style')) {
       const styleEl = document.createElement('style');
-      styleEl.id = 'pop-animation-style';
+      styleEl.id = 'letter-animation-style';
       styleEl.innerHTML = `
-        @keyframes popIn {
-          0% { transform: translate(-50%, -50%) scale(${scaleFactor}); opacity: 1; }
-          10% { transform: translate(-50%, -50%) scale(${scaleFactor * 1.05}); opacity: 1; }
-          30% { transform: translate(-50%, -50%) scale(${scaleFactor * 1.03}); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(${scaleFactor}); opacity: 1; }
+        @keyframes letterPopIn {
+          0% { transform: scale(0.7); opacity: 1; }
+          30% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes containerFadeIn {
+          0% { opacity: 1; }
+          100% { opacity: 1; }
         }
       `;
       document.head.appendChild(styleEl);
       
       // Clean up on unmount
       return () => {
-        const element = document.getElementById('pop-animation-style');
+        const element = document.getElementById('letter-animation-style');
         if (element) {
           element.parentNode?.removeChild(element);
         }
       };
     }
-  }, [scaleFactor]);
+  }, []);
   
   // Simplified transition handling
   useLayoutEffect(() => {
@@ -113,15 +117,21 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         setIsAnimating(true);
         
         // Reset animation state after animation completes
+        // Use the total animation duration (base + delay per letter)
+        const totalDuration = 800 + (processedSvgs.length * 20);
         setTimeout(() => {
           setIsAnimating(false);
-        }, 800); // Animation duration
+        }, totalDuration);
       });
     } else if (!isReady) {
       // Content hasn't changed but we need to show it (e.g. after initial mount)
       setIsReady(true);
     }
   }, [processedSvgs, isReady]);
+  
+  // Apply an additional scaling factor to make content smaller
+  // Adjust this value to fine-tune the overall size (0.9 = 90% of original size)
+  const additionalScaleFactor = 0.9;
   
   // Memoize the transform style to prevent unnecessary calculations
   const transformStyle = useMemo(() => {
@@ -140,20 +150,24 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       WebkitBackfaceVisibility: 'hidden' as const,
     };
     
-    // Apply pop animation when content changes
+    // Calculate the final scale with the additional factor
+    const finalScale = scaleFactor * additionalScaleFactor;
+    
+    // Apply container animation
     if (isAnimating) {
       return {
         ...baseStyle,
-        animation: 'popIn 0.4s ease-out forwards',
+        animation: 'containerFadeIn 0.3s ease-out forwards',
+        transform: `translate(-50%, -50%) scale(${finalScale})`,
       };
     } else {
       return {
         ...baseStyle,
-        transform: `translate(-50%, -50%) scale(${scaleFactor})`,
+        transform: `translate(-50%, -50%) scale(${finalScale})`,
         transition: 'transform 0.2s ease-out, opacity 0.2s ease-out',
       };
     }
-  }, [contentWidth, contentHeight, scaleFactor, isReady, isAnimating]);
+  }, [contentWidth, contentHeight, scaleFactor, isReady, isAnimating, additionalScaleFactor]);
   
   // Skip rendering if no SVGs to display
   if (processedSvgs.length === 0) {
@@ -163,7 +177,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         style={{
           position: 'relative',
           width: '100%',
-          paddingBottom: '56.25%', /* 16:9 Aspect Ratio */
+          height: '100%',
           overflow: 'visible'
         }}
       />
@@ -176,7 +190,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       style={{
         position: 'relative',
         width: '100%',
-        paddingBottom: '56.25%', /* 16:9 Aspect Ratio */
+        height: '100%',
         overflow: 'visible'
       }}
     >
@@ -185,6 +199,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
           processedSvgs={processedSvgs}
           positions={positions}
           customizationOptions={customizationOptions}
+          isAnimating={isAnimating}
         />
       </div>
     </div>
