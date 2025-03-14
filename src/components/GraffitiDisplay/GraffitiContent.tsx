@@ -60,24 +60,43 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
   
   // Add keyframe animation for the cascading effect
   useEffect(() => {
+    // Detect if we're on a mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
     // Create a style element for our keyframe animation if it doesn't exist
     if (!document.getElementById('letter-animation-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'letter-animation-style';
       
-      // Simple, reliable animation that works across browsers
-      styleEl.innerHTML = `
+      // Different animation timing for mobile vs desktop
+      const mobileKeyframes = `
         @keyframes letterPopIn {
-          0% { opacity: 0; transform: scale(0.8); }
-          100% { opacity: 1; transform: scale(1); }
+          0% { transform: scale(0.7); opacity: 1; }
+          40% { transform: scale(1.03); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
         }
         
         @keyframes containerFadeIn {
-          0% { opacity: 0; }
+          0% { opacity: 1; }
           100% { opacity: 1; }
         }
       `;
       
+      const desktopKeyframes = `
+        @keyframes letterPopIn {
+          0% { transform: scale(0.7); opacity: 1; }
+          30% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes containerFadeIn {
+          0% { opacity: 1; }
+          100% { opacity: 1; }
+        }
+      `;
+      
+      // Use the appropriate keyframes based on device
+      styleEl.innerHTML = isMobile ? mobileKeyframes : desktopKeyframes;
       document.head.appendChild(styleEl);
       
       // Clean up on unmount
@@ -109,21 +128,37 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       // Update ref for next comparison
       prevSvgsRef.current = processedSvgs;
       
-      // Prepare for animation
+      // Prepare for animation - ensure complete invisibility during calculation
       setIsReady(false);
       setIsAnimating(false);
       
-      // Use a simple timeout to ensure DOM is ready before animation
+      // First, ensure a complete browser layout cycle with elements hidden
+      // This gives Chrome time to properly calculate positions
       setTimeout(() => {
-        setIsReady(true);
-        setIsAnimating(true);
-        
-        // Reset animation state after animation completes
-        const totalDuration = 800 + (processedSvgs.length * 25);
-        setTimeout(() => {
-          setIsAnimating(false);
-        }, totalDuration);
-      }, 50); // Small delay to ensure DOM is ready
+        // Then trigger animation in the next frame after calculations are done
+        requestAnimationFrame(() => {
+          setIsReady(true);
+          
+          // Small delay before starting animation to ensure positions are set
+          setTimeout(() => {
+            setIsAnimating(true);
+            
+            // Reset animation state after animation completes
+            // Use the total animation duration (base + delay per letter)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const isChrome = /Chrome/i.test(navigator.userAgent);
+            
+            // Add extra time for Chrome on mobile
+            const baseTime = (isMobile && isChrome) ? 1000 : 800;
+            const delayPerLetter = (isMobile && isChrome) ? 25 : 20;
+            const totalDuration = baseTime + (processedSvgs.length * delayPerLetter);
+            
+            setTimeout(() => {
+              setIsAnimating(false);
+            }, totalDuration);
+          }, 50); // Small delay before animation starts
+        });
+      }, 50); // Initial delay to ensure layout calculations
     } else if (!isReady) {
       // Content hasn't changed but we need to show it (e.g. after initial mount)
       setIsReady(true);
@@ -144,11 +179,15 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       height: `${contentHeight}px`,
       transformOrigin: 'center center',
       overflow: 'visible' as const,
+      // Start completely invisible until ready
       opacity: isReady ? 1 : 0,
       // Hardware acceleration hints
       willChange: 'transform, opacity',
       backfaceVisibility: 'hidden' as const,
       WebkitBackfaceVisibility: 'hidden' as const,
+      // Force Chrome to create a new layer
+      WebkitTransform: 'translateZ(0)',
+      transform: 'translateZ(0)',
     };
     
     // Calculate the final scale with the additional factor

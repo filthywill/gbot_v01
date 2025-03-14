@@ -38,10 +38,11 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
   
   // Detect if we're on a mobile device
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isChrome = /Chrome/i.test(navigator.userAgent);
   
-  // Calculate animation delay per letter - consistent across all browsers
-  const ANIMATION_DELAY_PER_LETTER = 25; // milliseconds
-  const ANIMATION_DURATION = 350; // milliseconds
+  // Calculate animation delay per letter - adjust for mobile and Chrome
+  const ANIMATION_DELAY_PER_LETTER = isMobile ? (isChrome ? 50 : 40) : 20; // milliseconds - longer delay on mobile Chrome
+  const ANIMATION_DURATION = isMobile ? (isChrome ? 450 : 400) : 300; // milliseconds - longer duration on mobile Chrome
   
   // Process all SVGs in a single pass
   processedSvgs.forEach((item, index) => {
@@ -56,6 +57,8 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
       animation: `letterPopIn ${ANIMATION_DURATION}ms ease-out forwards`,
       animationDelay: `${animationDelay}ms`,
       opacity: 0, // Start invisible
+      // Add Chrome-specific transform to force layer creation
+      WebkitTransform: isChrome ? 'translateZ(0)' : undefined,
     } : {};
     
     // Skip processing spaces for most effects
