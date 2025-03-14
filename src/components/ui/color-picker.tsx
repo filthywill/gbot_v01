@@ -29,11 +29,18 @@ interface ColorPickerProps {
   swatches?: string[];
 }
 
+// Reduced to 10 carefully selected colors
 const DEFAULT_SWATCHES = [
-  '#000000', '#ffffff', '#f44336', '#e91e63', '#9c27b0', 
-  '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
-  '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b',
-  '#ffc107', '#ff9800', '#ff5722', '#795548', '#607d8b'
+  '#000000', // Black
+  '#ffffff', // White
+  '#f44336', // Red
+  '#ff9800', // Orange
+  '#ffeb3b', // Yellow
+  '#4caf50', // Green
+  '#2196f3', // Blue
+  '#3f51b5', // Indigo
+  '#9c27b0', // Purple
+  '#795548'  // Brown
 ];
 
 export const ColorPicker: React.FC<ColorPickerProps> = ({
@@ -109,12 +116,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           aria-label="Pick a color"
         />
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3">
-        <div className="space-y-3">
+      <PopoverContent className="w-56 p-2">
+        <div className="space-y-2">
           {/* Color Preview and Hex Input */}
           <div className="flex justify-between items-center">
             <div 
-              className="h-8 w-8 rounded border border-gray-300"
+              className="h-7 w-7 rounded border border-gray-300"
               style={{ backgroundColor: tempColor }}
             />
             <div className="flex items-center gap-1">
@@ -123,7 +130,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 value={tempColor}
                 onChange={(e) => setTempColor(e.target.value)}
                 onBlur={() => onChange(tempColor)}
-                className="px-2 py-1 text-xs border border-gray-300 rounded w-20"
+                className="px-1.5 py-0.5 text-xs border border-gray-300 rounded w-18"
               />
               {isEyeDropperSupported && (
                 <button
@@ -131,34 +138,34 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                   onClick={handleEyeDropper}
                   disabled={isPickingColor}
                   className={cn(
-                    "p-1 rounded hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-500",
+                    "p-0.5 rounded hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-500",
                     isPickingColor && "opacity-50 cursor-not-allowed"
                   )}
                   title="Pick color from screen"
                 >
-                  <Pipette size={16} className="text-gray-600" />
+                  <Pipette size={14} className="text-gray-600" />
                 </button>
               )}
             </div>
           </div>
           
           {/* React Colorful Color Picker */}
-          <div className="py-1">
+          <div className="py-0.5">
             <HexColorPicker 
               color={tempColor} 
               onChange={handleColorChange} 
-              style={{ width: '100%', height: '150px' }}
+              style={{ width: '100%', height: '130px' }}
             />
           </div>
           
           {/* Color Swatches */}
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-5 gap-0.5">
             {swatches.map((color) => (
               <button
                 key={color}
                 type="button"
                 className={cn(
-                  "h-6 w-6 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:ring-offset-1",
+                  "h-5 w-5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:ring-offset-1",
                   color.toLowerCase() === tempColor.toLowerCase() && "ring-1 ring-purple-500 ring-offset-1"
                 )}
                 style={{ backgroundColor: color }}
