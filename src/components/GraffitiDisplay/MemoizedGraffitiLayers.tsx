@@ -38,12 +38,19 @@ interface GraffitiLayersProps {
   processedSvgs: ProcessedSvg[];
   positions: number[];
   customizationOptions: CustomizationOptions;
+  isAnimating?: boolean;
 }
 
 // Create memoized version of GraffitiLayers with improved comparison
 export const MemoizedGraffitiLayers = React.memo(
   GraffitiLayers, 
   (prevProps: GraffitiLayersProps, nextProps: GraffitiLayersProps) => {
+    // If animation state changes, we need to re-render
+    if (prevProps.isAnimating !== nextProps.isAnimating) {
+      console.log('Rerendering due to animation state change');
+      return false;
+    }
+    
     // Compare array lengths first
     if (prevProps.processedSvgs.length !== nextProps.processedSvgs.length) {
       console.log('Rerendering due to different number of SVGs');

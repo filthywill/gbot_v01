@@ -1,6 +1,6 @@
 // src/components/GraffitiDisplay/index.tsx
-import React, { useCallback, useMemo } from 'react';
-import { ProcessedSvg, CustomizationOptions } from '../../types';
+import React, { useCallback, useMemo, useEffect } from 'react';
+import { ProcessedSvg, CustomizationOptions, HistoryState } from '../../types';
 import GraffitiContainer from './GraffitiContainer';
 import LoadingIndicator from './LoadingIndicator';
 import EmptyState from './EmptyState';
@@ -15,7 +15,7 @@ interface GraffitiDisplayProps {
   contentHeight: number;
   containerScale: number;
   customizationOptions: CustomizationOptions;
-  customizationHistory?: CustomizationOptions[];
+  customizationHistory?: HistoryState[];
   currentHistoryIndex?: number;
   onUndoRedo?: (newIndex: number) => void;
 }
@@ -32,6 +32,15 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
   currentHistoryIndex = -1,
   onUndoRedo
 }) => {
+  // Add debug logging to help troubleshoot history props issues
+  useEffect(() => {
+    console.log('GraffitiDisplay received history props:', {
+      historyLength: customizationHistory.length,
+      currentHistoryIndex,
+      hasUndoRedoCallback: !!onUndoRedo
+    });
+  }, [customizationHistory.length, currentHistoryIndex, onUndoRedo]);
+
   // Helper function to handle undo/redo
   const handleUndoRedo = useCallback((direction: 'undo' | 'redo') => {
     if (!onUndoRedo || customizationHistory.length === 0) return;
@@ -76,22 +85,25 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
 
   // Memoize the history controls to prevent unnecessary re-renders
   const historyControlsElement = useMemo(() => {
-    if (customizationHistory.length > 0 && !isGenerating) {
+    if (customizationHistory.length > 0 && !isGenerating && processedSvgs.length > 0) {
       return (
         <HistoryControls
           currentHistoryIndex={currentHistoryIndex}
           historyLength={customizationHistory.length}
           onUndoRedo={handleUndoRedo}
+          historyStates={customizationHistory}
         />
       );
     }
     return null;
-  }, [customizationHistory.length, isGenerating, currentHistoryIndex, handleUndoRedo]);
+  }, [customizationHistory, isGenerating, currentHistoryIndex, handleUndoRedo, processedSvgs.length]);
 
   return (
     <GraffitiContainer customizationOptions={customizationOptions}>
+      <div className="relative w-full h-full">
+        {memoizedContent}
+      </div>
       {historyControlsElement}
-      {memoizedContent}
     </GraffitiContainer>
   );
 };

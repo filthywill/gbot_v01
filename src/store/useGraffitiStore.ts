@@ -232,6 +232,14 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
       currentHistoryIndex: newIndex
     });
     
+    // Log information about the restored state for debugging
+    console.log('Restored state:', {
+      index: newIndex,
+      inputText: stateToRestore.inputText,
+      presetId: stateToRestore.presetId,
+      options: stateToRestore.options
+    });
+    
     // Note: You'll need to call generateGraffiti separately after this
   },
   

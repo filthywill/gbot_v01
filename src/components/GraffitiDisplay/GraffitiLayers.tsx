@@ -7,21 +7,24 @@ interface GraffitiLayersProps {
   processedSvgs: ProcessedSvg[];
   positions: number[];
   customizationOptions: CustomizationOptions;
+  isAnimating?: boolean;
 }
 
 const GraffitiLayers: React.FC<GraffitiLayersProps> = ({ 
   processedSvgs, 
   positions, 
-  customizationOptions
+  customizationOptions,
+  isAnimating = false
 }) => {
   // Add debugging to check what's actually in processedSvgs
   useEffect(() => {
     console.log('GraffitiLayers received:', {
       svgCount: processedSvgs.length,
       letterSample: processedSvgs.map(svg => svg.letter).join(''),
-      firstSvg: processedSvgs[0]?.letter
+      firstSvg: processedSvgs[0]?.letter,
+      isAnimating
     });
-  }, [processedSvgs]);
+  }, [processedSvgs, isAnimating]);
 
   // Early return if no processed SVGs
   if (processedSvgs.length === 0) return null;
@@ -33,10 +36,24 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
   const stampElements: JSX.Element[] = [];
   const mainElements: JSX.Element[] = [];
   
+  // Calculate animation delay per letter
+  const ANIMATION_DELAY_PER_LETTER = 20; // milliseconds
+  const ANIMATION_DURATION = 300; // milliseconds
+  
   // Process all SVGs in a single pass
   processedSvgs.forEach((item, index) => {
     // Log each item's letter for debugging
     console.log(`Processing SVG ${index}: letter="${item.letter}", isSpace=${item.isSpace}`);
+    
+    // Calculate animation delay for this letter
+    const animationDelay = index * ANIMATION_DELAY_PER_LETTER;
+    
+    // Create animation style for this letter
+    const animationStyle = isAnimating ? {
+      animation: `letterPopIn ${ANIMATION_DURATION}ms ease-out forwards`,
+      animationDelay: `${animationDelay}ms`,
+      opacity: 0, // Start invisible
+    } : {};
     
     // Skip processing spaces for most effects
     if (!item.isSpace) {
@@ -60,7 +77,8 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               zIndex: 1, // Lowest z-index for shield
               transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
               transformOrigin: 'center center',
-              overflow: 'visible'
+              overflow: 'visible',
+              ...animationStyle
             }}
             dangerouslySetInnerHTML={{ 
               __html: createStampSvg(item.svg, item.isSpace, shieldOptions) 
@@ -79,9 +97,10 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
           shadowShieldOnly: true
         };
         
+        // Create a wrapper div for the shadow shield to handle animation separately from offset
         shadowShieldElements.push(
           <div
-            key={`shadow-shield-${index}`}
+            key={`shadow-shield-wrapper-${index}`}
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -89,15 +108,23 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               width: '200px',
               height: '200px',
               zIndex: 2, // z-index for shadow shield
-              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
-                        translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
-              transformOrigin: 'center center',
-              overflow: 'visible'
+              transform: `translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+              overflow: 'visible',
             }}
-            dangerouslySetInnerHTML={{ 
-              __html: customizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
-            }}
-          />
+          >
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transformOrigin: 'center center',
+                ...animationStyle
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: customizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
+              }}
+            />
+          </div>
         );
       }
       
@@ -109,9 +136,10 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
           shadowOnly: true
         };
         
+        // Create a wrapper div for the shadow to handle animation separately from offset
         shadowElements.push(
           <div
-            key={`shadow-${index}`}
+            key={`shadow-wrapper-${index}`}
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -119,15 +147,23 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               width: '200px',
               height: '200px',
               zIndex: 3, // z-index for shadow
-              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg) 
-                        translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
-              transformOrigin: 'center center',
-              overflow: 'visible'
+              transform: `translate(${customizationOptions.shadowEffectOffsetX}px, ${customizationOptions.shadowEffectOffsetY}px)`,
+              overflow: 'visible',
             }}
-            dangerouslySetInnerHTML={{ 
-              __html: customizeSvg(item.svg, item.isSpace, shadowOptions) 
-            }}
-          />
+          >
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transformOrigin: 'center center',
+                ...animationStyle
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: customizeSvg(item.svg, item.isSpace, shadowOptions) 
+              }}
+            />
+          </div>
         );
       }
       
@@ -151,7 +187,8 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               zIndex: 4, // z-index for stamp
               transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
               transformOrigin: 'center center',
-              overflow: 'visible'
+              overflow: 'visible',
+              ...animationStyle
             }}
             dangerouslySetInnerHTML={{ 
               __html: createStampSvg(item.svg, item.isSpace, stampOnlyOptions) 
@@ -196,7 +233,8 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
             zIndex: 5 + (processedSvgs.length - index), // Highest z-index for main content
             transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
             transformOrigin: 'center center',
-            overflow: 'visible' // Important: allow effects to extend beyond boundaries
+            overflow: 'visible', // Important: allow effects to extend beyond boundaries
+            ...animationStyle
           }}
           className="hover:z-50"
           dangerouslySetInnerHTML={{ 

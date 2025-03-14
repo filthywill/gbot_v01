@@ -300,14 +300,27 @@ export const useGraffitiGeneratorWithZustand = () => {
   
   // Handle customization changes
   const handleCustomizationChange = useCallback((newOptions: Partial<typeof customizationOptions>) => {
+    // Extract the preset ID if present
+    const { __presetId, __skipHistory, ...cleanOptions } = newOptions as any;
+    
     // Update the customization options in the store
-    setCustomizationOptions(newOptions);
+    setCustomizationOptions(cleanOptions);
     
     // Add to history if this isn't marked to skip history
-    if (!newOptions.__skipHistory) {
+    if (!__skipHistory) {
+      // Create merged options for the history state
+      const mergedOptions = { ...customizationOptions, ...cleanOptions };
+      
+      // If this change came from applying a preset, log it
+      if (__presetId) {
+        console.log(`Adding history entry for preset: ${__presetId}`);
+      }
+      
       const newHistoryState: HistoryState = {
         inputText,
-        options: { ...customizationOptions, ...newOptions }
+        options: mergedOptions,
+        // Include the preset ID if this change came from applying a preset
+        presetId: __presetId
       };
       
       addToHistory(newHistoryState);

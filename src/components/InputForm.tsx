@@ -44,7 +44,7 @@ export const InputForm: React.FC<InputFormProps> = ({
           title="Generate"
         >
           <Wand2 className="w-5 h-5" />
-          <span className="hidden sm:inline-block ml-2">{isGenerating ? 'Generating...' : 'Generate'}</span>
+          <span className="hidden sm:inline-block ml-2">{isGenerating ? 'Drawing...' : 'Create'}</span>
         </button>
       </div>
     </div>

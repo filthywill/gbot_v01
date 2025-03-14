@@ -4,6 +4,7 @@
 export interface HistoryState {
   inputText: string;
   options: CustomizationOptions;
+  presetId?: string;
 }
 
 export type GraffitiStyle = {
@@ -82,6 +83,7 @@ export interface CustomizationOptions {
   shadowOnly?: boolean;
   contentOnly?: boolean;
   
-  // Special flag for history management - skips adding to history when true
+  // Special flags for history management
   __skipHistory?: boolean;
+  __presetId?: string;
 }

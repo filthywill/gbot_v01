@@ -34,6 +34,13 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
     }
   }, [options]);
   
+  // Debug effect to track preset changes
+  useEffect(() => {
+    if (options.__presetId) {
+      console.log('Active preset:', options.__presetId);
+    }
+  }, [options.__presetId]);
+  
   // Regular change handler - for checkboxes
   // These create immediate history entries
   const handleChange = (updatedValues: Partial<CustomizationOptions>) => {
@@ -194,8 +201,20 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
 
   // Apply a preset's settings
   const applyPreset = (preset: StylePreset) => {
+    // Log for debugging
+    console.log('Applying preset:', preset.id);
+    
+    // Create a copy of the preset settings
+    const presetSettings = { ...preset.settings };
+    
     // Presets should create history entries immediately
-    const newOptions = { ...options, ...preset.settings };
+    const newOptions = { 
+      ...options, 
+      ...presetSettings,
+      // Add a special property to indicate this came from a preset
+      __presetId: preset.id
+    };
+    
     tempOptionsRef.current = newOptions; // Keep temp values in sync
     isColorPickerActive.current = false; // Reset any active color picking
     onChange(newOptions);
@@ -428,15 +447,28 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
       {isPresetDropdownOpen && (
         <div className="mt-1 p-2 border border-gray-200 rounded bg-white shadow-sm">
           <div className="flex flex-wrap gap-2">
-            {stylePresets.map(preset => (
-              <button
-                key={preset.id}
-                onClick={() => applyPreset(preset)}
-                className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-xs transition-colors"
-              >
-                <span>{preset.name}</span>
-              </button>
-            ))}
+            {stylePresets.map(preset => {
+              // Check if this preset is currently active
+              const isActive = options.__presetId === preset.id;
+              
+              return (
+                <button
+                  key={preset.id}
+                  onClick={() => applyPreset(preset)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
+                    isActive 
+                      ? 'bg-blue-100 border-blue-500 text-blue-700 font-medium' 
+                      : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
+                  }`}
+                  title={isActive ? `${preset.name} (Active)` : preset.name}
+                >
+                  <span>{preset.name}</span>
+                  {isActive && (
+                    <span className="w-2 h-2 rounded-full bg-blue-500 ml-1"></span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

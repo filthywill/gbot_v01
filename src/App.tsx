@@ -101,7 +101,6 @@ function App() {
                 
                 {/* Style Selector moved here, below the input form */}
                 <div className="mt-3 sm:mt-4">
-                  <h2 className="text-base sm:text-lg font-medium mb-2">Style</h2>
                   <StyleSelector 
                     styles={GRAFFITI_STYLES}
                     selectedStyle={selectedStyle}

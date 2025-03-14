@@ -113,6 +113,7 @@ export const LETTER_OVERLAP_RULES: Record<string, OverlapRule> = {
     specialCases: {
       a: 0.12,
       e: 0.14,
+      o: 0.12,
       f: 0.16,
       i: 0.18,
       k: 0.16,
