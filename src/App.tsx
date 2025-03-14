@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { StyleSelector } from './components/StyleSelector';
-import { InputForm } from './components/InputForm';
+import { ModernStyleSelector } from './components/ModernStyleSelector';
+import { ModernInputForm } from './components/ModernInputForm';
 import GraffitiDisplay from './components/GraffitiDisplay';
-import { CustomizationToolbar } from './components/CustomizationToolbar';
+import { ModernCustomizationToolbar } from './components/ModernCustomizationToolbar';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
 
@@ -73,96 +73,88 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-white shadow-sm">
-        <div className="max-w-[800px] mx-auto py-2 sm:py-4 px-2 sm:px-4 lg:px-6 flex justify-between items-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">GraffitiSOFT</h1>
+        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-center items-center">
+          <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">GraffitiSOFT</h1>
         </div>
       </header>
       
       <main className="flex-grow">
-        <div className="max-w-[800px] mx-auto py-1 sm:py-4 px-1 sm:px-2 lg:px-4">
-          <div className="px-0 py-0 sm:py-2">
-            <div className="flex flex-col gap-1 sm:gap-4">
-              {/* Top section: Input and Preview */}
-              <div className="bg-white shadow rounded-lg p-2 sm:p-3 md:p-4">
-                <h2 className="text-base sm:text-lg font-medium mb-1 sm:mb-3">Text Input</h2>
-                
-                <InputForm 
-                  inputText={displayInputText}
-                  setInputText={handleInputTextChange}
-                  isGenerating={isGenerating}
-                  onGenerate={generateGraffiti}
-                />
-                
-                {error && (
-                  <div className="mt-1 sm:mt-2 text-red-500 text-sm">
-                    {error}
-                  </div>
-                )}
-                
-                {/* Style Selector moved here, below the input form */}
-                <div className="mt-3 sm:mt-4">
-                  <StyleSelector 
-                    styles={GRAFFITI_STYLES}
-                    selectedStyle={selectedStyle}
-                    onSelectStyle={handleStyleChange}
-                  />
+        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
+          <div className="space-y-2">
+            {/* Top section: Input and Style Selection */}
+            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-fade-in">
+              <ModernInputForm 
+                inputText={displayInputText}
+                setInputText={handleInputTextChange}
+                isGenerating={isGenerating}
+                onGenerate={generateGraffiti}
+              />
+              
+              {error && (
+                <div className="mt-1 text-red-500 text-xs bg-red-50 p-1 rounded animate-pulse-once">
+                  {error}
                 </div>
-                
-                {/* Preview below the style selector */}
-                <div className="mt-3 sm:mt-4">
-                  {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
-                  <div className="w-full relative">
-                    <div className="w-full pb-[56.25%] relative">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        {processedSvgs.length > 0 ? (
-                          <GraffitiDisplay 
-                            isGenerating={isGenerating}
-                            processedSvgs={processedSvgs}
-                            positions={positions}
-                            contentWidth={contentWidth}
-                            contentHeight={contentHeight}
-                            containerScale={containerScale}
-                            customizationOptions={customizationOptions}
-                            customizationHistory={history}
-                            currentHistoryIndex={currentHistoryIndex}
-                            onUndoRedo={handleUndoRedo}
-                          />
+              )}
+              
+              {/* Style Selector */}
+              <div className="mt-2">
+                <ModernStyleSelector 
+                  styles={GRAFFITI_STYLES}
+                  selectedStyle={selectedStyle}
+                  onSelectStyle={handleStyleChange}
+                />
+              </div>
+            </div>
+            
+            {/* Preview Section */}
+            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-slide-up">
+              {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
+              <div className="w-full relative bg-gray-50 rounded-md overflow-hidden border border-gray-200">
+                <div className="w-full pb-[56.25%] relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {processedSvgs.length > 0 ? (
+                      <GraffitiDisplay 
+                        isGenerating={isGenerating}
+                        processedSvgs={processedSvgs}
+                        positions={positions}
+                        contentWidth={contentWidth}
+                        contentHeight={contentHeight}
+                        containerScale={containerScale}
+                        customizationOptions={customizationOptions}
+                        customizationHistory={history}
+                        currentHistoryIndex={currentHistoryIndex}
+                        onUndoRedo={handleUndoRedo}
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-center p-3">
+                        {hasInitialGeneration.current ? (
+                          <p className="text-sm">No text to display. Enter some text and click Create.</p>
                         ) : (
-                          <div className="text-gray-400 text-center p-4">
-                            {hasInitialGeneration.current ? (
-                              <p>No text to display. Enter some text and click Generate.</p>
-                            ) : (
-                              <p>Enter text above and click Generate to create your graffiti.</p>
-                            )}
+                          <div className="space-y-1">
+                            <p className="text-gray-500 text-sm">Enter text above and click Create to generate your graffiti</p>
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
-              
-              {/* Bottom section: Customization only (Style moved up) */}
-              <div className="flex flex-col gap-2 sm:gap-4">
-                <div className="w-full">
-                  <div className="bg-white shadow rounded-lg p-2 sm:p-3 md:p-4 h-full">
-                    <h2 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">Customization</h2>
-                    
-                    <CustomizationToolbar 
-                      options={customizationOptions}
-                      onChange={handleCustomizationChange}
-                    />
-                  </div>
-                </div>
-              </div>
+            </div>
+            
+            {/* Customization Section */}
+            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <ModernCustomizationToolbar 
+                options={customizationOptions}
+                onChange={handleCustomizationChange}
+              />
             </div>
           </div>
         </div>
       </main>
       
-      <footer className="bg-white shadow-inner">
-        <div className="max-w-[800px] mx-auto py-2 sm:py-3 px-2 sm:px-4 lg:px-6">
-          <p className="text-center text-gray-500 text-sm">
+      <footer className="bg-white shadow-inner mt-2">
+        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
+          <p className="text-center text-gray-500 text-xs">
             Graffiti Generator &copy; {new Date().getFullYear()}
           </p>
         </div>

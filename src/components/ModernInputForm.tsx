@@ -1,0 +1,58 @@
+import React from 'react';
+import { Wand2 } from 'lucide-react';
+
+interface ModernInputFormProps {
+  inputText: string;
+  setInputText: (text: string) => void;
+  isGenerating: boolean;
+  onGenerate: (text: string) => Promise<void>;
+}
+
+export const ModernInputForm: React.FC<ModernInputFormProps> = ({ 
+  inputText, 
+  setInputText, 
+  isGenerating, 
+  onGenerate 
+}) => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') onGenerate(inputText);
+  };
+
+  return (
+    <div className="mb-2">
+      <div className="flex items-stretch gap-1">
+        <div className="relative flex-1">
+          <input
+            id="graffiti-input"
+            name="graffitiText"
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Write your word (a-z, spaces allowed)..."
+            className="w-full px-3 py-2 text-sm rounded-md border border-purple-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none transition-all"
+            maxLength={18}
+          />
+          {inputText && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+              {inputText.length}/18
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => onGenerate(inputText)}
+          disabled={!inputText.trim() || isGenerating}
+          className={`px-3 py-2 rounded-md font-medium text-white transition-all flex items-center justify-center ${
+            isGenerating || !inputText.trim()
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800'
+          }`}
+          title="Generate"
+        >
+          <Wand2 className="w-4 h-4" />
+          <span className="ml-1 hidden sm:inline-block">{isGenerating ? 'Creating...' : 'Create'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}; 

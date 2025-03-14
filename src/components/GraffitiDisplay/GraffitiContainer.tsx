@@ -16,14 +16,14 @@ const GraffitiContainer: React.FC<GraffitiContainerProps> = ({
     ? { backgroundColor: customizationOptions.backgroundColor }
     : {
         backgroundImage: `
-          linear-gradient(45deg, #ccc 25%, transparent 45%), 
-          linear-gradient(-45deg, #ccc 25%, transparent 25%), 
-          linear-gradient(45deg, transparent 75%, #ccc 75%), 
-          linear-gradient(-45deg, transparent 75%, #ccc 75%)
+          linear-gradient(45deg, #d4c6e9 25%, transparent 45%), 
+          linear-gradient(-45deg, #d4c6e9 25%, transparent 25%), 
+          linear-gradient(45deg, transparent 75%, #d4c6e9 75%), 
+          linear-gradient(-45deg, transparent 75%, #d4c6e9 75%)
         `,
-        backgroundSize: '20px 20px',
-        backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-        backgroundColor: '#efefef'
+        backgroundSize: '10px 10px',
+        backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+        backgroundColor: '#f5f0ff'
       };
 
   return (

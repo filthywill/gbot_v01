@@ -53,7 +53,7 @@ const defaultCustomizationOptions: CustomizationOptions = {
   backgroundEnabled: false,
   backgroundColor: '#ffffff',
   
-  // Fill options
+  // Fill options - always enabled
   fillEnabled: true,
   fillColor: '#ffffff',
   
@@ -75,7 +75,7 @@ const defaultCustomizationOptions: CustomizationOptions = {
   stampColor: '#000000',         // Black expansion by default
   stampWidth: 60,                // CLASSIC preset uses width 60
   
-  // Shine effect options
+  // Shine effect options - removed from UI but kept for compatibility
   shineEnabled: false,
   shineColor: '#ffffff',
   shineOpacity: 1,

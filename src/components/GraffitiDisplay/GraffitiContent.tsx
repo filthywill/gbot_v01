@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useLayoutEffect, useState, useEffect } from 're
 import { ProcessedSvg, CustomizationOptions } from '../../types';
 import { useGraffitiScaling } from './hooks/useGraffitiScaling';
 import { MemoizedGraffitiLayers } from './MemoizedGraffitiLayers';
+import '../../styles/graffitiContent.css';
 
 interface GraffitiContentProps {
   processedSvgs: ProcessedSvg[];
@@ -208,6 +209,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
   return (
     <div
       ref={containerRef}
+      className="graffiti-container"
       style={{
         position: 'relative',
         width: '100%',
@@ -215,7 +217,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         overflow: 'visible'
       }}
     >
-      <div ref={contentRef} style={transformStyle}>
+      <div ref={contentRef} className="graffiti-content" style={transformStyle}>
         <MemoizedGraffitiLayers 
           processedSvgs={processedSvgs}
           positions={positions}

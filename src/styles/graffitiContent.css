@@ -1,0 +1,81 @@
+/* src/styles/graffitiContent.css */
+
+.graffiti-container {
+  /* Enable hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.graffiti-content {
+  /* Enable hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Improve SVG rendering */
+  image-rendering: optimizeQuality;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+/* Add a global style for all SVGs in the graffiti display */
+.graffiti-container svg,
+.graffiti-content svg {
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+  image-rendering: optimizeQuality;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Improve path rendering */
+.graffiti-container path,
+.graffiti-content path {
+  shape-rendering: geometricPrecision;
+}
+
+/* Add a subtle filter to improve anti-aliasing */
+.graffiti-content > div {
+  filter: drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.05));
+}
+
+/* SVG Layer styles */
+.svg-layer {
+  will-change: transform;
+  transform-style: preserve-3d;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Specific layer styles */
+.main-layer {
+  filter: drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.05));
+}
+
+.shield-layer svg,
+.stamp-layer svg {
+  shape-rendering: geometricPrecision;
+}
+
+.shadow-layer svg,
+.shadow-shield-layer svg {
+  shape-rendering: geometricPrecision;
+  filter: blur(0.2px);
+}
+
+.svg-content {
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+/* Animation hardware acceleration class */
+.animate-hardware {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+} 

@@ -71,7 +71,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shieldElements.push(
           <div
             key={`shield-${index}`}
-            className="animate-hardware"
+            className="animate-hardware svg-layer shield-layer"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -105,7 +105,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shadowShieldElements.push(
           <div
             key={`shadow-shield-wrapper-${index}`}
-            className="animate-hardware"
+            className="animate-hardware svg-layer shadow-shield-layer"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -118,6 +118,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
             }}
           >
             <div
+              className="svg-content"
               style={{
                 width: '100%',
                 height: '100%',
@@ -145,7 +146,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shadowElements.push(
           <div
             key={`shadow-wrapper-${index}`}
-            className="animate-hardware"
+            className="animate-hardware svg-layer shadow-layer"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -158,6 +159,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
             }}
           >
             <div
+              className="svg-content"
               style={{
                 width: '100%',
                 height: '100%',
@@ -184,7 +186,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         stampElements.push(
           <div
             key={`stamp-${index}`}
-            className="animate-hardware"
+            className="animate-hardware svg-layer stamp-layer"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -211,6 +213,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
       mainElements.push(
         <div
           key={`main-${index}`}
+          className="space-layer"
           style={{
             position: 'absolute',
             left: `${positions[index]}px`,
@@ -231,7 +234,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
       mainElements.push(
         <div
           key={`main-${index}`}
-          className="animate-hardware hover:z-50"
+          className="animate-hardware svg-layer main-layer hover:z-50"
           style={{
             position: 'absolute',
             left: `${positions[index]}px`,

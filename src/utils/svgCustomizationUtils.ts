@@ -30,6 +30,9 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
     const svgElement = doc.documentElement;
     svgElement.setAttribute('overflow', 'visible');
     
+    // Add shape-rendering attribute for better anti-aliasing
+    svgElement.setAttribute('shape-rendering', 'geometricPrecision');
+    
     // Special handling for shadow shield only
     if (options.shadowShieldOnly) {
       const paths = doc.querySelectorAll('.shadow-effect');
@@ -41,6 +44,8 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
         path.setAttribute('stroke-width', (options.stampWidth * 0.5 + options.shieldWidth * 2).toString());
         path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('stroke-linecap', 'round');
+        // Add shape-rendering for better anti-aliasing
+        path.setAttribute('shape-rendering', 'geometricPrecision');
       });
       
       // Hide all other paths
@@ -68,6 +73,9 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
         } else {
           path.removeAttribute('stroke');
         }
+        
+        // Add shape-rendering for better anti-aliasing
+        path.setAttribute('shape-rendering', 'geometricPrecision');
       });
       
       // Hide all other paths
@@ -101,6 +109,9 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
         } else {
           path.removeAttribute('stroke');
         }
+        
+        // Add shape-rendering for better anti-aliasing
+        path.setAttribute('shape-rendering', 'geometricPrecision');
       });
       
       // Handle shine layers
@@ -111,6 +122,8 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
           layer.setAttribute('style', 'display:inline');
           layer.setAttribute('fill', options.shineColor);
           layer.setAttribute('fill-opacity', options.shineOpacity.toString());
+          // Add shape-rendering for better anti-aliasing
+          layer.setAttribute('shape-rendering', 'geometricPrecision');
         } else {
           layer.setAttribute('style', 'display:none');
         }
@@ -157,6 +170,9 @@ export const customizeSvg = (svgString: string, isSpace: boolean | undefined, op
         path.removeAttribute('stroke-linecap');
         path.removeAttribute('paint-order');
       }
+      
+      // Add shape-rendering for better anti-aliasing
+      path.setAttribute('shape-rendering', 'geometricPrecision');
     });
     
     // Handle shine layers
@@ -233,6 +249,9 @@ export const createStampSvg = (svgString: string, isSpace: boolean | undefined, 
     const svgElement = doc.documentElement;
     svgElement.setAttribute('overflow', 'visible');
     
+    // Add shape-rendering attribute for better anti-aliasing
+    svgElement.setAttribute('shape-rendering', 'geometricPrecision');
+    
     // Remove any shadow-effect paths, as they'll be rendered separately
     const shadowPaths = doc.querySelectorAll('.shadow-effect');
     shadowPaths.forEach(path => {
@@ -256,6 +275,8 @@ export const createStampSvg = (svgString: string, isSpace: boolean | undefined, 
         path.setAttribute('stroke-width', options.shieldWidth.toString());
         path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('stroke-linecap', 'round');
+        // Add shape-rendering for better anti-aliasing
+        path.setAttribute('shape-rendering', 'geometricPrecision');
       });
       
       return new XMLSerializer().serializeToString(doc);
@@ -278,10 +299,14 @@ export const createStampSvg = (svgString: string, isSpace: boolean | undefined, 
     // Create a group for shield paths (bottommost layer)
     const shieldGroup = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
     shieldGroup.setAttribute('id', 'stamp-shield-group');
+    // Add shape-rendering for better anti-aliasing
+    shieldGroup.setAttribute('shape-rendering', 'geometricPrecision');
     
     // Create a group for stamp paths (above shield)
     const stampGroup = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
     stampGroup.setAttribute('id', 'stamp-group');
+    // Add shape-rendering for better anti-aliasing
+    stampGroup.setAttribute('shape-rendering', 'geometricPrecision');
     
     // Add groups to SVG in proper order
     svgElement.appendChild(shieldGroup);
