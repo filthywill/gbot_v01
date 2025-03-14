@@ -215,30 +215,45 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
     
     // Validate the new index
     if (newIndex < 0 || newIndex >= history.length || newIndex === currentHistoryIndex) {
+      console.log('Invalid undo/redo index:', { newIndex, historyLength: history.length, currentHistoryIndex });
       return;
     }
     
     // Get the state to restore
     const stateToRestore = history[newIndex];
+    if (!stateToRestore) {
+      console.error('State to restore is undefined:', { newIndex, historyLength: history.length });
+      return;
+    }
     
     // Mark this as an undo/redo operation to prevent adding to history
     set({ isUndoRedoOperation: true });
     
-    // Restore the state
-    set({
-      inputText: stateToRestore.inputText,
-      displayInputText: stateToRestore.inputText,
-      customizationOptions: stateToRestore.options,
-      currentHistoryIndex: newIndex
-    });
-    
-    // Log information about the restored state for debugging
-    console.log('Restored state:', {
-      index: newIndex,
-      inputText: stateToRestore.inputText,
-      presetId: stateToRestore.presetId,
-      options: stateToRestore.options
-    });
+    try {
+      console.log('Restoring state:', {
+        fromIndex: currentHistoryIndex,
+        toIndex: newIndex,
+        inputText: stateToRestore.inputText,
+        presetId: stateToRestore.presetId || 'custom state'
+      });
+      
+      // Restore the state
+      set({
+        inputText: stateToRestore.inputText,
+        displayInputText: stateToRestore.inputText,
+        customizationOptions: { ...stateToRestore.options },
+        currentHistoryIndex: newIndex
+      });
+    } catch (error) {
+      console.error('Error during undo/redo operation:', error);
+      // Reset the undo/redo flag in case of error
+      set({ isUndoRedoOperation: false });
+    } finally {
+      // Always reset the undo/redo flag to prevent it from getting stuck
+      setTimeout(() => {
+        set({ isUndoRedoOperation: false });
+      }, 0);
+    }
     
     // Note: You'll need to call generateGraffiti separately after this
   },

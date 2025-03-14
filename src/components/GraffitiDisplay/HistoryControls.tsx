@@ -1,6 +1,6 @@
 // HistoryControls.tsx
 import React, { useEffect } from 'react';
-import { Undo2, Redo2 } from 'lucide-react';
+import { FaUndo, FaRedo } from 'react-icons/fa';
 import '../../styles/historyControls.css';
 
 interface HistoryControlsProps {
@@ -23,17 +23,36 @@ const HistoryControls: React.FC<HistoryControlsProps> = ({
       historyLength,
       isUndoDisabled: currentHistoryIndex <= 0,
       isRedoDisabled: currentHistoryIndex >= historyLength - 1,
-      historyStates
+      historyStatesLength: historyStates.length
     });
   }, [currentHistoryIndex, historyLength, historyStates]);
 
   // Get the previous and next state presets for tooltips
-  const prevStatePreset = currentHistoryIndex > 0 ? historyStates[currentHistoryIndex - 1]?.presetId : undefined;
-  const nextStatePreset = currentHistoryIndex < historyLength - 1 ? historyStates[currentHistoryIndex + 1]?.presetId : undefined;
+  const prevStatePreset = currentHistoryIndex > 0 && historyStates.length > 0 
+    ? historyStates[currentHistoryIndex - 1]?.presetId 
+    : undefined;
+    
+  const nextStatePreset = currentHistoryIndex < historyLength - 1 && historyStates.length > 0 
+    ? historyStates[currentHistoryIndex + 1]?.presetId 
+    : undefined;
 
   // Create tooltip text
   const undoTooltip = prevStatePreset ? `Undo to ${prevStatePreset} preset` : 'Undo';
   const redoTooltip = nextStatePreset ? `Redo to ${nextStatePreset} preset` : 'Redo';
+
+  // Handle undo/redo with error handling
+  const handleUndoRedoClick = (direction: 'undo' | 'redo') => {
+    try {
+      console.log(`${direction} button clicked:`, {
+        currentHistoryIndex,
+        historyLength,
+        direction
+      });
+      onUndoRedo(direction);
+    } catch (error) {
+      console.error(`Error in ${direction} operation:`, error);
+    }
+  };
 
   return (
     <div 
@@ -45,26 +64,26 @@ const HistoryControls: React.FC<HistoryControlsProps> = ({
       }}
     >
       <button
-        onClick={() => onUndoRedo('undo')}
+        onClick={() => handleUndoRedoClick('undo')}
         disabled={currentHistoryIndex <= 0}
-        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-0.5 rounded-md shadow-sm history-control-button ${
-          currentHistoryIndex <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:from-purple-600 hover:to-purple-800'
+        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-md shadow-sm history-control-button ${
+          currentHistoryIndex <= 0 ? 'opacity-25 cursor-not-allowed' : 'opacity-70 hover:from-purple-600 hover:to-purple-800'
         }`}
         title={undoTooltip}
         aria-label={undoTooltip}
       >
-        <Undo2 size={14} className="text-white" />
+        <FaUndo size={14} className="text-white" />
       </button>
       <button
-        onClick={() => onUndoRedo('redo')}
+        onClick={() => handleUndoRedoClick('redo')}
         disabled={currentHistoryIndex >= historyLength - 1}
-        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-0.5 rounded-md shadow-sm history-control-button ${
-          currentHistoryIndex >= historyLength - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:from-purple-600 hover:to-purple-800'
+        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-md shadow-sm history-control-button ${
+          currentHistoryIndex >= historyLength - 1 ? 'opacity-25 cursor-not-allowed' : 'opacity-70 hover:from-purple-600 hover:to-purple-800'
         }`}
         title={redoTooltip}
         aria-label={redoTooltip}
       >
-        <Redo2 size={14} className="text-white" />
+        <FaRedo size={14} className="text-white" />
       </button>
     </div>
   );

@@ -32,7 +32,7 @@ export const useGraffitiGeneratorWithZustand = () => {
     isUndoRedoOperation,
     hasInitialGeneration,
     addToHistory,
-    handleUndoRedo,
+    handleUndoRedo: storeHandleUndoRedo,
     updatePositions
   } = useGraffitiStore();
 
@@ -336,6 +336,30 @@ export const useGraffitiGeneratorWithZustand = () => {
       generateGraffiti(inputText);
     }
   }, [inputText, setSelectedStyle, generateGraffiti]);
+  
+  // Handle undo/redo operations
+  const handleUndoRedo = useCallback((newIndex: number) => {
+    // First, call the store's handleUndoRedo function to restore the state
+    storeHandleUndoRedo(newIndex);
+    
+    // After the state is restored, we need to regenerate the graffiti
+    // Get the updated state after the undo/redo operation
+    const { inputText, isUndoRedoOperation } = useGraffitiStore.getState();
+    
+    console.log('After undo/redo, regenerating graffiti with:', {
+      inputText,
+      isUndoRedoOperation,
+      newIndex
+    });
+    
+    // Regenerate the graffiti with the restored text
+    if (inputText) {
+      // We need to wait for the state update to complete
+      setTimeout(() => {
+        generateGraffiti(inputText);
+      }, 0);
+    }
+  }, [generateGraffiti, storeHandleUndoRedo]);
   
   return {
     // State

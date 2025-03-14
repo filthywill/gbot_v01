@@ -43,17 +43,45 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
 
   // Helper function to handle undo/redo
   const handleUndoRedo = useCallback((direction: 'undo' | 'redo') => {
-    if (!onUndoRedo || customizationHistory.length === 0) return;
-    
-    const newIndex = direction === 'undo' 
-      ? Math.max(0, currentHistoryIndex - 1)
-      : Math.min(customizationHistory.length - 1, currentHistoryIndex + 1);
-    
-    // Only trigger if the index actually changes
-    if (newIndex !== currentHistoryIndex) {
-      onUndoRedo(newIndex);
+    if (!onUndoRedo || customizationHistory.length === 0) {
+      console.log('Undo/Redo aborted:', { 
+        hasCallback: !!onUndoRedo, 
+        historyLength: customizationHistory.length 
+      });
+      return;
     }
-  }, [onUndoRedo, customizationHistory.length, currentHistoryIndex]);
+    
+    try {
+      const newIndex = direction === 'undo' 
+        ? Math.max(0, currentHistoryIndex - 1)
+        : Math.min(customizationHistory.length - 1, currentHistoryIndex + 1);
+      
+      // Only trigger if the index actually changes
+      if (newIndex !== currentHistoryIndex) {
+        console.log(`${direction.charAt(0).toUpperCase() + direction.slice(1)} operation:`, {
+          direction,
+          fromIndex: currentHistoryIndex,
+          toIndex: newIndex,
+          fromState: currentHistoryIndex >= 0 && currentHistoryIndex < customizationHistory.length 
+            ? customizationHistory[currentHistoryIndex]?.presetId || 'custom state'
+            : 'invalid state',
+          toState: newIndex >= 0 && newIndex < customizationHistory.length
+            ? customizationHistory[newIndex]?.presetId || 'custom state'
+            : 'invalid state'
+        });
+        
+        onUndoRedo(newIndex);
+      } else {
+        console.log(`${direction} operation aborted - index would not change:`, {
+          currentIndex: currentHistoryIndex,
+          calculatedNewIndex: newIndex,
+          historyLength: customizationHistory.length
+        });
+      }
+    } catch (error) {
+      console.error(`Error during ${direction} operation:`, error);
+    }
+  }, [onUndoRedo, customizationHistory, currentHistoryIndex]);
 
   // Memoize the GraffitiContent component to prevent unnecessary re-renders
   const memoizedContent = useMemo(() => {
