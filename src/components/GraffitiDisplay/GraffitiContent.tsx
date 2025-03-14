@@ -685,7 +685,10 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         // Draw the image on the canvas at 3x scale
         ctx.drawImage(img, 0, 0, width * scaleFactor, height * scaleFactor);
         
-        // Copy to clipboard using the Clipboard API
+        // Check if we're on a mobile device
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        // Convert the canvas to a PNG blob
         canvas.toBlob(async (pngBlob) => {
           if (!pngBlob) {
             console.error('Could not create PNG blob');
@@ -694,37 +697,44 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
           }
           
           try {
-            // Create a ClipboardItem with the PNG blob
-            const clipboardItem = new ClipboardItem({
-              [pngBlob.type]: pngBlob
-            });
-            
-            // Write to clipboard
-            await navigator.clipboard.write([clipboardItem]);
-            console.log('High-resolution image (3x) copied to clipboard');
-            
-            // Show a temporary success message
-            const successMessage = document.createElement('div');
-            successMessage.textContent = 'Copied to clipboard! (3x resolution)';
-            successMessage.style.position = 'absolute';
-            successMessage.style.top = '50px';
-            successMessage.style.left = '50%';
-            successMessage.style.transform = 'translateX(-50%)';
-            successMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            successMessage.style.color = 'white';
-            successMessage.style.padding = '8px 16px';
-            successMessage.style.borderRadius = '4px';
-            successMessage.style.zIndex = '9999';
-            successMessage.style.fontSize = '14px';
-            document.body.appendChild(successMessage);
-            
-            // Remove the message after 2 seconds
-            setTimeout(() => {
-              document.body.removeChild(successMessage);
-            }, 2000);
+            // Try to use the Clipboard API first
+            if (navigator.clipboard && navigator.clipboard.write) {
+              // Create a ClipboardItem with the PNG blob
+              const clipboardItem = new ClipboardItem({
+                [pngBlob.type]: pngBlob
+              });
+              
+              // Write to clipboard
+              await navigator.clipboard.write([clipboardItem]);
+              console.log('High-resolution image (3x) copied to clipboard');
+              
+              // Show a temporary success message
+              const successMessage = document.createElement('div');
+              successMessage.textContent = 'Copied to clipboard! (3x resolution)';
+              successMessage.style.position = 'absolute';
+              successMessage.style.top = '50px';
+              successMessage.style.left = '50%';
+              successMessage.style.transform = 'translateX(-50%)';
+              successMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+              successMessage.style.color = 'white';
+              successMessage.style.padding = '8px 16px';
+              successMessage.style.borderRadius = '4px';
+              successMessage.style.zIndex = '9999';
+              successMessage.style.fontSize = '14px';
+              document.body.appendChild(successMessage);
+              
+              // Remove the message after 2 seconds
+              setTimeout(() => {
+                document.body.removeChild(successMessage);
+              }, 2000);
+            } else {
+              // Fallback for mobile devices or browsers without clipboard support
+              showMobileImageModal(canvas.toDataURL('image/png'));
+            }
           } catch (error) {
             console.error('Failed to copy to clipboard:', error);
-            alert('Failed to copy to clipboard. This feature may not be supported in your browser.');
+            // Fallback for clipboard permission denied or other errors
+            showMobileImageModal(canvas.toDataURL('image/png'));
           }
           
           // Clean up
@@ -747,6 +757,81 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       setIsExporting(false);
     }
   }, [processedSvgs, backgroundEnabled, backgroundColor, scaleFactor, contentWidth, contentHeight, additionalScaleFactor]);
+  
+  // Function to show a modal with the image for mobile devices
+  const showMobileImageModal = useCallback((imageDataUrl: string) => {
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.style.position = 'fixed';
+    modalContainer.style.top = '0';
+    modalContainer.style.left = '0';
+    modalContainer.style.width = '100%';
+    modalContainer.style.height = '100%';
+    modalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modalContainer.style.display = 'flex';
+    modalContainer.style.flexDirection = 'column';
+    modalContainer.style.alignItems = 'center';
+    modalContainer.style.justifyContent = 'center';
+    modalContainer.style.zIndex = '10000';
+    modalContainer.style.padding = '20px';
+    modalContainer.style.boxSizing = 'border-box';
+    
+    // Create instructions
+    const instructions = document.createElement('div');
+    instructions.style.color = 'white';
+    instructions.style.textAlign = 'center';
+    instructions.style.marginBottom = '15px';
+    instructions.style.fontSize = '16px';
+    instructions.style.maxWidth = '90%';
+    instructions.innerHTML = 'Press and hold on the image to save it<br>Tap outside the image to close';
+    
+    // Create image element
+    const imageElement = document.createElement('img');
+    imageElement.src = imageDataUrl;
+    imageElement.style.maxWidth = '90%';
+    imageElement.style.maxHeight = '70%';
+    imageElement.style.objectFit = 'contain';
+    imageElement.style.borderRadius = '8px';
+    imageElement.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+    
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.style.marginTop = '15px';
+    closeButton.style.padding = '10px 20px';
+    closeButton.style.backgroundColor = '#4a5568';
+    closeButton.style.color = 'white';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '4px';
+    closeButton.style.fontSize = '14px';
+    closeButton.style.cursor = 'pointer';
+    
+    // Add elements to modal
+    modalContainer.appendChild(instructions);
+    modalContainer.appendChild(imageElement);
+    modalContainer.appendChild(closeButton);
+    
+    // Add modal to body
+    document.body.appendChild(modalContainer);
+    
+    // Close modal when clicking outside or on close button
+    const closeModal = () => {
+      document.body.removeChild(modalContainer);
+    };
+    
+    closeButton.addEventListener('click', closeModal);
+    modalContainer.addEventListener('click', (e) => {
+      if (e.target === modalContainer) {
+        closeModal();
+      }
+    });
+    
+    // Prevent propagation from image to avoid closing when clicking on image
+    imageElement.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+  }, []);
   
   // Memoize the transform style to prevent unnecessary calculations
   const transformStyle = useMemo(() => {
