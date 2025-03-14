@@ -30,7 +30,8 @@ export const ModernInputForm: React.FC<ModernInputFormProps> = ({
             onChange={(e) => setInputText(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Write your word (a-z, spaces allowed)..."
-            className="w-full px-3 py-2 text-sm rounded-md border border-purple-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none transition-all"
+            className="w-full px-3 py-2 text-base rounded-md border border-purple-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none transition-all"
+            style={{ fontSize: '16px' }}
             maxLength={18}
           />
           {inputText && (
