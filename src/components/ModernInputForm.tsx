@@ -1,5 +1,6 @@
 import React from 'react';
-import { Wand2 } from 'lucide-react';
+import { FaBurn, FaFire } from 'react-icons/fa';
+import { FaBomb, FaSprayCan } from 'react-icons/fa6';
 
 interface ModernInputFormProps {
   inputText: string;
@@ -50,7 +51,7 @@ export const ModernInputForm: React.FC<ModernInputFormProps> = ({
           }`}
           title="Generate"
         >
-          <Wand2 className="w-4 h-4" />
+          <FaBomb size={24} className="text-white" />
           <span className="ml-1 hidden sm:inline-block">{isGenerating ? 'Creating...' : 'Create'}</span>
         </button>
       </div>
