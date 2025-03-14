@@ -13,21 +13,6 @@
     perspective: 1000;
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
-    /* Force Chrome to create a new stacking context */
-    isolation: isolate;
-    /* Prevent Chrome from skipping frames */
-    -webkit-font-smoothing: antialiased;
-  }
-  
-  /* Chrome-specific optimizations */
-  @supports (-webkit-appearance:none) {
-    .animate-hardware {
-      /* Additional Chrome-specific optimizations */
-      transform-style: preserve-3d;
-      -webkit-transform-style: preserve-3d;
-      /* Force Chrome to use GPU for animations */
-      filter: blur(0);
-    }
   }
   
   /* Ensure animations run smoothly on all devices */

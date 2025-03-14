@@ -128,37 +128,22 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       // Update ref for next comparison
       prevSvgsRef.current = processedSvgs;
       
-      // Prepare for animation - ensure complete invisibility during calculation
+      // Prepare for animation
       setIsReady(false);
       setIsAnimating(false);
       
-      // First, ensure a complete browser layout cycle with elements hidden
-      // This gives Chrome time to properly calculate positions
-      setTimeout(() => {
-        // Then trigger animation in the next frame after calculations are done
-        requestAnimationFrame(() => {
-          setIsReady(true);
-          
-          // Small delay before starting animation to ensure positions are set
-          setTimeout(() => {
-            setIsAnimating(true);
-            
-            // Reset animation state after animation completes
-            // Use the total animation duration (base + delay per letter)
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const isChrome = /Chrome/i.test(navigator.userAgent);
-            
-            // Add extra time for Chrome on mobile
-            const baseTime = (isMobile && isChrome) ? 1000 : 800;
-            const delayPerLetter = (isMobile && isChrome) ? 25 : 20;
-            const totalDuration = baseTime + (processedSvgs.length * delayPerLetter);
-            
-            setTimeout(() => {
-              setIsAnimating(false);
-            }, totalDuration);
-          }, 50); // Small delay before animation starts
-        });
-      }, 50); // Initial delay to ensure layout calculations
+      // Use a single RAF for better performance
+      requestAnimationFrame(() => {
+        setIsReady(true);
+        setIsAnimating(true);
+        
+        // Reset animation state after animation completes
+        // Use the total animation duration (base + delay per letter)
+        const totalDuration = 800 + (processedSvgs.length * 20);
+        setTimeout(() => {
+          setIsAnimating(false);
+        }, totalDuration);
+      });
     } else if (!isReady) {
       // Content hasn't changed but we need to show it (e.g. after initial mount)
       setIsReady(true);
@@ -179,15 +164,11 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       height: `${contentHeight}px`,
       transformOrigin: 'center center',
       overflow: 'visible' as const,
-      // Start completely invisible until ready
       opacity: isReady ? 1 : 0,
       // Hardware acceleration hints
       willChange: 'transform, opacity',
       backfaceVisibility: 'hidden' as const,
       WebkitBackfaceVisibility: 'hidden' as const,
-      // Force Chrome to create a new layer
-      WebkitTransform: 'translateZ(0)',
-      transform: 'translateZ(0)',
     };
     
     // Calculate the final scale with the additional factor
