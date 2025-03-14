@@ -62,8 +62,6 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
   useEffect(() => {
     // Detect if we're on a mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    // Detect if we're using Chrome
-    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
     
     // Create a style element for our keyframe animation if it doesn't exist
     if (!document.getElementById('letter-animation-style')) {
@@ -97,30 +95,8 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         }
       `;
       
-      // Chrome-specific keyframes with smoother transitions
-      const chromeKeyframes = `
-        @keyframes letterPopIn {
-          0% { transform: scale(0.7); opacity: 1; }
-          10% { transform: scale(0.8); opacity: 1; }
-          50% { transform: scale(1.02); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        
-        @keyframes containerFadeIn {
-          0% { opacity: 1; }
-          100% { opacity: 1; }
-        }
-      `;
-      
-      // Use the appropriate keyframes based on device and browser
-      if (isChrome && isMobile) {
-        styleEl.innerHTML = chromeKeyframes;
-      } else if (isMobile) {
-        styleEl.innerHTML = mobileKeyframes;
-      } else {
-        styleEl.innerHTML = desktopKeyframes;
-      }
-      
+      // Use the appropriate keyframes based on device
+      styleEl.innerHTML = isMobile ? mobileKeyframes : desktopKeyframes;
       document.head.appendChild(styleEl);
       
       // Clean up on unmount
@@ -156,34 +132,17 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       setIsReady(false);
       setIsAnimating(false);
       
-      // Force a layout calculation before animation starts
-      // This helps Chrome calculate positions correctly before animation
-      if (contentRef.current) {
-        // Force a reflow to ensure positions are calculated before animation
-        void contentRef.current.offsetHeight;
-      }
-      
-      // Use a double RAF for Chrome to ensure layout is complete
-      // Single RAF can sometimes start animation before layout is complete in Chrome
+      // Use a single RAF for better performance
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsReady(true);
-          setIsAnimating(true);
-          
-          // Reset animation state after animation completes
-          // Use the total animation duration (base + delay per letter)
-          const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-          
-          // Add extra buffer time for Chrome on mobile
-          const baseDuration = isChrome && isMobile ? 1000 : 800;
-          const delayPerLetter = isChrome && isMobile ? 30 : 20;
-          const totalDuration = baseDuration + (processedSvgs.length * delayPerLetter);
-          
-          setTimeout(() => {
-            setIsAnimating(false);
-          }, totalDuration);
-        });
+        setIsReady(true);
+        setIsAnimating(true);
+        
+        // Reset animation state after animation completes
+        // Use the total animation duration (base + delay per letter)
+        const totalDuration = 800 + (processedSvgs.length * 20);
+        setTimeout(() => {
+          setIsAnimating(false);
+        }, totalDuration);
       });
     } else if (!isReady) {
       // Content hasn't changed but we need to show it (e.g. after initial mount)

@@ -13,21 +13,6 @@
     perspective: 1000;
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
-    /* Chrome-specific optimizations */
-    -webkit-transform-style: preserve-3d;
-    transform-style: preserve-3d;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  /* Chrome-specific animation optimizations */
-  @media screen and (-webkit-min-device-pixel-ratio: 0) {
-    .animate-hardware {
-      transform: translateZ(0);
-      -webkit-transform: translateZ(0);
-      -webkit-filter: blur(0);
-      filter: blur(0);
-    }
   }
   
   /* Ensure animations run smoothly on all devices */
