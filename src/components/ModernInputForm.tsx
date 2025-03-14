@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaBurn, FaFire } from 'react-icons/fa';
-import { FaBomb, FaSprayCan } from 'react-icons/fa6';
+import { FaSprayCan } from 'react-icons/fa6';
 
 interface ModernInputFormProps {
   inputText: string;
@@ -44,14 +43,14 @@ export const ModernInputForm: React.FC<ModernInputFormProps> = ({
         <button
           onClick={() => onGenerate(inputText)}
           disabled={!inputText.trim() || isGenerating}
-          className={`px-3 py-2 rounded-md font-medium text-white transition-all flex items-center justify-center ${
+          className={`px-2 py-2 rounded-md font-medium text-white transition-all flex items-center justify-center ${
             isGenerating || !inputText.trim()
               ? 'bg-gray-300 cursor-not-allowed'
               : 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800'
           }`}
           title="Generate"
         >
-          <FaBomb size={24} className="text-white" />
+          <FaSprayCan className="w-6 h-4" />
           <span className="ml-1 hidden sm:inline-block">{isGenerating ? 'Creating...' : 'Create'}</span>
         </button>
       </div>
