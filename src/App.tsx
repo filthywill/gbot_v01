@@ -124,6 +124,7 @@ function App() {
                         customizationHistory={history}
                         currentHistoryIndex={currentHistoryIndex}
                         onUndoRedo={handleUndoRedo}
+                        inputText={displayInputText}
                       />
                     ) : (
                       <div className="text-gray-400 text-center p-3">

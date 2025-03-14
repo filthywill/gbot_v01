@@ -18,6 +18,7 @@ interface GraffitiDisplayProps {
   customizationHistory?: HistoryState[];
   currentHistoryIndex?: number;
   onUndoRedo?: (newIndex: number) => void;
+  inputText?: string;
 }
 
 const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({ 
@@ -30,7 +31,8 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
   customizationOptions,
   customizationHistory = [],
   currentHistoryIndex = -1,
-  onUndoRedo
+  onUndoRedo,
+  inputText = ''
 }) => {
   // Add debug logging to help troubleshoot history props issues
   useEffect(() => {
@@ -83,6 +85,19 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
     }
   }, [onUndoRedo, customizationHistory, currentHistoryIndex]);
 
+  // Get the current input text from history if available
+  const currentInputText = useMemo(() => {
+    // If direct inputText prop is provided, use it
+    if (inputText) return inputText;
+    
+    // Otherwise try to get it from history
+    if (customizationHistory.length > 0 && currentHistoryIndex >= 0 && currentHistoryIndex < customizationHistory.length) {
+      return customizationHistory[currentHistoryIndex].inputText || '';
+    }
+    
+    return '';
+  }, [inputText, customizationHistory, currentHistoryIndex]);
+
   // Memoize the GraffitiContent component to prevent unnecessary re-renders
   const memoizedContent = useMemo(() => {
     if (isGenerating) {
@@ -96,6 +111,7 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
           contentHeight={contentHeight}
           containerScale={containerScale}
           customizationOptions={customizationOptions}
+          inputText={currentInputText}
         />
       );
     } else {
@@ -108,7 +124,8 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
     contentWidth, 
     contentHeight, 
     containerScale, 
-    customizationOptions
+    customizationOptions,
+    currentInputText
   ]);
 
   // Memoize the history controls to prevent unnecessary re-renders
