@@ -36,9 +36,12 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
   const stampElements: JSX.Element[] = [];
   const mainElements: JSX.Element[] = [];
   
-  // Calculate animation delay per letter
-  const ANIMATION_DELAY_PER_LETTER = 20; // milliseconds
-  const ANIMATION_DURATION = 300; // milliseconds
+  // Detect if we're on a mobile device
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  // Calculate animation delay per letter - adjust for mobile
+  const ANIMATION_DELAY_PER_LETTER = isMobile ? 40 : 20; // milliseconds - longer delay on mobile
+  const ANIMATION_DURATION = isMobile ? 400 : 300; // milliseconds - longer duration on mobile
   
   // Process all SVGs in a single pass
   processedSvgs.forEach((item, index) => {
@@ -68,6 +71,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shieldElements.push(
           <div
             key={`shield-${index}`}
+            className="animate-hardware"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -101,6 +105,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shadowShieldElements.push(
           <div
             key={`shadow-shield-wrapper-${index}`}
+            className="animate-hardware"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -140,6 +145,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         shadowElements.push(
           <div
             key={`shadow-wrapper-${index}`}
+            className="animate-hardware"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -178,6 +184,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
         stampElements.push(
           <div
             key={`stamp-${index}`}
+            className="animate-hardware"
             style={{
               position: 'absolute',
               left: `${positions[index]}px`,
@@ -224,6 +231,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
       mainElements.push(
         <div
           key={`main-${index}`}
+          className="animate-hardware hover:z-50"
           style={{
             position: 'absolute',
             left: `${positions[index]}px`,
@@ -236,7 +244,6 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
             overflow: 'visible', // Important: allow effects to extend beyond boundaries
             ...animationStyle
           }}
-          className="hover:z-50"
           dangerouslySetInnerHTML={{ 
             __html: customizeSvg(item.svg, item.isSpace, contentOptions) 
           }}

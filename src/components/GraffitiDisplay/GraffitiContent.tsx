@@ -60,11 +60,29 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
   
   // Add keyframe animation for the cascading effect
   useEffect(() => {
+    // Detect if we're on a mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
     // Create a style element for our keyframe animation if it doesn't exist
     if (!document.getElementById('letter-animation-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'letter-animation-style';
-      styleEl.innerHTML = `
+      
+      // Different animation timing for mobile vs desktop
+      const mobileKeyframes = `
+        @keyframes letterPopIn {
+          0% { transform: scale(0.7); opacity: 1; }
+          40% { transform: scale(1.03); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes containerFadeIn {
+          0% { opacity: 1; }
+          100% { opacity: 1; }
+        }
+      `;
+      
+      const desktopKeyframes = `
         @keyframes letterPopIn {
           0% { transform: scale(0.7); opacity: 1; }
           30% { transform: scale(1.05); opacity: 1; }
@@ -76,6 +94,9 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
           100% { opacity: 1; }
         }
       `;
+      
+      // Use the appropriate keyframes based on device
+      styleEl.innerHTML = isMobile ? mobileKeyframes : desktopKeyframes;
       document.head.appendChild(styleEl);
       
       // Clean up on unmount
