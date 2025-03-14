@@ -99,8 +99,18 @@ function App() {
                   </div>
                 )}
                 
-                {/* Preview directly under the input form */}
-                <div className="mt-1 sm:mt-4">
+                {/* Style Selector moved here, below the input form */}
+                <div className="mt-3 sm:mt-4">
+                  <h2 className="text-base sm:text-lg font-medium mb-2">Style</h2>
+                  <StyleSelector 
+                    styles={GRAFFITI_STYLES}
+                    selectedStyle={selectedStyle}
+                    onSelectStyle={handleStyleChange}
+                  />
+                </div>
+                
+                {/* Preview below the style selector */}
+                <div className="mt-3 sm:mt-4">
                   {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
                   <div className="w-full relative">
                     <div className="w-full pb-[56.25%] relative">
@@ -133,21 +143,9 @@ function App() {
                 </div>
               </div>
               
-              {/* Bottom section: Style and Customization in a row */}
-              <div className="flex flex-col md:flex-row gap-2 sm:gap-4">
-                <div className="w-full md:w-1/3">
-                  <div className="bg-white shadow rounded-lg p-2 sm:p-3 md:p-4 h-full">
-                    <h2 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">Style</h2>
-                    
-                    <StyleSelector 
-                      styles={GRAFFITI_STYLES}
-                      selectedStyle={selectedStyle}
-                      onSelectStyle={handleStyleChange}
-                    />
-                  </div>
-                </div>
-                
-                <div className="w-full md:w-2/3">
+              {/* Bottom section: Customization only (Style moved up) */}
+              <div className="flex flex-col gap-2 sm:gap-4">
+                <div className="w-full">
                   <div className="bg-white shadow rounded-lg p-2 sm:p-3 md:p-4 h-full">
                     <h2 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">Customization</h2>
                     
