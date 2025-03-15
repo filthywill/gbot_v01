@@ -767,7 +767,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
     modalContainer.style.left = '0';
     modalContainer.style.width = '100%';
     modalContainer.style.height = '100%';
-    modalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
     modalContainer.style.display = 'flex';
     modalContainer.style.flexDirection = 'column';
     modalContainer.style.alignItems = 'center';
@@ -780,9 +780,10 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
     const instructions = document.createElement('div');
     instructions.style.color = 'white';
     instructions.style.textAlign = 'center';
-    instructions.style.marginBottom = '15px';
+    instructions.style.marginBottom = '20px';
     instructions.style.fontSize = '16px';
     instructions.style.maxWidth = '90%';
+    instructions.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
     instructions.innerHTML = 'Press and hold on the image to save it<br>Tap outside the image to close';
     
     // Create image element
@@ -792,19 +793,31 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
     imageElement.style.maxHeight = '70%';
     imageElement.style.objectFit = 'contain';
     imageElement.style.borderRadius = '8px';
-    imageElement.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+    imageElement.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+    imageElement.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     
     // Create close button
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Close';
-    closeButton.style.marginTop = '15px';
-    closeButton.style.padding = '10px 20px';
-    closeButton.style.backgroundColor = '#4a5568';
+    closeButton.style.marginTop = '20px';
+    closeButton.style.padding = '12px 24px';
+    closeButton.style.backgroundColor = '#4F46E5'; // Indigo-600
     closeButton.style.color = 'white';
     closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '4px';
+    closeButton.style.borderRadius = '6px';
     closeButton.style.fontSize = '14px';
+    closeButton.style.fontWeight = '500';
     closeButton.style.cursor = 'pointer';
+    closeButton.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    closeButton.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+    
+    // Add hover effect to close button
+    closeButton.onmouseover = () => {
+      closeButton.style.backgroundColor = '#4338CA'; // Indigo-700
+    };
+    closeButton.onmouseout = () => {
+      closeButton.style.backgroundColor = '#4F46E5'; // Indigo-600
+    };
     
     // Add elements to modal
     modalContainer.appendChild(instructions);
@@ -901,9 +914,9 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         <button
           onClick={copyToPngClipboard}
           disabled={isExporting}
-          className="bg-green-600 hover:bg-green-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Copy to Clipboard (3x Resolution)"
-          style={{ width: '30px', height: '30px' }}
+          style={{ width: '36px', height: '36px' }}
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -926,9 +939,9 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
         <button
           onClick={saveAsPng}
           disabled={isExporting}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+          className="bg-purple-600 hover:bg-purple-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Save as PNG (3x Resolution)"
-          style={{ width: '30px', height: '30px' }}
+          style={{ width: '36px', height: '36px' }}
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -954,7 +967,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
           disabled={isExporting}
           className="bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Save as SVG"
-          style={{ width: '30px', height: '30px' }}
+          style={{ width: '36px', height: '36px' }}
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
