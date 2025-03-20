@@ -20,6 +20,9 @@ const ExportControls: React.FC<ExportControlsProps> = ({
   isExporting,
   showAllButtons = false
 }) => {
+  // Check if we're in development mode
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  
   return (
     <div className="absolute top-2 left-2 z-50 flex space-x-1">
       {/* Share Button - Hidden for now */}
@@ -98,8 +101,8 @@ const ExportControls: React.FC<ExportControlsProps> = ({
         </button>
       )}
       
-      {/* SVG Export Button - Only shown if showAllButtons is true */}
-      {showAllButtons && onSaveAsSvg && (
+      {/* SVG Export Button - Shown if showAllButtons is true OR in development mode */}
+      {(showAllButtons || isDev) && onSaveAsSvg && (
         <button
           onClick={onSaveAsSvg}
           disabled={isExporting}

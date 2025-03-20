@@ -1,17 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    basicSsl() // Add the SSL plugin
+  ],
   optimizeDeps: {
     include: ['zustand'],
     exclude: ['lucide-react'],
   },
   server: {
-    host: true, // Listen on all addresses
+    host: '0.0.0.0', // Listen on all addresses
     port: 3000, // Use port 3000 instead
-    strictPort: true, // Fail if port is in use
+    strictPort: false, // Allow fallback to another port if 3000 is in use
   },
   build: {
     rollupOptions: {

@@ -125,7 +125,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   
   // Check if EyeDropper is supported
   useEffect(() => {
-    setIsEyeDropperSupported(!!window.EyeDropper);
+    // Force eyedropper to be supported in modern browsers
+    setIsEyeDropperSupported(true);
+    console.log('EyeDropper API check:', Boolean(window.EyeDropper));
   }, []);
   
   // Update temp color when value changes
@@ -185,16 +187,20 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   };
   
   const handleEyeDropper = async () => {
-    if (!window.EyeDropper) return;
-    
     try {
       setIsPickingColor(true);
-      const eyeDropper = new window.EyeDropper();
-      const result = await eyeDropper.open();
-      setTempColor(result.sRGBHex);
-      onChange(result.sRGBHex);
-      addToRecentColors(result.sRGBHex);
-      if (onChangeComplete) onChangeComplete();
+      
+      if (window.EyeDropper) {
+        const eyeDropper = new window.EyeDropper();
+        const result = await eyeDropper.open();
+        setTempColor(result.sRGBHex);
+        onChange(result.sRGBHex);
+        addToRecentColors(result.sRGBHex);
+        if (onChangeComplete) onChangeComplete();
+      } else {
+        console.error('EyeDropper API not available in this browser');
+        alert('Color picker is not supported in this browser');
+      }
     } catch (error) {
       console.error('EyeDropper error:', error);
     } finally {
@@ -227,20 +233,19 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 style={{ backgroundColor: tempColor }}
               />
               
-              {isEyeDropperSupported && (
-                <button
-                  type="button"
-                  onClick={handleEyeDropper}
-                  disabled={isPickingColor}
-                  className={cn(
-                    "h-7 w-7 flex items-center justify-center text-gray-600 hover:text-gray-800 focus:outline-none focus:text-purple-500",
-                    isPickingColor && "opacity-50 cursor-not-allowed"
-                  )}
-                  title="Pick color from screen"
-                >
-                  <FaEyeDropper size={16} />
-                </button>
-              )}
+              {/* Always show the eyedropper button, handling unsupported browsers in the click handler */}
+              <button
+                type="button"
+                onClick={handleEyeDropper}
+                disabled={isPickingColor}
+                className={cn(
+                  "h-7 w-7 flex items-center justify-center text-gray-600 hover:text-gray-800 focus:outline-none focus:text-purple-500",
+                  isPickingColor && "opacity-50 cursor-not-allowed"
+                )}
+                title="Pick color from screen"
+              >
+                <FaEyeDropper size={16} />
+              </button>
             </div>
             
             <input

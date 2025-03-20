@@ -21,7 +21,19 @@ import { Switch } from './ui/switch';
 import { Slider } from './ui/slider';
 import { ColorPicker } from './ui/color-picker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { PresetGrid } from './PresetCard';
+
+// Helper component to display values in dev mode
+const DevValueDisplay = ({ value }: { value: number }) => {
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  
+  if (!isDev) return null;
+  
+  return (
+    <span className="ml-1 text-xs text-gray-500 font-mono">
+      {value}
+    </span>
+  );
+};
 
 interface ModernCustomizationToolbarProps {
   options: CustomizationOptions;
@@ -211,18 +223,14 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                     <span className="text-xs text-gray-500">Size</span>
                     <Slider
                       value={[options.stampWidth]}
-                      min={20}
+                      min={50}
                       max={150}
                       step={1}
                       onValueChange={(value) => handleSliderChange({ stampWidth: value[0] })}
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
-                    {import.meta.env.DEV && (
-                      <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
-                        {options.stampWidth}
-                      </span>
-                    )}
+                    <DevValueDisplay value={options.stampWidth} />
                   </div>
                 </div>
               )}
@@ -263,11 +271,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
-                    {import.meta.env.DEV && (
-                      <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
-                        {options.shieldWidth}
-                      </span>
-                    )}
+                    <DevValueDisplay value={options.shieldWidth} />
                   </div>
                 </div>
               )}
@@ -303,11 +307,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       className="flex-1"
                     />
                     <ArrowRight className="w-3 h-3 text-gray-400" />
-                    {import.meta.env.DEV && (
-                      <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
-                        {options.shadowEffectOffsetX}
-                      </span>
-                    )}
+                    <DevValueDisplay value={options.shadowEffectOffsetX} />
                   </div>
                   
                   <div className="flex items-center gap-1">
@@ -324,11 +324,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       className="flex-1"
                     />
                     <ArrowDown className="w-3 h-3 text-gray-400" />
-                    {import.meta.env.DEV && (
-                      <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
-                        {options.shadowEffectOffsetY}
-                      </span>
-                    )}
+                    <DevValueDisplay value={options.shadowEffectOffsetY} />
                   </div>
                 </div>
               )}
@@ -350,12 +346,31 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
               <ChevronDown className="w-3 h-3 text-purple-500" />
             }
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2">
-            <PresetGrid
-              presets={STYLE_PRESETS}
-              activePresetId={options.__presetId}
-              onPresetSelect={(preset) => applyPreset(preset)}
-            />
+          <CollapsibleContent className="pt-2 pb-1">
+            <div className="flex flex-wrap gap-1">
+              {stylePresets.map(preset => {
+                // Check if this preset is currently active
+                const isActive = options.__presetId === preset.id;
+                
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyPreset(preset)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition-colors ${
+                      isActive 
+                        ? 'bg-purple-100 border-purple-500 text-purple-800 font-medium' 
+                        : 'bg-gray-100 hover:bg-gray-200 border-gray-300'
+                    }`}
+                    title={isActive ? `${preset.name} (Active)` : preset.name}
+                  >
+                    <span>{preset.name}</span>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </CollapsibleContent>
         </Collapsible>
       </div>
