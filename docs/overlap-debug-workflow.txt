@@ -1,0 +1,49 @@
+Overlap Debug Panel - Workflow Guide
+
+This guide explains how to update letter overlap rules in the application.
+
+Step 1: Using the Overlap Debug Panel
+----------------------------------
+1. Open your application and locate the Overlap Debug panel in the bottom-right corner
+2. Select a letter from the dropdown menu
+3. Adjust values using the sliders or number inputs:
+   - Min Overlap: Sets the minimum overlap value (0.01 to 0.5)
+   - Max Overlap: Sets the maximum overlap value (0.01 to 0.5)
+   - Special Case: Add specific overlap values for letter pairs
+     a. Select a target letter from the dropdown
+     b. Adjust the overlap value for that specific letter pair
+
+Step 2: Save and Get Updated Values
+--------------------------------
+1. After making changes, a "Save" button will appear in the panel
+2. Click "Save" to log the updated values to the browser console
+3. Open your browser's developer tools (F12 or right-click -> Inspect)
+4. In the console, you'll see two logs:
+   - "Saving changes for letter: [selected letter]"
+   - "New rule: [formatted rule string]"
+5. Copy the formatted rule string - this contains your new values
+
+Step 3: Update letterRules.ts
+---------------------------
+1. The formatted rule string will look like this:
+   ```typescript
+     a: {
+       minOverlap: 0.04,
+       maxOverlap: 0.16,
+       specialCases: {
+         b: 0.18,
+         c: 0.18,
+         // ... other special cases
+       },
+     },
+   ```
+2. Share this formatted rule with the development team to update letterRules.ts
+3. They will use the proper tools to update the file while maintaining its structure
+
+Additional Notes:
+---------------
+- The "Reset" button will restore the original values for the selected letter
+- Modified letters are marked with a dot (•) in the letter dropdown
+- Min Overlap cannot exceed Max Overlap (and vice versa)
+- Special case values can be any value between 0.01 and 0.5
+- Changes are stored in memory until saved to the file 

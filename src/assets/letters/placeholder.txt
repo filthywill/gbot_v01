@@ -1,0 +1,2 @@
+This directory contains SVG files for each letter of the alphabet.
+The actual SVG files are stored in the public/assets/letters directory.
