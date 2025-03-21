@@ -16,6 +16,7 @@ import {
   CircleDashed
 } from 'lucide-react';
 import { STYLE_PRESETS, StylePreset } from '../data/stylePresets';
+import { PresetGrid } from './PresetCard';
 
 import { Switch } from './ui/switch';
 import { Slider } from './ui/slider';
@@ -166,7 +167,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                   <Switch 
                     id="bg-toggle"
                     checked={options.backgroundEnabled}
-                    onCheckedChange={(checked) => handleChange({ backgroundEnabled: checked })}
+                    onCheckedChange={(checked: boolean) => handleChange({ backgroundEnabled: checked })}
                   />
                   <label htmlFor="bg-toggle" className="text-xs font-medium">Background</label>
                 </div>
@@ -202,7 +203,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                   <Switch 
                     id="stamp-toggle"
                     checked={options.stampEnabled}
-                    onCheckedChange={(checked) => handleChange({ stampEnabled: checked })}
+                    onCheckedChange={(checked: boolean) => handleChange({ stampEnabled: checked })}
                   />
                   <label htmlFor="stamp-toggle" className="text-xs font-medium">Outline</label>
                 </div>
@@ -226,7 +227,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       min={50}
                       max={150}
                       step={1}
-                      onValueChange={(value) => handleSliderChange({ stampWidth: value[0] })}
+                      onValueChange={(value: number[]) => handleSliderChange({ stampWidth: value[0] })}
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
@@ -243,7 +244,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                   <Switch 
                     id="shield-toggle"
                     checked={options.shieldEnabled}
-                    onCheckedChange={(checked) => handleChange({ shieldEnabled: checked })}
+                    onCheckedChange={(checked: boolean) => handleChange({ shieldEnabled: checked })}
                   />
                   <label htmlFor="shield-toggle" className="text-xs font-medium">Forcefield</label>
                 </div>
@@ -267,7 +268,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       min={5}
                       max={150}
                       step={1}
-                      onValueChange={(value) => handleSliderChange({ shieldWidth: value[0] })}
+                      onValueChange={(value: number[]) => handleSliderChange({ shieldWidth: value[0] })}
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
@@ -284,7 +285,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                   <Switch 
                     id="shadow-effect-toggle"
                     checked={options.shadowEffectEnabled}
-                    onCheckedChange={(checked) => handleChange({ shadowEffectEnabled: checked })}
+                    onCheckedChange={(checked: boolean) => handleChange({ shadowEffectEnabled: checked })}
                   />
                   <label htmlFor="shadow-effect-toggle" className="text-xs font-medium">Shadow</label>
                 </div>
@@ -302,7 +303,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       min={-40}
                       max={70}
                       step={1}
-                      onValueChange={(value) => handleSliderChange({ shadowEffectOffsetX: value[0] })}
+                      onValueChange={(value: number[]) => handleSliderChange({ shadowEffectOffsetX: value[0] })}
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
@@ -319,7 +320,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
                       min={-30}
                       max={30}
                       step={1}
-                      onValueChange={(value) => handleSliderChange({ shadowEffectOffsetY: value[0] })}
+                      onValueChange={(value: number[]) => handleSliderChange({ shadowEffectOffsetY: value[0] })}
                       onValueCommit={handleSliderComplete}
                       className="flex-1"
                     />
@@ -347,30 +348,11 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
             }
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2 pb-1">
-            <div className="flex flex-wrap gap-1">
-              {stylePresets.map(preset => {
-                // Check if this preset is currently active
-                const isActive = options.__presetId === preset.id;
-                
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => applyPreset(preset)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition-colors ${
-                      isActive 
-                        ? 'bg-purple-100 border-purple-500 text-purple-800 font-medium' 
-                        : 'bg-gray-100 hover:bg-gray-200 border-gray-300'
-                    }`}
-                    title={isActive ? `${preset.name} (Active)` : preset.name}
-                  >
-                    <span>{preset.name}</span>
-                    {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5"></span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <PresetGrid
+              presets={stylePresets}
+              activePresetId={options.__presetId}
+              onPresetSelect={applyPreset}
+            />
           </CollapsibleContent>
         </Collapsible>
       </div>

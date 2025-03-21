@@ -79,7 +79,7 @@ function App() {
           <img 
             src={SteeloLogo} 
             alt="GraffitiSOFT"
-            className="h-12 w-auto" 
+            className="h-[72px] w-auto" 
           />
         </div>
       </header>

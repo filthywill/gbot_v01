@@ -39,7 +39,7 @@ const GraffitiContainer: React.FC<GraffitiContainerProps> = ({
           bottom: 0,
           overflow: 'hidden'
         }}
-        className="border border-gray-300 sm:border-2 md:border-4 rounded-md sm:rounded-lg md:rounded-xl flex items-center justify-center"
+        className="flex items-center justify-center"
       >
         {children}
       </div>
