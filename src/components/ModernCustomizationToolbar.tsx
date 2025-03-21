@@ -152,7 +152,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
           <CollapsibleTrigger className={`${sectionHeaderClass} bg-gradient-to-r from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300`}>
             <div className="flex items-center gap-2">
               <PaintBucket className="w-4 h-4 text-purple-600" />
-              <h3 className="text-xs font-medium text-purple-800">COLORS</h3>
+              <h3 className="text-xs font-medium text-purple-800">STYLE CUSTOMIZATION</h3>
             </div>
             {isColorsOpen ? 
               <ChevronUp className="w-3 h-3 text-purple-500" /> : 

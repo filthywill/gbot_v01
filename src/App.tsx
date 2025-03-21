@@ -5,7 +5,7 @@ import GraffitiDisplay from './components/GraffitiDisplay';
 import { ModernCustomizationToolbar } from './components/ModernCustomizationToolbar';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
-import SteeloLogo from './assets/logos/steelo.svg';
+import stizakLogo from './assets/logos/stizak.svg';
 import { OverlapDebugPanel } from './components/OverlapDebugPanel';
 
 function App() {
@@ -77,7 +77,7 @@ function App() {
       <header className="bg-white shadow-sm">
         <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-center items-center">
           <img 
-            src={SteeloLogo} 
+            src={stizakLogo} 
             alt="GraffitiSOFT"
             className="h-[125px] w-auto" 
           />
