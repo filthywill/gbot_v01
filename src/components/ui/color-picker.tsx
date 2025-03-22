@@ -239,7 +239,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 onClick={handleEyeDropper}
                 disabled={isPickingColor}
                 className={cn(
-                  "h-7 w-7 flex items-center justify-center text-gray-600 hover:text-gray-800 focus:outline-none focus:text-purple-500",
+                  "h-7 w-7 flex items-center justify-center text-zinc-600 hover:text-zinc-800 focus:outline-none focus:text-purple-500",
                   isPickingColor && "opacity-50 cursor-not-allowed"
                 )}
                 title="Pick color from screen"
@@ -270,7 +270,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           {globalColors.recentColors.length > 0 && (
             <div className="space-y-1">
               <div className="flex items-center">
-                <span className="text-[10px] text-gray-500 font-medium">RECENTLY USED</span>
+                <span className="text-[10px] text-zinc-500 font-medium">RECENTLY USED</span>
               </div>
               <div className="grid grid-cols-7 gap-0.5">
                 {globalColors.recentColors.map((color, index) => (
@@ -293,7 +293,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           {/* Default Swatches */}
           <div className="space-y-1">
             <div className="flex items-center">
-              <span className="text-[10px] text-gray-500 font-medium">SWATCH LIBRARY</span>
+              <span className="text-[10px] text-zinc-500 font-medium">SWATCH LIBRARY</span>
             </div>
             <div className="grid grid-cols-7 gap-0.5">
               {swatches.map((color) => (
@@ -315,14 +315,14 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           {/* Custom Colors */}
           <div className="space-y-1">
             <div className="flex items-center">
-              <span className="text-[10px] text-gray-500 font-medium">CUSTOM COLORS</span>
+              <span className="text-[10px] text-zinc-500 font-medium">CUSTOM COLORS</span>
             </div>
             <div className="grid grid-cols-7 gap-0.5">
               {/* Add to Custom Colors Button */}
               <button
                 type="button"
                 onClick={addToCustomColors}
-                className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800 focus:outline-none focus:text-purple-500"
+                className="h-5 w-5 flex items-center justify-center text-zinc-600 hover:text-zinc-800 focus:outline-none focus:text-purple-500"
                 title="Save current color"
               >
                 <FaCirclePlus size={18} />
