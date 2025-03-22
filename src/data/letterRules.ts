@@ -373,7 +373,7 @@ export const LETTER_OVERLAP_RULES: Record<string, OverlapRule> = {
       m: 0.10,
       n: 0.10,
       o: 0.12,
-      r: 0.12,
+      r: 0.05,
       t: 0.18,
       u: 0.06
     },

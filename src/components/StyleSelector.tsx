@@ -1,79 +1,49 @@
 // src/components/StyleSelector.tsx
 import React from 'react';
-import { Lock, Palette, ChevronUp, ChevronDown } from 'lucide-react';
 import { GraffitiStyle } from '../types';
-import { PresetGrid } from '../components/PresetCard';
-import { StylePreset } from '../data/stylePresets';
+import { PencilLine } from 'lucide-react';
 
 interface StyleSelectorProps {
   styles: GraffitiStyle[];
-  selectedStyle: string;
-  onSelectStyle: (styleId: string) => void;
-  isPresetDropdownOpen: boolean;
-  togglePresetDropdown: () => void;
-  stylePresets: StylePreset[];
-  activePresetId?: string;
-  onPresetSelect: (preset: StylePreset) => void;
+  selectedStyleId: string;
+  onStyleSelect: (styleId: string) => void;
 }
 
 export const StyleSelector: React.FC<StyleSelectorProps> = ({ 
-  styles, 
-  selectedStyle, 
-  onSelectStyle,
-  isPresetDropdownOpen,
-  togglePresetDropdown,
-  stylePresets,
-  activePresetId,
-  onPresetSelect
+  styles,
+  selectedStyleId, 
+  onStyleSelect
 }) => {
   return (
-    <div>
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        {styles.map((style) => (
-          <button
-            key={style.id}
-            onClick={() => style.available && onSelectStyle(style.id)}
-            className={`relative py-1 px-2 rounded-lg border-2 transition-all text-center ${
-              style.id === selectedStyle
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-200 hover:border-gray-300'
-            } ${!style.available && 'opacity-50 cursor-not-allowed'}`}
-          >
-            <div className="flex items-center justify-center">
-              <span className="font-bold text-xs">{style.name}</span>
-              {!style.available && <Lock className="w-3 h-3 text-gray-400 ml-1" />}
+    <div className="mb-3">
+      <div className="font-medium text-zinc-200 flex items-center mb-1.5 gap-1">
+        <PencilLine className="w-4 h-4" />
+        <span>Style</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        {styles.map((style) => {
+          const isSelected = selectedStyleId === style.id;
+          
+          return (
+            <div
+              key={style.id}
+              className={`px-2 py-1.5 rounded-lg cursor-pointer transition-all ${
+                isSelected
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 shadow-sm'
+              } ${!style.available && 'opacity-50 cursor-not-allowed'}`}
+              onClick={() => style.available && onStyleSelect(style.id)}
+            >
+              <div className="text-center">
+                <div className="font-medium text-xs">{style.name}</div>
+                {style.description && (
+                  <div className="text-[10px] opacity-80 line-clamp-1">{style.description}</div>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-gray-600 line-clamp-1">{style.description}</p>
-            {style.id === selectedStyle && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full" />
-            )}
-          </button>
-        ))}
+          );
+        })}
       </div>
-
-      <div className="mt-2">
-        <button 
-          onClick={togglePresetDropdown}
-          className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 p-1 rounded w-full text-xs transition-colors"
-        >
-          <Palette className="w-3 h-3 text-gray-600" />
-          <span className="text-gray-700">Style Presets</span>
-          {isPresetDropdownOpen ? 
-            <ChevronUp className="w-3 h-3 text-gray-600" /> : 
-            <ChevronDown className="w-3 h-3 text-gray-600" />
-          }
-        </button>
-      </div>
-
-      {isPresetDropdownOpen && (
-        <div className="mt-1 p-2 border border-gray-200 rounded bg-white shadow-sm max-h-[300px] overflow-y-auto">
-          <PresetGrid
-            presets={stylePresets}
-            activePresetId={activePresetId}
-            onPresetSelect={onPresetSelect}
-          />
-        </div>
-      )}
     </div>
   );
 };

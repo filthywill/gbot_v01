@@ -5,7 +5,7 @@ import GraffitiDisplay from './components/GraffitiDisplay';
 import { ModernCustomizationToolbar } from './components/ModernCustomizationToolbar';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
-import stizakLogo from './assets/logos/stizak.svg';
+import stizakLogo from './assets/logos/stizak-wh.svg';
 import { OverlapDebugPanel } from './components/OverlapDebugPanel';
 
 function App() {
@@ -73,13 +73,13 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-zinc-900 flex flex-col">
+      <header className="bg-zinc-800 shadow-sm">
         <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-center items-center">
           <img 
             src={stizakLogo} 
             alt="GraffitiSOFT"
-            className="h-[125px] w-auto" 
+            className="h-[130px] w-auto" 
           />
         </div>
       </header>
@@ -88,7 +88,7 @@ function App() {
         <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
           <div className="space-y-2">
             {/* Top section: Input and Style Selection */}
-            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-fade-in">
+            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
               <ModernInputForm 
                 inputText={displayInputText}
                 setInputText={handleInputTextChange}
@@ -97,13 +97,13 @@ function App() {
               />
               
               {error && (
-                <div className="mt-1 text-red-500 text-xs bg-red-50 p-1 rounded animate-pulse-once">
+                <div className="mt-1 text-red-400 text-xs bg-red-900 bg-opacity-50 p-1 rounded animate-pulse-once">
                   {error}
                 </div>
               )}
               
-              {/* Style Selector */}
-              <div className="mt-2">
+              {/* Style Selector - removed extra top margin for better alignment */}
+              <div className="mt-1.5">
                 <ModernStyleSelector 
                   styles={GRAFFITI_STYLES}
                   selectedStyle={selectedStyle}
@@ -113,9 +113,9 @@ function App() {
             </div>
             
             {/* Preview Section */}
-            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-slide-up">
+            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
               {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
-              <div className="w-full relative bg-gray-50 rounded-md overflow-hidden border border-gray-200">
+              <div className="w-full relative bg-zinc-700 rounded-md overflow-hidden">
                 <div className="w-full pb-[56.25%] relative">
                   <div className="absolute inset-0 flex items-center justify-center">
                     {processedSvgs.length > 0 ? (
@@ -133,12 +133,12 @@ function App() {
                         inputText={displayInputText}
                       />
                     ) : (
-                      <div className="text-gray-400 text-center p-3">
+                      <div className="text-zinc-400 text-center p-3">
                         {hasInitialGeneration.current ? (
                           <p className="text-sm">No text to display. Enter some text and click Create.</p>
                         ) : (
                           <div className="space-y-1">
-                            <p className="text-gray-500 text-sm">Enter text above and click Create to generate your graffiti</p>
+                            <p className="text-zinc-400 text-sm">Enter text above and click Create to generate your graffiti</p>
                           </div>
                         )}
                       </div>
@@ -149,7 +149,7 @@ function App() {
             </div>
             
             {/* Customization Section */}
-            <div className="bg-white shadow-sm rounded-md p-2 sm:p-3 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
               <ModernCustomizationToolbar 
                 options={customizationOptions}
                 onChange={handleCustomizationChange}
@@ -159,9 +159,9 @@ function App() {
         </div>
       </main>
       
-      <footer className="bg-white shadow-inner mt-2">
+      <footer className="bg-zinc-800 shadow-inner mt-2">
         <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-          <p className="text-center text-gray-500 text-xs">
+          <p className="text-center text-zinc-400 text-xs">
             Graffiti Generator &copy; {new Date().getFullYear()}
           </p>
         </div>

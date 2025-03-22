@@ -459,7 +459,7 @@ export const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
             }`}
             title="Undo"
           >
-            <Undo2 size={18} className="text-gray-700" />
+            <Undo2 size={18} className="text-zinc-700" />
           </button>
           <button
             onClick={() => handleUndoRedo('redo')}
@@ -469,7 +469,7 @@ export const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
             }`}
             title="Redo"
           >
-            <Redo2 size={18} className="text-gray-700" />
+            <Redo2 size={18} className="text-zinc-700" />
           </button>
         </div>
       )}
@@ -483,7 +483,7 @@ export const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-gray-500 animate-pulse">Generating your graffiti...</div>
+            <div className="text-zinc-500 animate-pulse">Generating your graffiti...</div>
           </div>
         </div>
       ) : processedSvgs.length > 0 ? (
@@ -514,7 +514,7 @@ export const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
           </div>
         </div>
       ) : (
-        <div className="text-gray-400 text-center">
+        <div className="text-zinc-400 text-center">
           <p className="text-xl mb-2">Your graffiti will appear here</p>
           <p className="text-sm">Enter some text and hit generate!</p>
         </div>

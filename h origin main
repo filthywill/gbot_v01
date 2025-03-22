@@ -1,0 +1,5 @@
+[33mcommit fbe89be80c334e1b4e62e97c6792f422b1123432[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: filthywill <wsamatis@gmail.com>
+Date:   Thu Mar 20 22:40:39 2025 -0400
+
+    Improve UI: Remove double border in GraffitiDisplay and increase logo size
