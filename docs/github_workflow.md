@@ -22,6 +22,13 @@ Example request:
 We need to push the latest version of our project to the github repo.
 ```
 
+#### Handling Large Files or Multiple Files
+
+For large files or when pushing many files at once:
+- Claude will prioritize key files like components and data models
+- Use descriptive commit messages for each file or group of files
+- Update RECENT_UPDATES.md with information about what was pushed and what remains
+
 ### Method 2: Using Provided Scripts
 
 Several batch scripts are available for pushing changes:
@@ -34,7 +41,7 @@ To use:
 2. Navigate to the project directory
 3. Run the desired script:
    ```
-   .\push_to_github.bat
+   .\push_to_github_fixed.bat
    ```
 
 ### Method 3: Manual Git Commands
@@ -80,3 +87,4 @@ If you encounter issues with pushing:
 1. Try using GitHub MCP tools directly through Claude
 2. Check for any authentication issues
 3. If terminal commands are interrupted, use the GitHub MCP tools instead
+4. For very large files, consider pushing them individually or using documentation to track what still needs to be pushed
