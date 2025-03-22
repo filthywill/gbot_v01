@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, Check } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { GraffitiStyle } from '../types';
 
 interface ModernStyleSelectorProps {
@@ -14,8 +14,8 @@ export const ModernStyleSelector: React.FC<ModernStyleSelectorProps> = ({
   onSelectStyle 
 }) => {
   return (
-    <div className="mb-2">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+    <div className="mb-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {styles.map((style) => {
           const isSelected = style.id === selectedStyle;
           
@@ -24,28 +24,26 @@ export const ModernStyleSelector: React.FC<ModernStyleSelectorProps> = ({
               key={style.id}
               onClick={() => style.available && onSelectStyle(style.id)}
               className={`
-                relative py-1 px-2 rounded-md border transition-all text-center
+                relative px-2 py-1 rounded-md transition-all text-center shadow-sm
                 ${isSelected 
-                  ? 'border-purple-500 bg-purple-50' 
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
+                  ? 'bg-purple-600 text-white shadow-md' 
+                  : 'bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 hover:border-zinc-300'
                 } 
                 ${!style.available && 'opacity-60 cursor-not-allowed'}
               `}
               disabled={!style.available}
             >
               <div className="flex items-center justify-center">
-                <span className={`font-medium text-xs ${isSelected ? 'text-purple-700' : 'text-gray-700'}`}>
+                <span className={`font-medium text-xs ${isSelected ? 'text-white' : ''}`}>
                   {style.name}
                 </span>
-                {!style.available && <Lock className="w-3 h-3 text-gray-400 ml-1" />}
+                {!style.available && <Lock className="w-3 h-3 ml-1 opacity-70" />}
               </div>
               
-              <p className="text-xs text-gray-600 line-clamp-1 mt-0.5">{style.description}</p>
-              
-              {isSelected && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                  <Check className="w-2 h-2 text-white" />
-                </div>
+              {style.description && (
+                <p className={`text-xs ${isSelected ? 'text-white/80' : 'text-zinc-600'} line-clamp-1 text-[10px]`}>
+                  {style.description}
+                </p>
               )}
             </button>
           );
@@ -53,4 +51,4 @@ export const ModernStyleSelector: React.FC<ModernStyleSelectorProps> = ({
       </div>
     </div>
   );
-}; 
+};
