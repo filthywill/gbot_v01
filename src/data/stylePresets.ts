@@ -50,6 +50,9 @@ const baseSettings: CustomizationOptions = {
   shieldWidth: 40
 };
 
+// Export the base settings as DEFAULT_CUSTOMIZATION_OPTIONS
+export const DEFAULT_CUSTOMIZATION_OPTIONS = baseSettings;
+
 // Define all presets in one place
 export const STYLE_PRESETS: StylePreset[] = [
   {
@@ -221,7 +224,7 @@ export const STYLE_PRESETS: StylePreset[] = [
       shadowEffectOffsetY: 12
     }
   },
-
+  
   {
     id: 'SEAFOAM',
     name: 'SEAFOAM',
@@ -250,53 +253,20 @@ export const STYLE_PRESETS: StylePreset[] = [
       shadowEffectOffsetX: -12,
       shadowEffectOffsetY: 12,
       shieldEnabled: true,
-      shieldColor: '#00805c',
-      shieldWidth: 40,
-    }
-  },
-
-  {
-    id: 'PURP',
-    name: 'PURP',
-    settings: {
-      ...baseSettings,
-      backgroundEnabled: true,
-      backgroundColor: '#3f0264',
-      fillEnabled: true,
-      fillColor: '#d67fff',
-      strokeEnabled: false,
-      strokeColor: '#ff0000',
-      strokeWidth: 45,
-      shadowEnabled: false,
-      shadowColor: '#000000',
-      shadowOpacity: 1,
-      shadowOffsetX: -400,
-      shadowOffsetY: 5,
-      shadowBlur: 0,
-      stampEnabled: true,
-      stampColor: '#7501c3',
-      stampWidth: 50,
-      shineEnabled: false,
-      shineColor: '#ffffff',
-      shineOpacity: 1,
-      shadowEffectEnabled: true,
-      shadowEffectOffsetX: 12,
-      shadowEffectOffsetY: 12,
-      shieldEnabled: true,
-      shieldColor: '#9331d9',
-      shieldWidth: 40,
+      shieldColor: '#006249',
+      shieldWidth: 79,
     }
   },
 
   {
     id: 'PINKY',
-    name: 'PINKY',
+    name: 'pinky',
     settings: {
       ...baseSettings,
       backgroundEnabled: true,
-      backgroundColor: '#121212',
+      backgroundColor: '#ff0055',
       fillEnabled: true,
-      fillColor: '#ff00b8',
+      fillColor: '#ff085a',
       strokeEnabled: false,
       strokeColor: '#ff0000',
       strokeWidth: 45,
@@ -307,17 +277,50 @@ export const STYLE_PRESETS: StylePreset[] = [
       shadowOffsetY: 5,
       shadowBlur: 0,
       stampEnabled: true,
-      stampColor: '#ff66d5',
-      stampWidth: 50,
-      shineEnabled: true,
+      stampColor: '#ffccdd',
+      stampWidth: 58,
+      shineEnabled: false,
       shineColor: '#ffffff',
-      shineOpacity: 0.7,
+      shineOpacity: 1,
       shadowEffectEnabled: true,
-      shadowEffectOffsetX: 8,
-      shadowEffectOffsetY: 8,
+      shadowEffectOffsetX: 44,
+      shadowEffectOffsetY: -6,
       shieldEnabled: true,
-      shieldColor: '#00ffff',
-      shieldWidth: 40,
+      shieldColor: '#ff5c92',
+      shieldWidth: 76,
+    }
+  },
+  
+  {
+    id: 'PURP',
+    name: 'purp',
+    settings: {
+      ...baseSettings,
+      backgroundEnabled: true,
+      backgroundColor: '#add1d4',
+      fillEnabled: true,
+      fillColor: '#edb1ff',
+      strokeEnabled: false,
+      strokeColor: '#ff0000',
+      strokeWidth: 45,
+      shadowEnabled: false,
+      shadowColor: '#000000',
+      shadowOpacity: 1,
+      shadowOffsetX: -400,
+      shadowOffsetY: 5,
+      shadowBlur: 0,
+      stampEnabled: true,
+      stampColor: '#7c0e90',
+      stampWidth: 150,
+      shineEnabled: false,
+      shineColor: '#ffffff',
+      shineOpacity: 1,
+      shadowEffectEnabled: true,
+      shadowEffectOffsetX: 21,
+      shadowEffectOffsetY: 25,
+      shieldEnabled: true,
+      shieldColor: '#b337c9',
+      shieldWidth: 35,
     }
   }
 ];
