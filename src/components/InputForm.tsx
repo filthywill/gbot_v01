@@ -30,7 +30,7 @@ export const InputForm: React.FC<InputFormProps> = ({
           onChange={(e) => setInputText(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Write your word (a-z, 0-9, spaces allowed)..."
-          className="flex-1 px-3 py-2 text-base rounded-lg border-2 border-purple-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+          className="flex-1 px-3 py-2 text-base rounded-lg bg-zinc-100 border-0 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-sm text-zinc-800 placeholder-zinc-500"
           maxLength={18}
         />
         <button
@@ -38,8 +38,8 @@ export const InputForm: React.FC<InputFormProps> = ({
           disabled={!inputText.trim() || isGenerating}
           className={`min-w-10 px-2 sm:px-3 rounded-lg font-bold text-white transition-all flex items-center justify-center ${
             isGenerating || !inputText.trim()
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-purple-500 hover:bg-purple-600'
+              ? 'bg-zinc-600 cursor-not-allowed'
+              : 'bg-purple-700 hover:bg-purple-600 shadow-sm'
           }`}
           title="Generate"
         >
