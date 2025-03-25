@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { cn } from '../../utils/cn';
-import { HexColorPicker } from 'react-colorful';
+import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { FaEyeDropper, FaCirclePlus } from 'react-icons/fa6';
 
 // Define the EyeDropper interface for TypeScript
@@ -123,6 +123,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   // Use global color state
   const [globalColors, updateGlobalColors] = useGlobalColorState();
   
+  // Keep a reference to the actual color value to handle popover open/close
+  const colorRef = useRef(value);
+  useEffect(() => {
+    colorRef.current = value;
+  }, [value]);
+  
   // Check if EyeDropper is supported
   useEffect(() => {
     // Force eyedropper to be supported in modern browsers
@@ -177,13 +183,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
     if (onChangeComplete) onChangeComplete();
   };
   
+  // Call onChangeComplete when popover is closed
   const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open && onChangeComplete) {
+    if (!open && isOpen && onChangeComplete) {
       onChangeComplete();
-      // Add the final color to recent colors when closing
-      addToRecentColors(tempColor);
     }
+    setIsOpen(open);
   };
   
   const handleEyeDropper = async () => {

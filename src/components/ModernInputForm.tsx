@@ -56,4 +56,4 @@ export const ModernInputForm: React.FC<ModernInputFormProps> = ({
       </div>
     </div>
   );
-}; 
+};

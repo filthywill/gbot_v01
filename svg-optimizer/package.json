@@ -1,0 +1,28 @@
+{
+  "name": "svg-optimizer",
+  "version": "1.0.0",
+  "description": "SVG optimization toolkit for Graffiti Generator",
+  "main": "svgOptimizer.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test-svg-optimization.js",
+    "compare": "open svg-comparison.html || start svg-comparison.html"
+  },
+  "keywords": [
+    "svg",
+    "optimization",
+    "svgo",
+    "graffiti"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "svgo": "^3.0.2"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5"
+  }
+} 

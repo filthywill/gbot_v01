@@ -51,4 +51,4 @@ export const ModernStyleSelector: React.FC<ModernStyleSelectorProps> = ({
       </div>
     </div>
   );
-}; 
+};

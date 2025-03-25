@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ModernStyleSelector } from './components/ModernStyleSelector';
 import { ModernInputForm } from './components/ModernInputForm';
 import GraffitiDisplay from './components/GraffitiDisplay';
@@ -7,8 +7,13 @@ import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWit
 import { GRAFFITI_STYLES } from './data/styles';
 import stizakLogo from './assets/logos/stizak-wh.svg';
 import { OverlapDebugPanel } from './components/OverlapDebugPanel';
+import { cn } from './lib/utils';
+import { useDevStore } from './store/useDevStore';
 
 function App() {
+  const { showValueOverlays, toggleValueOverlays } = useDevStore();
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+
   // Get all state and actions from our Zustand-powered hook
   const {
     inputText,
@@ -32,7 +37,7 @@ function App() {
   } = useGraffitiGeneratorWithZustand();
   
   // Flag to track if we've had at least one successful generation
-  const hasInitialGeneration = useRef(false);
+  const hasInitialGeneration = React.useRef(false);
 
   // Effect to update the hasInitialGeneration ref when we have processed SVGs
   useEffect(() => {
@@ -73,102 +78,123 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-900 flex flex-col">
-      <header className="bg-zinc-800 shadow-sm">
-        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-center items-center">
-          <img 
-            src={stizakLogo} 
-            alt="GraffitiSOFT"
-            className="h-[130px] w-auto" 
-          />
-        </div>
-      </header>
-      
-      <main className="flex-grow">
-        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-          <div className="space-y-2">
-            {/* Top section: Input and Style Selection */}
-            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
-              <ModernInputForm 
-                inputText={displayInputText}
-                setInputText={handleInputTextChange}
-                isGenerating={isGenerating}
-                onGenerate={generateGraffiti}
-              />
-              
-              {error && (
-                <div className="mt-1 text-red-400 text-xs bg-red-900 bg-opacity-50 p-1 rounded animate-pulse-once">
-                  {error}
-                </div>
-              )}
-              
-              {/* Style Selector - removed extra top margin for better alignment */}
-              <div className="mt-1.5">
-                <ModernStyleSelector 
-                  styles={GRAFFITI_STYLES}
-                  selectedStyle={selectedStyle}
-                  onSelectStyle={handleStyleChange}
+    <div className="min-h-screen bg-zinc-900 text-white">
+      {/* Main App Content */}
+      <div className="min-h-screen">
+        {/* Logo Header */}
+        <header className="bg-zinc-800 shadow-sm">
+          <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-center">
+            <img 
+              src={stizakLogo} 
+              alt="GraffitiSOFT"
+              className="h-[130px] w-auto" 
+            />
+          </div>
+        </header>
+        
+        <main className="flex-grow">
+          <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
+            <div className="space-y-2">
+              {/* Top section: Input and Style Selection */}
+              <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
+                <ModernInputForm 
+                  inputText={displayInputText}
+                  setInputText={handleInputTextChange}
+                  isGenerating={isGenerating}
+                  onGenerate={generateGraffiti}
                 />
+                
+                {error && (
+                  <div className="mt-1 text-red-400 text-xs bg-red-900 bg-opacity-50 p-1 rounded animate-pulse-once">
+                    {error}
+                  </div>
+                )}
+                
+                {/* Style Selector - removed extra top margin for better alignment */}
+                <div className="mt-1.5">
+                  <ModernStyleSelector 
+                    styles={GRAFFITI_STYLES}
+                    selectedStyle={selectedStyle}
+                    onSelectStyle={handleStyleChange}
+                  />
+                </div>
               </div>
-            </div>
-            
-            {/* Preview Section */}
-            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
-              {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
-              <div className="w-full relative bg-zinc-700 rounded-md overflow-hidden">
-                <div className="w-full pb-[56.25%] relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {processedSvgs.length > 0 ? (
-                      <GraffitiDisplay 
-                        isGenerating={isGenerating}
-                        processedSvgs={processedSvgs}
-                        positions={positions}
-                        contentWidth={contentWidth}
-                        contentHeight={contentHeight}
-                        containerScale={containerScale}
-                        customizationOptions={customizationOptions}
-                        customizationHistory={history}
-                        currentHistoryIndex={currentHistoryIndex}
-                        onUndoRedo={handleUndoRedo}
-                        inputText={displayInputText}
-                      />
-                    ) : (
-                      <div className="text-zinc-400 text-center p-3">
-                        {hasInitialGeneration.current ? (
-                          <p className="text-sm">No text to display. Enter some text and click Create.</p>
-                        ) : (
-                          <div className="space-y-1">
-                            <p className="text-zinc-400 text-sm">Enter text above and click Create to generate your graffiti</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
+              
+              {/* Preview Section */}
+              <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
+                {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
+                <div className="w-full relative bg-zinc-700 rounded-md overflow-hidden">
+                  <div className="w-full pb-[56.25%] relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {processedSvgs.length > 0 ? (
+                        <GraffitiDisplay 
+                          isGenerating={isGenerating}
+                          processedSvgs={processedSvgs}
+                          positions={positions}
+                          contentWidth={contentWidth}
+                          contentHeight={contentHeight}
+                          containerScale={containerScale}
+                          customizationOptions={customizationOptions}
+                          customizationHistory={history}
+                          currentHistoryIndex={currentHistoryIndex}
+                          onUndoRedo={handleUndoRedo}
+                          inputText={displayInputText}
+                        />
+                      ) : (
+                        <div className="text-zinc-400 text-center p-3">
+                          {hasInitialGeneration.current ? (
+                            <p className="text-sm">No text to display. Enter some text and click Create.</p>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-zinc-400 text-sm">Enter text above and click Create to generate your graffiti</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Customization Section */}
-            <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <ModernCustomizationToolbar 
-                options={customizationOptions}
-                onChange={handleCustomizationChange}
-              />
+              
+              {/* Customization Section */}
+              <div className="bg-zinc-800 shadow-md rounded-md p-0.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                <ModernCustomizationToolbar 
+                  options={customizationOptions}
+                  onChange={handleCustomizationChange}
+                />
+              </div>
             </div>
           </div>
+        </main>
+        
+        <footer className="shadow-inner mt-2">
+          <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
+            <p className="text-center text-zinc-400 text-xs">
+              STIZAK &copy;{new Date().getFullYear()}
+            </p>
+          </div>
+        </footer>
+        
+        {/* Add the debug panel */}
+        {process.env.NODE_ENV === 'development' && <OverlapDebugPanel />}
+      </div>
+
+      {/* Dev Mode Buttons - Always visible */}
+      {isDev && (
+        <div className="fixed top-2 right-2 z-[9999] flex gap-2">
+          <button
+            onClick={toggleValueOverlays}
+            className={cn(
+              "px-3 py-1.5 rounded text-xs font-medium shadow-lg transition-colors",
+              showValueOverlays 
+                ? "bg-purple-600/90 hover:bg-purple-700 text-white"
+                : "bg-zinc-700/90 hover:bg-zinc-600 text-zinc-300"
+            )}
+          >
+            {showValueOverlays ? "Hide Values" : "Show Values"}
+          </button>
         </div>
-      </main>
-      
-      <footer className="bg-zinc-800 shadow-inner mt-2">
-        <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-          <p className="text-center text-zinc-400 text-xs">
-            Graffiti Generator &copy; {new Date().getFullYear()}
-          </p>
-        </div>
-      </footer>
-      
-      {/* Add the debug panel */}
-      {process.env.NODE_ENV === 'development' && <OverlapDebugPanel />}
+      )}
     </div>
   );
 }

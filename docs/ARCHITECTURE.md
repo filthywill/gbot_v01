@@ -88,9 +88,15 @@ The application uses a comprehensive UI system built with:
 
 #### CustomizationToolbar
 - Provides comprehensive customization controls
-- Implements preset management
+- Implements customization sliders and toggles
 - Offers real-time preview updates
 - Groups related controls logically
+
+#### StylePresetsPanel
+- Manages preset style selection and application
+- Handles user-created preset management
+- Provides preset saving, loading, and deletion
+- Organizes presets in an easy-to-browse grid layout
 
 ## Development Guidelines
 
@@ -99,6 +105,8 @@ The application uses a comprehensive UI system built with:
 - Implement proper type definitions
 - Follow component-based architecture
 - Keep components focused and maintainable
+- Extract complex functionality into separate components
+- Limit component size to improve maintainability
 
 ### Performance Optimization
 - Implement SVG caching mechanisms
@@ -111,6 +119,12 @@ The application uses a comprehensive UI system built with:
 - Implement efficient bounds detection
 - Use proper SVG attribute management
 - Handle SVG parsing errors gracefully
+
+### Component Organization
+- Follow single responsibility principle
+- Create focused components for specific features
+- Extract reusable functionality into separate components
+- Maintain clear component hierarchies
 
 ## Future Considerations
 
