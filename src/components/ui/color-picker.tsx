@@ -119,6 +119,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   const [tempColor, setTempColor] = useState(value);
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false);
   const [isPickingColor, setIsPickingColor] = useState(false);
+  const [initialColor, setInitialColor] = useState(value);
   
   // Use global color state
   const [globalColors, updateGlobalColors] = useGlobalColorState();
@@ -177,16 +178,33 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   };
   
   const handleSwatchClick = (color: string) => {
-    setTempColor(color);
-    onChange(color);
-    addToRecentColors(color);
+    // Only change the color if it's different from the current temp color
+    if (color.toLowerCase() !== tempColor.toLowerCase()) {
+      setTempColor(color);
+      onChange(color);
+      
+      // Don't add to recent colors immediately - this will happen on popover close
+    }
+    
     if (onChangeComplete) onChangeComplete();
   };
   
   // Call onChangeComplete when popover is closed
   const handleOpenChange = (open: boolean) => {
-    if (!open && isOpen && onChangeComplete) {
-      onChangeComplete();
+    if (open) {
+      // Save initial color when opening
+      setInitialColor(tempColor);
+    } else if (isOpen) {
+      // Only when closing and previously open
+      // Add to recent colors if the color has actually changed
+      if (tempColor.toLowerCase() !== initialColor.toLowerCase()) {
+        addToRecentColors(tempColor);
+      }
+      
+      // Call onChangeComplete if provided
+      if (onChangeComplete) {
+        onChangeComplete();
+      }
     }
     setIsOpen(open);
   };
@@ -200,7 +218,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         const result = await eyeDropper.open();
         setTempColor(result.sRGBHex);
         onChange(result.sRGBHex);
-        addToRecentColors(result.sRGBHex);
+        // Don't add to recent colors immediately - this will happen on popover close
         if (onChangeComplete) onChangeComplete();
       } else {
         console.error('EyeDropper API not available in this browser');
