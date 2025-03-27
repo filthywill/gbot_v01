@@ -372,11 +372,11 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
               <ChevronDown className="w-3 h-3 text-purple-200" />
             }
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 pt-1 pb-0.5">
+          <CollapsibleContent className="space-y-1 pt-1.5 pb-0.5">
             {/* Background and Fill Row */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 items-start">
               {/* Background */}
-              <div className="flex justify-center w-full">
+              <div className="space-y-1 flex-grow">
                 <BackgroundControl
                   enabled={options.backgroundEnabled}
                   onToggle={(enabled) => handleToggleChange({ backgroundEnabled: enabled })}
@@ -387,7 +387,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
               </div>
 
               {/* Fill */}
-              <div className="flex justify-center w-full">
+              <div className="space-y-1 flex-grow">
                 <FillControl
                   color={options.fillColor}
                   onColorChange={(color) => handleDragChange({ fillColor: color })}
