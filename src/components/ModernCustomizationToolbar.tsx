@@ -372,7 +372,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
               <ChevronDown className="w-3 h-3 text-purple-200" />
             }
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 pt-1.5 pb-0.5">
+          <CollapsibleContent className="space-y-1 pt-1 pb-0.5">
             {/* Background and Fill Row */}
             <div className="grid grid-cols-2 gap-1.5">
               {/* Background */}
