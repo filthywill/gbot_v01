@@ -376,7 +376,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
             {/* Background and Fill Row */}
             <div className="grid grid-cols-2 gap-1.5">
               {/* Background */}
-              <div className="space-y-1">
+              <div className="flex justify-center w-full">
                 <BackgroundControl
                   enabled={options.backgroundEnabled}
                   onToggle={(enabled) => handleToggleChange({ backgroundEnabled: enabled })}
@@ -387,7 +387,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
               </div>
 
               {/* Fill */}
-              <div className="space-y-1">
+              <div className="flex justify-center w-full">
                 <FillControl
                   color={options.fillColor}
                   onColorChange={(color) => handleDragChange({ fillColor: color })}

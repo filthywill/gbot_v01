@@ -68,12 +68,13 @@ export const BaseControlItem: React.FC<BaseControlItemProps> = ({
 
   return (
     <div className={cn(
-      "bg-zinc-500/25 rounded-lg relative px-1.5", // Always use consistent horizontal padding
-      contentSlot ? "pt-1" : "py-1", // Adjust vertical padding for controls with/without content
+      "bg-zinc-500/25 rounded-lg relative w-full", // Ensure full width
+      "px-1.5", // Consistent horizontal padding
+      contentSlot ? "pt-1" : "py-1", // Adjust vertical padding based on content
       isContentVisible && bottomPadding && contentSlot ? "pb-1" : "pb-0"
     )}>
       {/* Header row with label and toggle */}
-      <div className="flex items-center justify-between gap-1.5 min-h-[28px]">
+      <div className="flex items-center justify-between gap-1.5 min-h-[28px] w-full">
         <div className="flex items-center gap-1.5">
           {hasToggle && (
             <Switch
@@ -106,10 +107,10 @@ export const BaseControlItem: React.FC<BaseControlItemProps> = ({
 
       {/* Content section */}
       {contentSlot && (
-        <div className="overflow-visible">
+        <div className="overflow-visible w-full">
           <div 
             className={cn(
-              "transition-all duration-150 ease-in-out",
+              "transition-all duration-150 ease-in-out w-full",
               !isContentVisible ? "h-0 opacity-0 -translate-y-2 -mb-px" : `${contentHeight} opacity-100 translate-y-0`
             )}
           >
