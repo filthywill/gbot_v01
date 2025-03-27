@@ -1,5 +1,42 @@
 # Recent Updates
 
+## May 13, 2024
+
+### Control Component Fixes
+
+1. **Vertical Alignment Fixes**:
+   - Fixed vertical alignment issues in BackgroundControl and FillControl
+   - Updated BaseControlItem to handle controls without sliders more consistently
+   - Adjusted padding to ensure consistent appearance across all control types
+   - Improved the layout consistency in the ModernCustomizationToolbar grid
+
+### Control Component Restructuring
+
+1. **New Control Architecture**:
+   - Created `BaseControlItem` component as the foundation for all controls
+   - Refactored `ModernControlItem` to use `BaseControlItem`
+   - Refactored `EffectControlItem` to use `BaseControlItem`
+   - Updated exports in controls index.ts
+
+2. **Value Conversion Centralization**:
+   - Created `sliderValueConversion.ts` utility file
+   - Centralized value conversion configurations
+   - Standardized ValueConfig interface
+   - Added predefined conversion configurations for commonly used controls
+
+3. **UI Improvements**:
+   - Fixed layout issues in collapsed controls
+   - Improved animation transitions
+   - Added consistent spacing and styling across all controls
+
+### Benefits of New Architecture
+
+- Reduced code duplication
+- Improved maintainability
+- Consistent UI/UX across controls
+- Better type safety with shared interfaces
+- Simplified implementation of new controls
+
 ## March 22, 2024
 
 ### Successfully Pushed Files

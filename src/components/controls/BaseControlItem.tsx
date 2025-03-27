@@ -68,8 +68,9 @@ export const BaseControlItem: React.FC<BaseControlItemProps> = ({
 
   return (
     <div className={cn(
-      "bg-zinc-500/25 rounded-lg relative pt-1 px-1.5",
-      isContentVisible && bottomPadding ? "pb-1" : "pb-0"
+      "bg-zinc-500/25 rounded-lg relative",
+      contentSlot ? "pt-1 px-1.5" : "py-1.5 px-1.5", // Adjust vertical padding for controls without content
+      isContentVisible && bottomPadding && contentSlot ? "pb-1" : "pb-0"
     )}>
       {/* Header row with label and toggle */}
       <div className="flex items-center justify-between gap-1.5 min-h-[28px]">
