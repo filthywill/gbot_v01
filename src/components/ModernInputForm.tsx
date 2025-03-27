@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaSprayCan } from 'react-icons/fa6';
+import { FaTimes } from 'react-icons/fa';
 
 interface ModernInputFormProps {
   inputText: string;
@@ -35,9 +36,23 @@ export const ModernInputForm: React.FC<ModernInputFormProps> = ({
             maxLength={18}
           />
           {inputText && (
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-zinc-400">
-              {inputText.length}/18
-            </div>
+            <>
+              <div 
+                className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-zinc-400 sm:mt-[-2px] mt-0" 
+                style={{ lineHeight: '16px', height: '16px' }}
+              >
+                {inputText.length}/18
+              </div>
+              <button
+                onClick={() => setInputText('')}
+                className="absolute right-2 top-[50%] -translate-y-[50%] text-zinc-400 hover:text-zinc-600 transition-colors sm:mt-[-1px] mt-15"
+                style={{ lineHeight: '16px', height: '16px' }}
+                type="button"
+                title="Clear text"
+              >
+                <FaTimes className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
         </div>
         <button
