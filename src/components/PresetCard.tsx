@@ -31,7 +31,7 @@ const PresetCard: React.FC<PresetCardProps> = memo(({
       'REDECHO': 'redecho',
       'SLAP': 'slap', 
       'IGLOO': 'igloo',
-      'SUNKIST': 'slap', // Fallback to slap if sunkist is missing
+      'SUNKIST': 'sunkist', // Fallback to slap if sunkist is missing
       'CONCRETE': 'concrete',
       'SEAFOAM': 'seafoam',
       'PURP': 'purp',
