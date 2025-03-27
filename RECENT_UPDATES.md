@@ -4,12 +4,12 @@
 
 ### Control Component Fixes
 
-1. **Alignment Fixes**:
-   - Fixed horizontal centering issues in BackgroundControl and FillControl
-   - Updated BaseControlItem to use consistent horizontal padding and full width
-   - Improved ModernCustomizationToolbar grid layout with proper flexbox alignment
-   - Added explicit width control to ensure controls properly fill their containers
-   - Ensured consistent sizing and centering across all control types
+1. **Improved Control Layout**:
+   - Enhanced horizontal centering for controls without sliders (Background and Fill)
+   - Added adaptive justification that changes based on control complexity
+   - Increased vertical padding for simple controls to improve visual balance
+   - Used justify-evenly for controls without sliders for better element distribution
+   - Implemented larger spacing between elements in simple controls
 
 ### Control Component Restructuring
 

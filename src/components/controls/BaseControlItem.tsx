@@ -66,16 +66,26 @@ export const BaseControlItem: React.FC<BaseControlItemProps> = ({
     setIsContentVisible((!hasToggle || enabled) && isExpanded);
   }, [hasToggle, enabled, isExpanded]);
 
+  // Determine if this is a simple control (no slider)
+  const isSimpleControl = !contentSlot;
+
   return (
     <div className={cn(
       "bg-zinc-500/25 rounded-lg relative w-full", // Ensure full width
       "px-1.5", // Consistent horizontal padding
-      contentSlot ? "pt-1" : "py-1", // Adjust vertical padding based on content
+      isSimpleControl ? "py-2" : "pt-1", // More vertical padding for simple controls
       isContentVisible && bottomPadding && contentSlot ? "pb-1" : "pb-0"
     )}>
       {/* Header row with label and toggle */}
-      <div className="flex items-center justify-between gap-1.5 min-h-[28px] w-full">
-        <div className="flex items-center gap-1.5">
+      <div className={cn(
+        "flex items-center w-full min-h-[28px]", 
+        // Use different justification based on whether it's a simple control
+        isSimpleControl ? "justify-evenly px-1" : "justify-between gap-1.5"
+      )}>
+        <div className={cn(
+          "flex items-center", 
+          isSimpleControl ? "gap-2" : "gap-1.5" // Slightly more spacing in simple controls
+        )}>
           {hasToggle && (
             <Switch
               checked={enabled}
