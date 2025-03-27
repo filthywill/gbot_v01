@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ModernControlItem } from './ModernControlItem';
 
 interface BackgroundControlProps {
@@ -18,7 +18,7 @@ export const BackgroundControl: React.FC<BackgroundControlProps> = ({
 }) => {
   return (
     <ModernControlItem
-      label="BACKGROUND"
+      label="BG"
       hasToggle={true}
       hasColorPicker={true}
       isCollapsible={false}

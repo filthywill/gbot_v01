@@ -4,5 +4,4 @@ export { OutlineControl } from './OutlineControl';
 export { ShieldControl } from './ShieldControl';
 export { ShadowControl } from './ShadowControl';
 export { ModernControlItem } from './ModernControlItem';
-export { EffectControlItem } from './EffectControlItem';
-export { BaseControlItem } from './BaseControlItem'; 
+export { EffectControlItem } from './EffectControlItem'; 
