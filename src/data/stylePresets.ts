@@ -221,7 +221,7 @@ export const STYLE_PRESETS: StylePreset[] = [
       shadowEffectOffsetY: 12
     }
   },
-
+  
   {
     id: 'SEAFOAM',
     name: 'SEAFOAM',
@@ -318,6 +318,39 @@ export const STYLE_PRESETS: StylePreset[] = [
       shieldEnabled: true,
       shieldColor: '#b337c9',
       shieldWidth: 35,
+    }
+  },
+
+  {
+    id: 'KEYLIME',
+    name: 'keylime',
+    settings: {
+      ...baseSettings,
+      backgroundEnabled: true,
+      backgroundColor: '#141123',
+      fillEnabled: true,
+      fillColor: '#baff00',
+      strokeEnabled: false,
+      strokeColor: '#ff0000',
+      strokeWidth: 45,
+      shadowEnabled: false,
+      shadowColor: '#000000',
+      shadowOpacity: 1,
+      shadowOffsetX: -400,
+      shadowOffsetY: 5,
+      shadowBlur: 0,
+      stampEnabled: true,
+      stampColor: '#000000',
+      stampWidth: 80,
+      shineEnabled: false,
+      shineColor: '#ffffff',
+      shineOpacity: 1,
+      shadowEffectEnabled: true,
+      shadowEffectOffsetX: -4,
+      shadowEffectOffsetY: 20,
+      shieldEnabled: true,
+      shieldColor: '#ffffff',
+      shieldWidth: 67,
     }
   },
 

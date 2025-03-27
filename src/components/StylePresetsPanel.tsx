@@ -18,7 +18,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
   onPresetSelect,
 }) => {
   // State for collapsible sections
-  const [isPresetsOpen, setIsPresetsOpen] = useState(false);
+  const [isPresetsOpen, setIsPresetsOpen] = useState(true);
   
   // State for user presets
   const [userPresets, setUserPresets] = useState<StylePreset[]>([]);
@@ -137,7 +137,11 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
 
   return (
     <>
-      <Collapsible open={isPresetsOpen} onOpenChange={() => setIsPresetsOpen(!isPresetsOpen)}>
+      <Collapsible 
+        open={isPresetsOpen} 
+        onOpenChange={setIsPresetsOpen}
+        className="animate-none"
+      >
         <CollapsibleTrigger className={`${sectionHeaderClass} bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700`}>
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-extrabold text-purple-100">STYLE PRESETS</h3>
@@ -149,7 +153,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-1.5 pb-0.5">
           {/* Built-in Presets */}
-          <div className="mb-2 p-2 bg-zinc-700 rounded-lg">
+          <div className="mb-2 p-2 bg-zinc-700/80 rounded-lg">
             <h4 className="text-xs font-medium text-zinc-300 mb-1.5 px-1">FEATURED STYLES</h4>
             <PresetGrid
               presets={STYLE_PRESETS}
@@ -160,7 +164,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
           
           {/* User Presets (Dev Mode Only) */}
           {isDev && userPresets.length > 0 && (
-            <div className="mt-2 mb-2 p-2 bg-zinc-700 rounded-lg">
+            <div className="mt-2 mb-2 p-2 bg-zinc-700/80 rounded-lg">
               <h4 className="text-xs font-medium text-zinc-300 mb-1.5 px-1">CUSTOM STYLES</h4>
               <PresetGrid
                 presets={userPresets}

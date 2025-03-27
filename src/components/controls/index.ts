@@ -3,5 +3,6 @@ export { FillControl } from './FillControl';
 export { OutlineControl } from './OutlineControl';
 export { ShieldControl } from './ShieldControl';
 export { ShadowControl } from './ShadowControl';
-export { DevValueDisplay } from './DevValueDisplay';
-export { ControlItem } from './ControlItem'; 
+export { ModernControlItem } from './ModernControlItem';
+export { EffectControlItem } from './EffectControlItem';
+export { BaseControlItem } from './BaseControlItem'; 

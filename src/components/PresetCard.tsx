@@ -23,16 +23,35 @@ const PresetCard: React.FC<PresetCardProps> = memo(({
   const [hasCopied, setHasCopied] = useState(false);
   
   // Memoize thumbnail path generation
-  const thumbnailPath = useMemo(() => 
-    `/assets/preset-thumbs/th-${preset.id.toLowerCase().replace(/\s+/g, '-')}.svg`,
-    [preset.id]
-  );
+  const thumbnailPath = useMemo(() => {
+    // We have these specific thumbnails in public/assets/preset-thumbs
+    const availableThumbnails: Record<string, string> = {
+      'CLASSIC': 'classic',
+      'BW': 'bw',
+      'REDECHO': 'redecho',
+      'SLAP': 'slap', 
+      'IGLOO': 'igloo',
+      'SUNKIST': 'slap', // Fallback to slap if sunkist is missing
+      'CONCRETE': 'concrete',
+      'SEAFOAM': 'seafoam',
+      'PURP': 'purp',
+      'PINKY': 'pinky',
+      'KEYLIME': 'keylime',
+    };
+    
+    // Use the mapped name if available, otherwise normalize the preset ID
+    const thumbnailName = availableThumbnails[preset.id] || 
+      preset.id.toLowerCase().replace(/[_\s]+/g, '-');
+      
+    return `/assets/preset-thumbs/th-${thumbnailName}.svg`;
+  }, [preset.id]);
 
   // Check if it's a user preset (for custom thumbnail fallback)
-  const isUserPreset = useMemo(() => 
-    !["CLASSIC", "SLAP", "IGLOO", "SUNKIST", "CONCRETE"].includes(preset.id),
-    [preset.id]
-  );
+  const isUserPreset = useMemo(() => {
+    // List of known preset IDs that have thumbnails
+    const knownPresets = ["CLASSIC", "BW", "REDECHO", "SLAP", "IGLOO", "SUNKIST", "CONCRETE", "SEAFOAM", "PURP", "PINKY", "KEYLIME"];
+    return !knownPresets.includes(preset.id);
+  }, [preset.id]);
   
   // Check if in dev mode
   const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
@@ -46,6 +65,7 @@ const PresetCard: React.FC<PresetCardProps> = memo(({
       linear-gradient(-45deg, transparent 75%, #c3c3c3 75%)
     `,
     backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+    backgroundSize: '16px 16px',
   }), []);
 
   // Handler for the delete button to prevent event propagation
@@ -108,6 +128,24 @@ ${Object.entries(nonDefaultSettings)
     }
   };
 
+  // Render a color preview based on preset colors
+  const renderColorPreview = () => {
+    const { fillColor, stampColor } = preset.settings;
+    return (
+      <div 
+        className="w-full h-16 flex items-center justify-center" 
+        style={{
+          backgroundColor: fillColor || '#ffffff',
+          color: stampColor || '#000000',
+          fontWeight: 'bold',
+          fontSize: '12px',
+        }}
+      >
+        {preset.name}
+      </div>
+    );
+  };
+
   return (
     <div
       onClick={onClick}
@@ -118,8 +156,8 @@ ${Object.entries(nonDefaultSettings)
         'transition-all duration-150 ease-in-out',
         'cursor-pointer',
         isActive 
-          ? 'shadow-[0_3px_5px_-1px_rgba(0,0,0,0.3)]'
-          : 'hover:bg-gray-300/90 hover:z-10'
+          ? 'shadow-[0_3px_5px_-1px_rgba(0,0,0,0.3)] scale-[1.02] z-10'
+          : 'hover:bg-gray-300/90 hover:z-10 hover:scale-[1.01]'
       )}
       role="button"
       tabIndex={0}
@@ -165,52 +203,43 @@ ${Object.entries(nonDefaultSettings)
         </button>
       )}
       
-      {/* Thumbnail container with reduced padding and scaled up image */}
-      <div className="p-0.1 flex items-center justify-center">
-        <div className="w-full overflow-hidden rounded relative">
+      {/* Thumbnail container with checkerboard background */}
+      <div className="p-0.5 flex items-center justify-center">
+        <div className="w-full overflow-hidden rounded relative" style={{ minHeight: '60px' }}>
           {/* Checkerboard pattern background */}
           <div 
-            className="absolute inset-0 bg-[length:16px_16px]" 
+            className="absolute inset-0" 
             style={checkerboardStyle}
           />
-          <img 
-            src={thumbnailPath}
-            alt={`${preset.name} style preview`}
-            className="w-full h-auto scale-[1.4] transform origin-center relative"
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              
-              // For user presets, show a fallback with color instead
-              if (isUserPreset) {
-                const parent = target.parentNode as HTMLElement;
-                const fallback = document.createElement('div');
-                fallback.className = "w-full h-20 flex items-center justify-center";
-                fallback.style.backgroundColor = preset.settings.fillColor || '#ffffff';
-                fallback.style.color = preset.settings.stampColor || '#000000';
-                fallback.style.fontWeight = 'bold';
-                fallback.style.fontSize = '12px';
-                fallback.innerText = preset.name;
-                parent.appendChild(fallback);
-              }
-            }}
-          />
-          
-          {/* Overlay label */}
-          {/*}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-[1px] px-1 py-0.2">
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-[11px] font-medium text-white truncate text-center">
-                {preset.name}
-              </span>
-              {isActive && (
-                <span className="shrink-0 w-1 h-1 rounded-full bg-purple-400" />
-              )}
-            </div>
-          </div>
-          */}
+          {isUserPreset ? (
+            renderColorPreview()
+          ) : (
+            <>
+              <img 
+                src={thumbnailPath}
+                alt={`${preset.name} style preview`}
+                className="w-full h-auto scale-[1.4] transform origin-center relative"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  console.error(`Failed to load thumbnail for preset: ${preset.id}. Path attempted: ${thumbnailPath}`);
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  
+                  // Add a fallback color preview to the parent
+                  const parent = target.parentNode as HTMLElement;
+                  const fallback = document.createElement('div');
+                  fallback.className = "w-full h-16 flex items-center justify-center";
+                  fallback.style.backgroundColor = preset.settings.fillColor || '#ffffff';
+                  fallback.style.color = preset.settings.stampColor || '#000000';
+                  fallback.style.fontWeight = 'bold';
+                  fallback.style.fontSize = '12px';
+                  fallback.innerText = preset.name;
+                  parent.appendChild(fallback);
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -219,7 +248,7 @@ ${Object.entries(nonDefaultSettings)
 
 PresetCard.displayName = 'PresetCard';
 
-// Grid container with reduced spacing
+// Grid container
 export const PresetGrid: React.FC<{
   presets: StylePreset[];
   activePresetId?: string;

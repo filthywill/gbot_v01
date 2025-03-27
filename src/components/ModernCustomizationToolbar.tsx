@@ -1,7 +1,24 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useState } from 'react';
 import { CustomizationOptions } from '../types';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { 
+  Palette, 
+  ChevronDown, 
+  ChevronUp, 
+  ArrowLeft, 
+  ArrowRight, 
+  ArrowUp, 
+  ArrowDown,
+  PaintBucket,
+  Brush,
+  Droplets,
+  SunMoon,
+  Sparkles,
+  CircleDashed,
+  Save,
+  BatteryFull,
+  Settings
+} from 'lucide-react';
 import { FaChevronCircleUp, FaChevronCircleDown } from "react-icons/fa";
 import { STYLE_PRESETS, StylePreset } from '../data/stylePresets';
 import { StylePresetsPanel } from './StylePresetsPanel';
@@ -10,6 +27,15 @@ import { ValueSlider } from './ui/value-slider';
 import { ColorPicker } from './ui/color-picker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useDevStore } from '../store/useDevStore';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { OutlineControl } from './controls/OutlineControl';
+import { ShadowControl } from './controls/ShadowControl';
+import { BackgroundControl } from './controls/BackgroundControl';
+import { FillControl } from './controls/FillControl';
+import { ShieldControl } from './controls/ShieldControl';
+import { DevValueDisplay } from './ui/dev-value-display';
 
 interface ModernCustomizationToolbarProps {
   options: CustomizationOptions;
@@ -27,20 +53,6 @@ interface ControlRowProps {
   onColorComplete?: () => void;
   onSliderComplete?: () => void;
 }
-
-// Helper component to display values in dev mode
-const DevValueDisplay = ({ value, displayValue }: { value: number; displayValue?: number }) => {
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
-  const { showValueOverlays } = useDevStore();
-  
-  if (!isDev || !showValueOverlays) return null;
-  
-  return (
-    <div className="absolute right-0 top-0 bg-black/70 text-xs text-white/70 px-1 rounded pointer-events-none translate-y-[-50%]">
-      {displayValue !== undefined ? `${displayValue} (${value})` : value}
-    </div>
-  );
-};
 
 const ControlRow: React.FC<ControlRowProps> = ({
   label,
@@ -63,7 +75,7 @@ const ControlRow: React.FC<ControlRowProps> = ({
         return {
           min: 25,
           max: 200,
-          step: 8,
+          step: 1,
           displayMin: 1,
           displayMax: 25,
           toDisplayValue: (value: number) => Math.round(((value - 25) / (200 - 25)) * 24 + 1),
@@ -73,7 +85,7 @@ const ControlRow: React.FC<ControlRowProps> = ({
         return {
           min: 1,
           max: 250,
-          step: 5, // (250-1)/50 steps
+          step: 2,
           displayMin: 1,
           displayMax: 50,
           toDisplayValue: (value: number) => Math.round(((value - 1) / (250 - 1)) * 49 + 1),
@@ -83,7 +95,7 @@ const ControlRow: React.FC<ControlRowProps> = ({
         return {
           min: 0,
           max: 10,
-          step: 0.1,
+          step: 2,
           displayMin: 0,
           displayMax: 10,
           toDisplayValue: (value: number) => value,
@@ -163,135 +175,40 @@ const ControlRow: React.FC<ControlRowProps> = ({
   );
 };
 
-const ShadowControl: React.FC<{
-  enabled: boolean;
-  onToggle: (enabled: boolean) => void;
-  offsetX: number;
-  onOffsetXChange: (x: number) => void;
-  offsetY: number;
-  onOffsetYChange: (y: number) => void;
-  onSliderComplete?: () => void;
-}> = ({
-  enabled,
-  onToggle,
-  offsetX,
-  onOffsetXChange,
-  offsetY,
-  onOffsetYChange,
-  onSliderComplete,
-}) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  // Shadow slider configuration
-  const shadowConfig = {
-    min: -30,
-    max: 70,
-    displayMin: -25,
-    displayMax: 25,
-    toDisplayValue: (value: number) => {
-      // Map the actual range to display range
-      if (value < 0) {
-        return Math.round((value / 30) * 25);
-      } else {
-        return Math.round((value / 70) * 25);
-      }
-    },
-    toActualValue: (display: number) => {
-      // Map the display range back to actual range
-      if (display < 0) {
-        return Math.round((display / 25) * 30);
-      } else {
-        return Math.round((display / 25) * 70);
-      }
-    }
-  };
-
-  return (
-    <div className="bg-zinc-700/50 rounded-lg p-1.5 relative">
-      {/* Header */}
-      <div className="flex items-center gap-1.5">
-        <Switch
-          checked={enabled}
-          onCheckedChange={onToggle}
-          className="data-[state=checked]:bg-purple-600"
-        />
-        <div className="flex items-center gap-0.5">
-          <span className="text-sm text-zinc-200 ui-label leading-none flex items-center -mt-[1px] pl-[2px]">SHADOW</span>
-          {enabled && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center justify-center w-4 h-4 hover:bg-zinc-600/30 rounded -mt-[1px]"
-            >
-              {isExpanded ? (
-                <FaChevronCircleUp className="w-3 h-3 text-zinc-500" />
-              ) : (
-                <FaChevronCircleDown className="w-3 h-3 text-zinc-500" />
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Shadow controls */}
-      {enabled && isExpanded && (
-        <div className="mt-1 space-y-1">
-          <div className="grid grid-cols-[100px_1fr] items-center gap-1.5">
-            <span className="text-xs text-zinc-400 ui-label pl-[36px]">Horizontal</span>
-            <div className="relative">
-              <DevValueDisplay 
-                value={offsetX} 
-                displayValue={shadowConfig.toDisplayValue(offsetX)} 
-              />
-              <ValueSlider
-                value={[shadowConfig.toDisplayValue(offsetX)]}
-                min={shadowConfig.displayMin}
-                max={shadowConfig.displayMax}
-                step={1}
-                onValueChange={([value]) => {
-                  const actualValue = shadowConfig.toActualValue(value);
-                  onOffsetXChange(actualValue);
-                }}
-                onValueCommit={onSliderComplete}
-                className="data-[state=checked]:bg-purple-600"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-[100px_1fr] items-center gap-1.5">
-            <span className="text-xs text-zinc-400 ui-label pl-[36px]">Vertical</span>
-            <div className="relative">
-              <DevValueDisplay 
-                value={offsetY} 
-                displayValue={shadowConfig.toDisplayValue(offsetY)} 
-              />
-              <ValueSlider
-                value={[shadowConfig.toDisplayValue(offsetY)]}
-                min={shadowConfig.displayMin}
-                max={shadowConfig.displayMax}
-                step={1}
-                onValueChange={([value]) => {
-                  const actualValue = shadowConfig.toActualValue(value);
-                  onOffsetYChange(actualValue);
-                }}
-                onValueCommit={onSliderComplete}
-                className="data-[state=checked]:bg-purple-600"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProps> = ({ 
   options,
   onChange,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [isPresetsOpen, setIsPresetsOpen] = useState(true);
   
   // State for tracking dragging status
   const [isDragging, setIsDragging] = useState(false);
   const [tempOptions, setTempOptions] = useState<CustomizationOptions>(options);
+  
+  // State for user presets
+  const [userPresets, setUserPresets] = useState<StylePreset[]>([]);
+  
+  // State for save preset dialog
+  const [isSavePresetDialogOpen, setSavePresetDialogOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  
+  // Check if we're in development mode
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  
+  // Load user presets from localStorage on component mount
+  useEffect(() => {
+    if (isDev) {
+      try {
+        const savedPresets = localStorage.getItem('userPresets');
+        if (savedPresets) {
+          setUserPresets(JSON.parse(savedPresets));
+        }
+      } catch (error) {
+        console.error('Error loading user presets:', error);
+      }
+    }
+  }, [isDev]);
   
   // Update temp options when options change and not dragging
   useEffect(() => {
@@ -328,6 +245,13 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
     }
   }, [isDragging, tempOptions, onChange]);
   
+  // Handler for when slider interaction completes
+  const handleSliderComplete = () => {
+    // Remove the special flag and create a proper history entry
+    const { __skipHistory, ...finalOptions } = tempOptions;
+    onChange(finalOptions as CustomizationOptions);
+  };
+  
   // Apply a preset with history
   const applyPreset = useCallback((preset: StylePreset) => {
     setIsDragging(false);
@@ -342,6 +266,94 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
     setTempOptions(newOptions);
     onChange(newOptions);
   }, [options, onChange]);
+  
+  // Handler for saving a new preset
+  const savePreset = () => {
+    // Validate preset name
+    if (!newPresetName.trim()) {
+      alert('Please enter a valid name for your preset');
+      return;
+    }
+    
+    try {
+      // Create preset ID (uppercase version of name)
+      const presetId = newPresetName.toUpperCase().replace(/\s+/g, '_');
+      
+      // Extract the current settings, removing any special flags
+      const { __skipHistory, __presetId, ...currentSettings } = options;
+      
+      // Create the new preset object
+      const newPreset: StylePreset = {
+        id: presetId,
+        name: newPresetName,
+        settings: currentSettings as CustomizationOptions
+      };
+      
+      // Check if preset with this ID already exists in current userPresets state
+      const existingIndex = userPresets.findIndex(p => p.id === presetId);
+      
+      let updatedUserPresets: StylePreset[];
+      
+      if (existingIndex >= 0) {
+        if (confirm(`A preset with name "${newPresetName}" already exists. Replace it?`)) {
+          // Create a new array with the updated preset
+          updatedUserPresets = [
+            ...userPresets.slice(0, existingIndex),
+            newPreset,
+            ...userPresets.slice(existingIndex + 1)
+          ];
+        } else {
+          return; // User cancelled
+        }
+      } else {
+        // Add the new preset to the array
+        updatedUserPresets = [...userPresets, newPreset];
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('userPresets', JSON.stringify(updatedUserPresets));
+      
+      // Update state
+      setUserPresets(updatedUserPresets);
+      
+      // Show success message
+      alert(`Preset "${newPresetName}" saved successfully!`);
+      
+      // Close the dialog and reset the form
+      setSavePresetDialogOpen(false);
+      setNewPresetName('');
+      
+      // Log for development
+      console.log('User presets updated:', updatedUserPresets);
+      
+    } catch (error) {
+      console.error('Error saving preset:', error);
+      alert('Failed to save preset. See console for details.');
+    }
+  };
+  
+  // Handler for deleting a user preset (Dev mode only)
+  const deleteUserPreset = (presetId: string) => {
+    if (confirm(`Are you sure you want to delete preset "${presetId}"?`)) {
+      try {
+        // Filter out the deleted preset
+        const updatedUserPresets = userPresets.filter(p => p.id !== presetId);
+        
+        // Save to localStorage
+        localStorage.setItem('userPresets', JSON.stringify(updatedUserPresets));
+        
+        // Update state
+        setUserPresets(updatedUserPresets);
+        
+        // Log for development
+        console.log('User preset deleted:', presetId);
+        
+      } catch (error) {
+        console.error('Error deleting preset:', error);
+        alert('Failed to delete preset. See console for details.');
+      }
+    }
+  };
 
   // Shared style classes
   const sectionHeaderClass = "flex items-center justify-between w-full py-1.5 px-1.5 rounded-md transition-colors";
@@ -362,66 +374,72 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-1 pt-1.5 pb-0.5">
             {/* Background and Fill Row */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {/* Background */}
-              <ControlRow
-                label="BG"
-                enabled={options.backgroundEnabled}
-                onToggle={(enabled) => handleToggleChange({ backgroundEnabled: enabled })}
-                color={options.backgroundColor}
-                onColorChange={(color) => handleDragChange({ backgroundColor: color })}
-                onColorComplete={handleDragComplete}
-              />
+              <div className="space-y-1">
+                <BackgroundControl
+                  enabled={options.backgroundEnabled}
+                  onToggle={(enabled) => handleToggleChange({ backgroundEnabled: enabled })}
+                  color={options.backgroundColor}
+                  onColorChange={(color) => handleDragChange({ backgroundColor: color })}
+                  onColorComplete={handleDragComplete}
+                />
+              </div>
 
               {/* Fill */}
-              <ControlRow
-                label="FILL"
-                color={options.fillColor}
-                onColorChange={(color) => handleDragChange({ fillColor: color })}
-                onColorComplete={handleDragComplete}
-              />
+              <div className="space-y-1">
+                <FillControl
+                  color={options.fillColor}
+                  onColorChange={(color) => handleDragChange({ fillColor: color })}
+                  onColorComplete={handleDragComplete}
+                />
+              </div>
             </div>
             
-            {/* Outline - moved before Shield */}
-            <ControlRow
-              label="OUTLINE"
-              enabled={options.stampEnabled}
-              onToggle={(enabled) => handleToggleChange({ stampEnabled: enabled })}
-              color={options.stampColor}
-              onColorChange={(color) => handleDragChange({ stampColor: color })}
-              onColorComplete={handleDragComplete}
-              width={options.stampWidth}
-              onWidthChange={(width) => handleDragChange({ stampWidth: width })}
-              onSliderComplete={handleDragComplete}
-            />
+            {/* Outline */}
+            <div className="space-y-1">
+              <OutlineControl
+                enabled={options.stampEnabled}
+                onToggle={(enabled) => handleToggleChange({ stampEnabled: enabled })}
+                color={options.stampColor}
+                onColorChange={(color) => handleDragChange({ stampColor: color })}
+                onColorComplete={handleDragComplete}
+                width={options.stampWidth}
+                onWidthChange={(width) => handleDragChange({ stampWidth: width })}
+                onSliderComplete={handleDragComplete}
+              />
+            </div>
 
             {/* Shield */}
-            <ControlRow
-              label="FORCEFIELD"
-              enabled={options.shieldEnabled}
-              onToggle={(enabled) => handleToggleChange({ shieldEnabled: enabled })}
-              color={options.shieldColor}
-              onColorChange={(color) => handleDragChange({ shieldColor: color })}
-              onColorComplete={handleDragComplete}
-              width={options.shieldWidth}
-              onWidthChange={(width) => handleDragChange({ shieldWidth: width })}
-              onSliderComplete={handleDragComplete}
-            />
+            <div className="space-y-1">
+              <ShieldControl
+                enabled={options.shieldEnabled}
+                onToggle={(enabled) => handleToggleChange({ shieldEnabled: enabled })}
+                color={options.shieldColor}
+                onColorChange={(color) => handleDragChange({ shieldColor: color })}
+                onColorComplete={handleDragComplete}
+                width={options.shieldWidth}
+                onWidthChange={(width) => handleDragChange({ shieldWidth: width })}
+                onSliderComplete={handleDragComplete}
+              />
+            </div>
 
             {/* Shadow */}
-            <ShadowControl
-              enabled={options.shadowEffectEnabled}
-              onToggle={(enabled) => handleToggleChange({ shadowEffectEnabled: enabled })}
-              offsetX={options.shadowEffectOffsetX}
-              onOffsetXChange={(x) => handleDragChange({ shadowEffectOffsetX: x })}
-              offsetY={options.shadowEffectOffsetY}
-              onOffsetYChange={(y) => handleDragChange({ shadowEffectOffsetY: y })}
-              onSliderComplete={handleDragComplete}
-            />
+            <div className="space-y-1">
+              <ShadowControl
+                enabled={options.shadowEffectEnabled}
+                onToggle={(enabled) => handleToggleChange({ shadowEffectEnabled: enabled })}
+                offsetX={options.shadowEffectOffsetX}
+                offsetY={options.shadowEffectOffsetY}
+                onOffsetXChange={(x: number) => handleDragChange({ shadowEffectOffsetX: x })}
+                onOffsetYChange={(y: number) => handleDragChange({ shadowEffectOffsetY: y })}
+                onSliderComplete={handleDragComplete}
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
       </div>
-      
+
       {/* Style Presets */}
       <div className={`${sectionContainerClass} flex-1`}>
         <StylePresetsPanel
@@ -429,6 +447,44 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
           onPresetSelect={applyPreset}
         />
       </div>
+
+      {/* Save Preset Dialog */}
+      {isDev && (
+        <Dialog open={isSavePresetDialogOpen} onOpenChange={setSavePresetDialogOpen}>
+          <DialogContent className="max-w-[350px]">
+            <DialogHeader>
+              <DialogTitle>Save as New Preset</DialogTitle>
+            </DialogHeader>
+            <div className="py-3">
+              <label htmlFor="preset-name" className="text-xs font-medium block mb-1.5">
+                Preset Name
+              </label>
+              <Input
+                id="preset-name"
+                value={newPresetName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPresetName(e.target.value)}
+                placeholder="My Awesome Preset"
+                className="w-full text-sm"
+              />
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSavePresetDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={savePreset}
+              >
+                Save Preset
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }; 
