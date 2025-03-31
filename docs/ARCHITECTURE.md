@@ -219,6 +219,57 @@ The application uses a comprehensive UI system built with:
   - Animated transitions
   - Consistent styling
 
+Example Implementation:
+```typescript
+// Toast Types and Styling
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+interface ToastOptions {
+  duration?: number;
+  type?: ToastType;
+}
+
+// Usage Examples
+// 1. Rate Limit Warning
+showWarning("You're generating designs quickly!", {
+  duration: 5000 // 5 seconds
+});
+
+// 2. Export Success
+showSuccess("Design exported successfully!", {
+  duration: 3000
+});
+
+// 3. Error Handling
+showError("Failed to generate design. Please try again.", {
+  duration: 4000
+});
+
+// 4. Processing Status
+showInfo("Processing your design...", {
+  duration: 2000
+});
+```
+
+Integration with Security Features:
+```typescript
+// Rate Limiting Integration
+if (!checkRateLimit('svg_generation', 'svg')) {
+  const timeLeft = getRemainingCooldown();
+  showWarning(`Please wait ${timeLeft} seconds before generating more designs.`);
+  return;
+}
+
+// Export Error Handling
+try {
+  await exportDesign();
+  showSuccess('Design exported successfully!');
+} catch (error) {
+  showError('Export failed. Please try again.');
+  logger.error('Export error:', error);
+}
+```
+
 #### SVG Security Layer
 - **Validation Layer** (`src/lib/svgSecurity.ts`)
   - Validates SVG structure and content

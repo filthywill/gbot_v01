@@ -31,6 +31,69 @@ Key protections:
 - Blocks dangerous object embeds
 - Controls script execution context
 
+#### CSP Protection Examples
+
+1. **Script Execution Control**
+```html
+<!-- Blocked by CSP -->
+<svg>
+  <script>
+    alert('XSS attempt');
+  </script>
+</svg>
+
+<!-- Blocked by CSP -->
+<svg onload="alert('XSS attempt')">
+</svg>
+
+<!-- Allowed by CSP - Our legitimate SVG content -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M10 10L90 90" />
+</svg>
+```
+
+2. **Resource Loading Protection**
+```html
+<!-- Blocked by CSP -->
+<svg>
+  <image href="https://malicious-site.com/image.svg" />
+</svg>
+
+<!-- Blocked by CSP -->
+<style>
+  @import url('https://malicious-site.com/styles.css');
+</style>
+
+<!-- Allowed by CSP - Local resources -->
+<img src="/assets/logo.png" />
+```
+
+3. **Export Functionality Protection**
+```typescript
+// Allowed by CSP - Blob URLs for legitimate exports
+const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+const blobUrl = URL.createObjectURL(svgBlob);
+
+// Allowed by CSP - Data URLs for legitimate exports
+const canvas = document.createElement('canvas');
+const dataUrl = canvas.toDataURL('image/png');
+```
+
+4. **Style Handling**
+```html
+<!-- Blocked by CSP -->
+<svg>
+  <style>
+    @import url('https://evil.com/style.css');
+  </style>
+</svg>
+
+<!-- Allowed by CSP - Inline styles needed for Tailwind -->
+<div class="bg-blue-500 hover:bg-blue-700">
+  Content
+</div>
+```
+
 ### 2. Rate Limiting System
 Implemented in `src/lib/rateLimit.ts` to prevent abuse:
 
@@ -54,6 +117,63 @@ Features:
 - User-friendly warning messages
 - Automatic cleanup of expired limits
 - Configurable thresholds and windows
+
+#### Practical Examples
+
+1. **SVG Generation Rate Limiting**
+```typescript
+// Example: User rapidly changing styles
+const handleStyleChange = async (styleId: string) => {
+  // Rate limit check before processing
+  if (!checkRateLimit('graffiti_generation', 'svg')) {
+    // User will see a warning toast: "Rate limit reached. Please wait X seconds..."
+    return;
+  }
+  
+  // Process style change
+  await generateGraffiti(currentText);
+};
+```
+
+Common scenarios that count towards the 60/minute SVG generation limit:
+- Typing and hitting generate: 1 request
+- Changing style: 1 request
+- Undo/Redo operation: 1 request
+- Initial page load with saved text: 1 request
+
+2. **Export Operation Rate Limiting**
+```typescript
+// Example: User exporting multiple formats
+const handleExport = async (format: 'svg' | 'png') => {
+  // Rate limit check before processing
+  if (!checkRateLimit(`${format}_export`, 'export')) {
+    // User will see: "You have X more exports available before cooldown"
+    return;
+  }
+  
+  // Process export
+  await exportAs(format);
+};
+```
+
+Export limits (10/minute) apply to:
+- Saving as SVG
+- Saving as PNG
+- Copying to clipboard
+- Sharing functionality
+
+#### User Feedback Examples
+
+```typescript
+// Warning when approaching limit
+"You're generating designs quickly! You have 10 more tries before a short cooldown."
+
+// When limit is reached
+"Rate limit reached. Please wait 45 seconds before trying again."
+
+// After successful operation
+"SVG saved successfully!"
+```
 
 ### 3. SVG Processing Pipeline
 The secure SVG processing pipeline consists of multiple layers of protection:
