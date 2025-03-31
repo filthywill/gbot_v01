@@ -1,11 +1,61 @@
 # GBot Security Documentation
 
 ## Overview
-This document outlines the security measures implemented in the GBot project, particularly focusing on SVG processing and rendering security. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
+This document outlines the security measures implemented in the GBot project, focusing on SVG processing, rate limiting, Content Security Policy (CSP), and user protection. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
 
 ## Security Architecture
 
-### SVG Processing Pipeline
+### 1. Content Security Policy (CSP)
+Implemented via Vercel.json configuration to protect against various attacks:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none';"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Key protections:
+- Restricts resource loading to same origin
+- Allows necessary inline styles for Tailwind
+- Permits blob URLs for export functionality
+- Blocks dangerous object embeds
+- Controls script execution context
+
+### 2. Rate Limiting System
+Implemented in `src/lib/rateLimit.ts` to prevent abuse:
+
+```typescript
+// Rate limit configurations
+export const svgLimiter = new RateLimiter({
+  windowMs: 60 * 1000,    // 1 minute window
+  maxRequests: 60,        // 60 requests per minute
+  warningThreshold: 10    // Warning at 10 remaining
+});
+
+export const exportLimiter = new RateLimiter({
+  windowMs: 60 * 1000,    // 1 minute window
+  maxRequests: 10,        // 10 exports per minute
+  warningThreshold: 2     // Warning at 2 remaining
+});
+```
+
+Features:
+- Per-operation rate limiting
+- User-friendly warning messages
+- Automatic cleanup of expired limits
+- Configurable thresholds and windows
+
+### 3. SVG Processing Pipeline
 The secure SVG processing pipeline consists of multiple layers of protection:
 
 1. **Validation Layer** (`src/lib/svgSecurity.ts`)
@@ -148,6 +198,18 @@ try {
 3. Test with external references
 4. Test with style-based attacks
 
+### Rate Limit Testing
+1. Test rapid generation attempts
+2. Test export limit enforcement
+3. Test warning threshold triggers
+4. Test limit reset timing
+
+### CSP Testing
+1. Test resource loading restrictions
+2. Verify inline script handling
+3. Test export functionality
+4. Verify style application
+
 ## Logging and Monitoring
 
 ### Security Logging
@@ -162,6 +224,18 @@ try {
 3. INFO: Normal security operations
 4. DEBUG: Detailed security information
 
+### Rate Limit Monitoring
+- Track rate limit hits
+- Monitor warning thresholds
+- Log abuse patterns
+- Track user impact
+
+### Security Headers
+- Regular CSP audit
+- Header effectiveness monitoring
+- Security report collection
+- Violation tracking
+
 ## Future Security Considerations
 
 ### Potential Enhancements
@@ -169,6 +243,12 @@ try {
 2. Additional SVG validation rules
 3. Enhanced error reporting
 4. Advanced security logging
+
+### Planned Enhancements
+1. Enhanced rate limiting strategies
+2. Additional security headers
+3. Automated security testing
+4. Advanced abuse detection
 
 ## Maintenance and Updates
 

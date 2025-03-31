@@ -5,6 +5,9 @@ import { exportAsSvg } from '../utils/svgExport';
 import { createSvgString, exportAsPng } from '../utils/pngExport';
 import { showSuccessMessage } from '../utils/exportUtils';
 import { showImprovedMobileImageModal } from '../utils/clipboardUtils';
+import { checkRateLimit } from '../../../lib/rateLimit';
+import logger from '../../../lib/logger';
+import { showError, showSuccess } from '../../../lib/toast';
 
 interface UseGraffitiExportProps {
   processedSvgs: ProcessedSvg[];
@@ -43,6 +46,12 @@ export const useGraffitiExport = ({
   const saveAsSvg = useCallback(() => {
     if (!contentRef.current || !containerRef.current || processedSvgs.length === 0) return;
     
+    // Check rate limit before proceeding
+    if (!checkRateLimit('svg_export', 'export')) {
+      // Toast message is now handled by the rate limiter
+      return;
+    }
+    
     setIsExporting(true);
     
     try {
@@ -57,8 +66,10 @@ export const useGraffitiExport = ({
         additionalScaleFactor,
         inputText
       );
+      showSuccess('SVG saved successfully!');
     } catch (error) {
       console.error('Error saving SVG:', error);
+      showError('Failed to save SVG. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -78,6 +89,12 @@ export const useGraffitiExport = ({
   const saveAsPng = useCallback(async () => {
     if (!contentRef.current || !containerRef.current || processedSvgs.length === 0) return;
     
+    // Check rate limit before proceeding
+    if (!checkRateLimit('png_export', 'export')) {
+      // Toast message is now handled by the rate limiter
+      return;
+    }
+    
     setIsExporting(true);
     
     try {
@@ -92,8 +109,10 @@ export const useGraffitiExport = ({
         additionalScaleFactor,
         inputText
       );
+      showSuccess('PNG saved successfully!');
     } catch (error) {
       console.error('Error saving PNG:', error);
+      showError('Failed to save PNG. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -112,6 +131,12 @@ export const useGraffitiExport = ({
   // Implementation of copy to clipboard function - simplified to only use modal
   const copyToClipboard = useCallback(async () => {
     if (!contentRef.current || !containerRef.current || processedSvgs.length === 0) return;
+    
+    // Check rate limit before proceeding
+    if (!checkRateLimit('clipboard_copy', 'export')) {
+      // Toast message is now handled by the rate limiter
+      return;
+    }
     
     setIsExporting(true);
     

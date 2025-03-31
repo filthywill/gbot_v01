@@ -17,7 +17,11 @@ gbot_v01 is a React-based web application built with TypeScript, designed to cre
   - Custom components
 - **Animation**: Framer Motion 12.5.0
 - **Icons**: Lucide React and React Icons
-- **Security**: Custom SVG validation and sanitization
+- **Security**: 
+  - Content Security Policy (CSP)
+  - Rate Limiting System
+  - SVG Validation and Sanitization
+  - User-Friendly Security Messaging
 
 ## Project Structure
 
@@ -48,6 +52,8 @@ src/
 ├── lib/           # Core libraries and utilities
 │   ├── logger.ts           # Centralized logging system
 │   ├── svgSecurity.ts      # SVG validation and sanitization
+│   ├── rateLimit.ts        # Rate limiting implementation
+│   ├── toast.ts            # User notification system
 │   └── ... (other utilities)
 ├── store/         # Zustand state management
 │   ├── useGraffitiStore.ts  # Main state store
@@ -64,6 +70,36 @@ src/
 ```
 
 ## Core Features
+
+### Security Infrastructure
+The application implements a comprehensive security system:
+
+1. **Content Security Policy (CSP)**
+   - Configured via Vercel.json
+   - Restricts resource origins
+   - Controls script execution
+   - Manages inline styles
+   - Handles blob URLs securely
+
+2. **Rate Limiting System**
+   - Configurable per-operation limits
+   - User-friendly warning system
+   - Automatic cleanup mechanism
+   - Protected operations:
+     - SVG Generation (60/minute)
+     - Export Operations (10/minute)
+
+3. **SVG Security**
+   - Multi-layer validation
+   - Content sanitization
+   - XSS prevention
+   - Error boundaries
+
+4. **User Feedback System**
+   - Toast notifications
+   - Rate limit warnings
+   - Error messages
+   - Success confirmations
 
 ### SVG Security and Processing
 The application implements a comprehensive SVG security system:
@@ -162,6 +198,26 @@ The application uses a comprehensive UI system built with:
 - Persists user presets in localStorage
 
 ### Security Components
+
+#### Rate Limiting Layer
+- **Configuration** (`src/lib/rateLimit.ts`)
+  - Configurable time windows
+  - Operation-specific limits
+  - Warning thresholds
+  - Automatic cleanup
+
+- **Integration Points**
+  - SVG generation
+  - Export operations
+  - Clipboard operations
+  - Share functionality
+
+#### User Notification System
+- **Toast System** (`src/lib/toast.ts`)
+  - Multiple message types
+  - Automatic timeout
+  - Animated transitions
+  - Consistent styling
 
 #### SVG Security Layer
 - **Validation Layer** (`src/lib/svgSecurity.ts`)

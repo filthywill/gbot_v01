@@ -5,6 +5,9 @@ import { getLetterSvg, fetchSvg, shouldUseAlternate, getLetterRotation } from '.
 import { createSpaceSvg, processSvg } from '../utils/svgUtils';
 import { letterSvgs } from '../data/letterMappings';
 import { useGraffitiStore } from '../store/useGraffitiStore';
+import { checkRateLimit } from '../lib/rateLimit';
+import logger from '../lib/logger';
+import { showError, showWarning } from '../lib/toast';
 
 const BATCH_SIZE = 5; // Process 5 letters at a time
 
@@ -174,6 +177,15 @@ export const useGraffitiGeneratorWithZustand = () => {
   const generateGraffiti = useCallback(async (text: string) => {
     if (!text.trim()) {
       setError('Please enter some text');
+      showWarning('Please enter some text to generate');
+      return;
+    }
+    
+    // Check rate limit before proceeding
+    if (!checkRateLimit('graffiti_generation', 'svg')) {
+      logger.warn('SVG generation rate limit exceeded');
+      setError('Please wait a moment before generating more graffiti');
+      // Toast message is now handled by the rate limiter
       return;
     }
     
@@ -266,7 +278,9 @@ export const useGraffitiGeneratorWithZustand = () => {
       
     } catch (error) {
       console.error('Error generating graffiti:', error);
-      setError('Failed to generate graffiti. Please try again.');
+      const errorMessage = 'Failed to generate graffiti. Please try again.';
+      setError(errorMessage);
+      showError(errorMessage);
       setIsGenerating(false);
     }
   }, [
