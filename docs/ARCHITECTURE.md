@@ -17,6 +17,7 @@ gbot_v01 is a React-based web application built with TypeScript, designed to cre
   - Custom components
 - **Animation**: Framer Motion 12.5.0
 - **Icons**: Lucide React and React Icons
+- **Security**: Custom SVG validation and sanitization
 
 ## Project Structure
 
@@ -45,12 +46,16 @@ src/
 │   ├── useSvgCache.ts  # SVG caching mechanism
 │   └── useGraffitiGenerator.ts  # Legacy hook (unused)
 ├── lib/           # Core libraries and utilities
+│   ├── logger.ts           # Centralized logging system
+│   ├── svgSecurity.ts      # SVG validation and sanitization
+│   └── ... (other utilities)
 ├── store/         # Zustand state management
 │   ├── useGraffitiStore.ts  # Main state store
 │   └── useDevStore.ts       # Development-only store
 ├── styles/        # Global styles and Tailwind configurations
 ├── utils/         # SVG processing utilities
 │   ├── svgUtils.ts            # Core SVG processing functions
+│   ├── secureSvgUtils.ts      # Secure SVG processing wrapper
 │   ├── svgCustomizationUtils.ts  # SVG styling utilities
 │   ├── letterUtils.ts         # Letter-specific processing
 │   ├── svgCache.ts            # SVG caching mechanism
@@ -60,14 +65,25 @@ src/
 
 ## Core Features
 
+### SVG Security and Processing
+The application implements a comprehensive SVG security system:
+- Multi-layer security approach with validation and sanitization
+- Whitelist-based element and attribute filtering
+- XSS prevention through content sanitization
+- Secure SVG processing pipeline with error boundaries
+- Comprehensive logging and monitoring
+- Fallback mechanisms for invalid content
+
 ### SVG Processing and Rendering
 The application implements sophisticated SVG processing with features including:
-- Vector-based artwork processing for high-quality output
+- Secure vector-based artwork processing
+- Input validation and sanitization
 - Intelligent letter positioning with pixel-density-based overlap
 - Automatic rotation rules for specific letter combinations
 - Bounds detection and optimization for layout
 - Efficient caching mechanisms for processed SVGs
 - Memory-efficient batch processing for large inputs
+- Error boundaries and fallback mechanisms
 
 ### Letter Positioning System
 - Utilizes pixel data analysis for optimal letter overlap
@@ -145,6 +161,33 @@ The application uses a comprehensive UI system built with:
 - Organizes presets in an easy-to-browse grid layout
 - Persists user presets in localStorage
 
+### Security Components
+
+#### SVG Security Layer
+- **Validation Layer** (`src/lib/svgSecurity.ts`)
+  - Validates SVG structure and content
+  - Enforces allowed elements and attributes
+  - Prevents malformed SVG injection
+  - Implements comprehensive error handling
+
+- **Sanitization Layer** (`src/lib/svgSecurity.ts`)
+  - Removes potentially malicious content
+  - Sanitizes attributes and values
+  - Prevents XSS attacks
+  - Maintains SVG integrity
+
+- **Secure Processing Layer** (`src/utils/secureSvgUtils.ts`)
+  - Wraps core SVG processing functions
+  - Implements additional security checks
+  - Provides secure fallbacks
+  - Handles errors gracefully
+
+#### Logging System
+- Centralized logging through `src/lib/logger.ts`
+- Different log levels for various security events
+- Detailed error tracking and reporting
+- Performance monitoring capabilities
+
 ## Development Guidelines
 
 ### Code Style
@@ -185,6 +228,14 @@ The application uses a comprehensive UI system built with:
 - Maintain clear component hierarchies
 - Use composition over inheritance
 
+### Security Best Practices
+- Always use secure SVG processing utilities
+- Validate and sanitize all SVG content
+- Implement proper error boundaries
+- Use appropriate logging levels
+- Follow the principle of least privilege
+- Regular security testing and validation
+
 ## Future Considerations
 
 ### Planned Features
@@ -199,6 +250,13 @@ The application uses a comprehensive UI system built with:
 - Enhanced caching strategies with service workers
 - Further optimization of letter positioning algorithms
 - Reduction of unnecessary re-renders
+
+### Security Enhancements
+- Rate limiting for SVG processing
+- Enhanced security logging and monitoring
+- Additional SVG validation rules
+- Advanced error reporting system
+- Regular security audits and updates
 
 ---
 

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaSprayCan } from 'react-icons/fa6';
 import { FaTimes } from 'react-icons/fa';
+import { validateAndSanitizeInput, ValidationError } from '../lib/validation';
+import logger from '../lib/logger';
 
 interface InputFormProps {
   inputText: string;
@@ -9,43 +11,106 @@ interface InputFormProps {
   onGenerate: (text: string) => Promise<void>;
 }
 
-export const InputForm: React.FC<InputFormProps> = ({ 
-  inputText, 
-  setInputText, 
-  isGenerating, 
-  onGenerate 
+export const InputForm: React.FC<InputFormProps> = ({
+  inputText,
+  setInputText,
+  isGenerating,
+  onGenerate
 }) => {
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') onGenerate(inputText);
+  const [validationError, setValidationError] = useState<ValidationError | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Reset validation state when input changes
+  useEffect(() => {
+    if (isDirty && inputText.trim()) {  // Only validate if there's non-empty input
+      const { isValid, sanitizedValue, error } = validateAndSanitizeInput(inputText);
+      if (!isValid && error) {
+        setValidationError(error);
+        // Only update the input if it's been sanitized
+        if (sanitizedValue !== inputText) {
+          setInputText(sanitizedValue);
+        }
+      } else {
+        setValidationError(null);
+      }
+    } else {
+      setValidationError(null);  // Clear validation error if input is empty
+    }
+  }, [inputText, isDirty, setInputText]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsDirty(true);
+    setInputText(e.target.value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsDirty(true);
+
+    // Show error for empty input on submit
+    if (!inputText.trim()) {
+      setValidationError({
+        code: 'EMPTY',
+        message: 'Please enter some text'
+      });
+      return;
+    }
+
+    try {
+      const { isValid, sanitizedValue, error } = validateAndSanitizeInput(inputText);
+      
+      if (!isValid) {
+        if (error) {
+          setValidationError(error);
+        }
+        setInputText(sanitizedValue);
+        return;
+      }
+
+      setValidationError(null);
+      await onGenerate(sanitizedValue);
+    } catch (error) {
+      logger.error('Error in form submission:', error);
+      setValidationError({
+        code: 'INVALID_CHARS',
+        message: 'An error occurred while processing your input'
+      });
+    }
   };
 
   return (
-    <div className="mb-1">
-      <div className="flex items-stretch gap-1">
+    <div className="mb-4">
+      <form onSubmit={handleSubmit} className="flex items-stretch gap-1">
         <div className="relative flex-1">
           <input
             id="graffiti-input"
             name="graffitiText"
             type="text"
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onChange={handleInputChange}
             placeholder="Write your word (a-z, 0-9, spaces allowed)..."
-            className="w-full px-3 py-2 text-base rounded-md border-0 bg-zinc-200 focus:bg-zinc-100 focus:border-0 focus:ring-1 focus:ring-purple-400 outline-none transition-all text-zinc-800"
+            className={`w-full px-3 py-2 text-base rounded-md border-[1px] ${
+              validationError ? 'border-red-500' : 'border-zinc-700'
+            } bg-zinc-700 ring-offset-0 focus:ring-1 focus:ring-purple-400 focus:border-transparent outline-none transition-colors text-white placeholder-zinc-400`}
             style={{ fontSize: '16px' }}
             maxLength={18}
+            disabled={isGenerating}
           />
           {inputText && (
             <>
               <div 
-                className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-zinc-400 sm:mt-[-2px] mt-0" 
+                className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-zinc-400 sm:mt-[-2px] mt-" 
                 style={{ lineHeight: '16px', height: '16px' }}
               >
                 {inputText.length}/18
               </div>
               <button
-                onClick={() => setInputText('')}
-                className="absolute right-2 top-[50%] -translate-y-[50%] text-zinc-400 hover:text-zinc-600 transition-colors sm:mt-[-1px] mt-15"
+                onClick={() => {
+                  setInputText('');
+                  setValidationError(null);
+                  setIsDirty(false);
+                }}
+                className="absolute right-2 top-[50%] -translate-y-[50%] text-zinc-400 hover:text-zinc-200 transition-colors sm:mt-[-1px] mt-15"
                 style={{ lineHeight: '16px', height: '16px' }}
                 type="button"
                 title="Clear text"
@@ -54,21 +119,26 @@ export const InputForm: React.FC<InputFormProps> = ({
               </button>
             </>
           )}
+          {validationError && (
+            <p className="absolute -bottom-3 left-0 text-red-400 text-[7px]">
+              {validationError.message}
+            </p>
+          )}
         </div>
         <button
-          onClick={() => onGenerate(inputText)}
-          disabled={!inputText.trim() || isGenerating}
-          className={`px-2 py-2 rounded-md font-medium text-white transition-all flex items-center justify-center ${
-            isGenerating || !inputText.trim()
-              ? 'bg-zinc-300 cursor-not-allowed'
+          type="submit"
+          disabled={isGenerating || !!validationError}
+          className={`px-2 py-1 rounded-md font-medium text-white transition-all flex items-center justify-center ${
+            isGenerating || !!validationError
+              ? 'bg-zinc-600 cursor-not-allowed'
               : 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800'
           }`}
           title="Generate"
         >
-          <FaSprayCan className="w-6 h-4" />
+          <FaSprayCan className="w-6 h-5" />
           <span className="ml-1 hidden sm:inline-block">{isGenerating ? 'Creating...' : 'Create'}</span>
         </button>
-      </div>
+      </form>
     </div>
   );
 };

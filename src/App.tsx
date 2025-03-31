@@ -9,10 +9,13 @@ import stizakLogo from './assets/logos/stizak-wh.svg';
 import { OverlapDebugPanel } from './components/OverlapDebugPanel';
 import { cn } from './lib/utils';
 import { useDevStore } from './store/useDevStore';
+import { isDevelopment } from './lib/env';
+import { debugLog, isDebugPanelEnabled } from './lib/debug';
+import logger from './lib/logger';
 
 function App() {
   const { showValueOverlays, toggleValueOverlays } = useDevStore();
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = isDevelopment();
 
   // Get all state and actions from our Zustand-powered hook
   const {
@@ -46,22 +49,33 @@ function App() {
     }
   }, [processedSvgs]);
 
-  // Handle form submission
+  // Handle form submission with error logging
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayInputText.trim()) return;
     
-    await generateGraffiti(displayInputText);
+    try {
+      await generateGraffiti(displayInputText);
+    } catch (err) {
+      logger.error('Failed to generate graffiti', err);
+    }
   };
 
-  // Add debug logging for history state
+  // Update debug logging to use secure logger
   useEffect(() => {
-    console.log('App history state:', {
+    debugLog('App history state:', {
       historyLength: history.length,
       currentHistoryIndex,
       hasHistory: history.length > 0
     });
   }, [history.length, currentHistoryIndex]);
+
+  // Log errors when they occur
+  useEffect(() => {
+    if (error) {
+      logger.error('Application error occurred:', error);
+    }
+  }, [error]);
 
   // Handle undo button click
   const handleUndo = () => {
@@ -175,12 +189,12 @@ function App() {
           </div>
         </footer>
         
-        {/* Add the debug panel */}
-        {process.env.NODE_ENV === 'development' && <OverlapDebugPanel />}
+        {/* Add the debug panel - only when debug panels are enabled */}
+        {isDev && isDebugPanelEnabled() && <OverlapDebugPanel />}
       </div>
 
-      {/* Dev Mode Buttons - Always visible */}
-      {isDev && (
+      {/* Dev Mode Buttons - only visible when debug panels are enabled */}
+      {isDev && isDebugPanelEnabled() && (
         <div className="fixed top-2 right-2 z-[9999] flex gap-2">
           <button
             onClick={toggleValueOverlays}

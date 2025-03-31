@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { isDevelopment } from '../lib/env';
+import { isDebugPanelEnabled } from '../lib/debug';
 
 interface DevStore {
   showValueOverlays: boolean;
@@ -6,6 +8,11 @@ interface DevStore {
 }
 
 export const useDevStore = create<DevStore>((set) => ({
-  showValueOverlays: true,
-  toggleValueOverlays: () => set((state) => ({ showValueOverlays: !state.showValueOverlays })),
+  showValueOverlays: false,
+  toggleValueOverlays: () => {
+    // Only allow toggling in development mode and when debug panels are enabled
+    if (isDevelopment() && isDebugPanelEnabled()) {
+      set((state) => ({ showValueOverlays: !state.showValueOverlays }));
+    }
+  },
 })); 

@@ -1,89 +1,108 @@
-# gbot_v01
+# GBot v0.1
 
-A modern graffiti generation web application built with React, TypeScript, and Zustand.
+A modern web application for creating customizable vector-based graffiti artwork with advanced security features.
 
-## Project Overview
+## Features
 
-This application allows users to generate custom graffiti text with various styles, colors, and customization options. It uses SVG-based rendering for high-quality output.
+- Vector-based artwork processing with comprehensive security measures
+- Extensive customization options with real-time preview
+- Secure SVG processing pipeline with validation and sanitization
+- Advanced effects including fill, outline, shadow, and shine
+- Intelligent letter positioning system
+- Style presets with save/load functionality
+- Comprehensive error handling and logging
+- Modern, responsive UI built with React and TypeScript
 
-## Key Features
+## Security Features
 
-- Text to graffiti conversion
-- Multiple preset styles with thumbnail previews
-- Advanced customization options
-- Responsive design
-- Undo/redo functionality for customizations
-- Modern UI with animations
+- Multi-layer SVG security system
+- Content validation and sanitization
+- XSS prevention
+- Secure error handling
+- Comprehensive logging
 
-## Technology Stack
+For detailed security information, see [Security Documentation](docs/SECURITY.md).
 
-- **Frontend**: React, TypeScript
-- **State Management**: Zustand
-- **Styling**: Tailwind CSS
-- **Build Tools**: Vite
-- **SVG Processing**: Custom algorithms for letter positioning and rendering
+## Getting Started
 
-## Development Guide
+### Prerequisites
 
-### Setup
+- Node.js 18.0.0 or higher
+- npm 9.0.0 or higher
 
-1. Clone the repository
+### Installation
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/filthywill/gbot_v01.git
+git clone https://github.com/yourusername/gbot_v01.git
 cd gbot_v01
 ```
 
-2. Install dependencies
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server
+3. Start the development server:
 ```bash
 npm run dev
 ```
 
-### Project Structure
+## Documentation
 
-- `/src` - Application source code
-  - `/components` - React components
-  - `/hooks` - Custom React hooks
-  - `/store` - Zustand store configurations
-  - `/data` - Static data and configurations
-  - `/utils` - Utility functions
-  - `/assets` - Static assets
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Security Documentation](docs/SECURITY.md)
+- [Component Standards](docs/COMPONENT_STANDARDS.md)
+- [Component Structure](docs/COMPONENT_STRUCTURE.md)
 
-## GitHub Workflow
+## Development
 
-### Pushing Changes to GitHub
+### Key Commands
 
-There are multiple ways to push changes to the GitHub repository:
+```bash
+# Start development server
+npm run dev
 
-1. **Using GitHub MCP Tools (Recommended)**
-   - When asked to push changes to GitHub, use the GitHub MCP tools directly
-   - This method allows pushing specific files or multiple files in a single commit
+# Build for production
+npm run build
 
-2. **Using Provided Scripts**
-   - Run `push_to_github.bat` or `push_to_github_fixed.bat` for Windows
-   - These scripts automate the git add, commit, and push process
+# Preview production build
+npm run preview
 
-3. **Manual Git Commands**
-   ```bash
-   git add .
-   git commit -m "Your commit message"
-   git push origin main
-   ```
+# Run tests
+npm run test
 
-### Best Practices
+# Run linting
+npm run lint
+```
 
-- Always add a descriptive commit message
-- Update RECENT_UPDATES.md with significant changes
-- Push changes regularly to avoid large, complex merges
+### Development Guidelines
 
-## Maintenance
+1. Follow the security best practices outlined in the security documentation
+2. Use the secure SVG processing utilities for all SVG operations
+3. Implement proper error boundaries and logging
+4. Follow component standards and structure guidelines
+5. Write comprehensive tests for new features
 
-Remember to keep documentation updated when making significant changes to the application architecture or feature set.
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## Security
+
+If you discover a security vulnerability, please follow our [security policy](SECURITY.md) for reporting.
 
 ## License
 
-This project is proprietary and confidential.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- React team for the amazing framework
+- Zustand for efficient state management
+- Tailwind CSS for the styling system
+- All contributors who have helped shape this project

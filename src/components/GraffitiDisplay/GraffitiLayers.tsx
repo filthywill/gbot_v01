@@ -1,7 +1,8 @@
 // src/components/GraffitiDisplay/GraffitiLayers.tsx
 import React, { useEffect } from 'react';
 import { ProcessedSvg, CustomizationOptions } from '../../types';
-import { customizeSvg, createStampSvg } from '../../utils/svgCustomizationUtils';
+import { secureCustomizeSvg, secureCreateStampSvg } from '../../utils/secureSvgUtils';
+import logger from '../../lib/logger';
 
 interface GraffitiLayersProps {
   processedSvgs: ProcessedSvg[];
@@ -18,7 +19,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
 }) => {
   // Add debugging to check what's actually in processedSvgs
   useEffect(() => {
-    console.log('GraffitiLayers received:', {
+    logger.debug('GraffitiLayers received:', {
       svgCount: processedSvgs.length,
       letterSample: processedSvgs.map(svg => svg.letter).join(''),
       firstSvg: processedSvgs[0]?.letter,
@@ -46,7 +47,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
   // Process all SVGs in a single pass
   processedSvgs.forEach((item, index) => {
     // Log each item's letter for debugging
-    console.log(`Processing SVG ${index}: letter="${item.letter}", isSpace=${item.isSpace}`);
+    logger.debug(`Processing SVG ${index}: letter="${item.letter}", isSpace=${item.isSpace}`);
     
     // Calculate animation delay for this letter
     const animationDelay = index * ANIMATION_DELAY_PER_LETTER;
@@ -85,7 +86,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               ...animationStyle
             }}
             dangerouslySetInnerHTML={{ 
-              __html: createStampSvg(item.svg, item.isSpace, shieldOptions) 
+              __html: secureCreateStampSvg(item.svg, item.isSpace, shieldOptions) 
             }}
           />
         );
@@ -127,7 +128,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
                 ...animationStyle
               }}
               dangerouslySetInnerHTML={{ 
-                __html: customizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
+                __html: secureCustomizeSvg(item.svg, item.isSpace, shadowShieldOptions) 
               }}
             />
           </div>
@@ -168,7 +169,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
                 ...animationStyle
               }}
               dangerouslySetInnerHTML={{ 
-                __html: customizeSvg(item.svg, item.isSpace, shadowOptions) 
+                __html: secureCustomizeSvg(item.svg, item.isSpace, shadowOptions) 
               }}
             />
           </div>
@@ -200,62 +201,43 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               ...animationStyle
             }}
             dangerouslySetInnerHTML={{ 
-              __html: createStampSvg(item.svg, item.isSpace, stampOnlyOptions) 
+              __html: secureCreateStampSvg(item.svg, item.isSpace, stampOnlyOptions) 
             }}
           />
         );
       }
-    }
-    
-    // 5. Main content layer (including spaces as empty divs)
-    if (item.isSpace) {
-      // Just a placeholder for spaces
-      mainElements.push(
-        <div
-          key={`main-${index}`}
-          className="space-layer"
-          style={{
-            position: 'absolute',
-            left: `${positions[index]}px`,
-            top: 0,
-            width: `${item.width}px`,
-            height: `${item.height}px`,
-            overflow: 'visible'
-          }}
-        />
-      );
-    } else {
-      // Use the processed SVG content directly instead of hardcoding the path
-      const contentOptions = {
+      
+      // 5. Main content layer
+      const mainOptions = {
         ...customizationOptions,
-        contentOnly: true // Only render the main content, no effects
+        contentOnly: true
       };
       
       mainElements.push(
         <div
           key={`main-${index}`}
-          className="animate-hardware svg-layer main-layer hover:z-50"
+          className="animate-hardware svg-layer main-layer"
           style={{
             position: 'absolute',
             left: `${positions[index]}px`,
             top: 0,
             width: '200px',
             height: '200px',
-            zIndex: 5 + (processedSvgs.length - index), // Highest z-index for main content
+            zIndex: 5, // Highest z-index for main content
             transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
             transformOrigin: 'center center',
-            overflow: 'visible', // Important: allow effects to extend beyond boundaries
+            overflow: 'visible',
             ...animationStyle
           }}
           dangerouslySetInnerHTML={{ 
-            __html: customizeSvg(item.svg, item.isSpace, contentOptions) 
+            __html: secureCustomizeSvg(item.svg, item.isSpace, mainOptions) 
           }}
         />
       );
     }
   });
   
-  // Return all layers in the correct order
+  // Return all layers in correct order
   return (
     <>
       {shieldElements}
