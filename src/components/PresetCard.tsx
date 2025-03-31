@@ -133,7 +133,7 @@ ${Object.entries(nonDefaultSettings)
     const { fillColor, stampColor } = preset.settings;
     return (
       <div 
-        className="w-full h-16 flex items-center justify-center" 
+        className="absolute inset-0 w-full h-full flex items-center justify-center"
         style={{
           backgroundColor: fillColor || '#ffffff',
           color: stampColor || '#000000',
@@ -205,7 +205,7 @@ ${Object.entries(nonDefaultSettings)
       
       {/* Thumbnail container with checkerboard background */}
       <div className="p-0.5 flex items-center justify-center">
-        <div className="w-full overflow-hidden rounded relative" style={{ minHeight: '60px' }}>
+        <div className="w-full overflow-hidden rounded relative aspect-video" style={{ minHeight: '60px' }}>
           {/* Checkerboard pattern background */}
           <div 
             className="absolute inset-0" 
@@ -214,31 +214,33 @@ ${Object.entries(nonDefaultSettings)
           {isUserPreset ? (
             renderColorPreview()
           ) : (
-            <>
-              <img 
-                src={thumbnailPath}
-                alt={`${preset.name} style preview`}
-                className="w-full h-auto scale-[1.4] transform origin-center relative"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  console.error(`Failed to load thumbnail for preset: ${preset.id}. Path attempted: ${thumbnailPath}`);
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  
-                  // Add a fallback color preview to the parent
-                  const parent = target.parentNode as HTMLElement;
-                  const fallback = document.createElement('div');
-                  fallback.className = "w-full h-16 flex items-center justify-center";
-                  fallback.style.backgroundColor = preset.settings.fillColor || '#ffffff';
-                  fallback.style.color = preset.settings.stampColor || '#000000';
-                  fallback.style.fontWeight = 'bold';
-                  fallback.style.fontSize = '12px';
-                  fallback.innerText = preset.name;
-                  parent.appendChild(fallback);
-                }}
-              />
-            </>
+            <div 
+              className="absolute inset-0 w-full h-full bg-no-repeat bg-center"
+              style={{
+                backgroundImage: `url(${thumbnailPath})`,
+                backgroundSize: '140%',
+                backgroundPosition: 'center center',
+              }}
+              role="img" 
+              aria-label={`${preset.name} style preview`}
+              onError={(e) => {
+                console.error(`Failed to load thumbnail for preset: ${preset.id}. Path attempted: ${thumbnailPath}`);
+                const target = e.target as HTMLElement;
+                
+                // Create fallback
+                const fallback = document.createElement('div');
+                fallback.className = "w-full h-full flex items-center justify-center absolute inset-0";
+                fallback.style.backgroundColor = preset.settings.fillColor || '#ffffff';
+                fallback.style.color = preset.settings.stampColor || '#000000';
+                fallback.style.fontWeight = 'bold';
+                fallback.style.fontSize = '12px';
+                fallback.innerText = preset.name;
+                
+                // Replace the background image with the fallback
+                target.style.backgroundImage = 'none';
+                target.appendChild(fallback);
+              }}
+            />
           )}
         </div>
       </div>

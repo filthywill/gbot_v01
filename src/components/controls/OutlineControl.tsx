@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModernControlItem } from './ModernControlItem';
+import { ControlItem } from './ControlItem';
 import { outlineValueConfig } from '../../utils/sliderValueConversion';
 
 interface OutlineControlProps {
@@ -24,7 +24,7 @@ export const OutlineControl: React.FC<OutlineControlProps> = ({
   onSliderComplete
 }) => {
   return (
-    <ModernControlItem
+    <ControlItem
       label="OUTLINE"
       hasToggle={true}
       enabled={enabled}

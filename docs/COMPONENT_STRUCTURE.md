@@ -37,6 +37,17 @@ The application uses a highly reusable `ControlItem` component that serves as a 
 - Maintains consistent styling and layout across all controls
 - Simplifies the addition of new control types
 
+#### Color Picker Component
+
+The `ColorPicker` component provides a sophisticated color selection interface:
+
+- Implements multiple selection methods (visual picker, eyedropper, swatches, hex input)
+- Uses a deferred change pattern to optimize history integration
+- Maintains global state for recently used and custom colors
+- Provides immediate visual feedback during selection
+- Includes validation and proper error handling
+- See [COLOR_PICKER.md](./COLOR_PICKER.md) for detailed documentation
+
 #### Specialized Control Components (Legacy)
 
 The application maintains backwards compatibility with the original specialized control components:
@@ -94,6 +105,8 @@ The application implements several performance optimizations:
 4. **Temporary state management**: Avoids creating history entries during interactions
 5. **Stable reference handling**: Prevents inline function creation during renders
 6. **Reusable control pattern**: Uses a single configurable component for consistent UI
+7. **Deferred change pattern**: Optimizes history entries from user interactions
+8. **Efficient event handling**: Separates immediate feedback from finalized changes
 
 These optimizations help maintain responsive UI interactions even with complex customization options.
 
@@ -111,6 +124,7 @@ The component refactoring provides several benefits:
 8. **Optimized rendering**: Memoized handlers prevent unnecessary re-renders
 9. **Consistent UI patterns**: The reusable control pattern ensures visual and behavioral consistency
 10. **Simplified control creation**: New controls can be added by configuration rather than creating new components
+11. **Optimized state management**: Deferred change pattern improves user experience and performance
 
 ## Component Relationships
 
@@ -119,6 +133,7 @@ App
 └── ModernCustomizationToolbar
     ├── Control Components
     │   ├── ControlItem (Generic reusable control)
+    │   │   └── ColorPicker (Enhanced color selection)
     │   ├── BackgroundControl
     │   ├── FillControl
     │   ├── OutlineControl

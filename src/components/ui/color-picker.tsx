@@ -124,17 +124,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   // Use global color state
   const [globalColors, updateGlobalColors] = useGlobalColorState();
   
-  // Keep a reference to the actual color value to handle popover open/close
-  const colorRef = useRef(value);
-  useEffect(() => {
-    colorRef.current = value;
-  }, [value]);
-  
   // Check if EyeDropper is supported
   useEffect(() => {
-    // Force eyedropper to be supported in modern browsers
-    setIsEyeDropperSupported(true);
-    console.log('EyeDropper API check:', Boolean(window.EyeDropper));
+    setIsEyeDropperSupported(Boolean(window.EyeDropper));
   }, []);
   
   // Update temp color when value changes
@@ -178,15 +170,8 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   };
   
   const handleSwatchClick = (color: string) => {
-    // Only change the color if it's different from the current temp color
-    if (color.toLowerCase() !== tempColor.toLowerCase()) {
-      setTempColor(color);
-      onChange(color);
-      
-      // Don't add to recent colors immediately - this will happen on popover close
-    }
-    
-    if (onChangeComplete) onChangeComplete();
+    setTempColor(color);
+    onChange(color);
   };
   
   // Call onChangeComplete when popover is closed
@@ -196,12 +181,13 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
       setInitialColor(tempColor);
     } else if (isOpen) {
       // Only when closing and previously open
-      // Add to recent colors if the color has actually changed
+      
+      // Add to recent colors only if the color has actually changed
       if (tempColor.toLowerCase() !== initialColor.toLowerCase()) {
         addToRecentColors(tempColor);
       }
       
-      // Call onChangeComplete if provided
+      // Always call onChangeComplete when closing the popover
       if (onChangeComplete) {
         onChangeComplete();
       }
@@ -218,14 +204,16 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         const result = await eyeDropper.open();
         setTempColor(result.sRGBHex);
         onChange(result.sRGBHex);
-        // Don't add to recent colors immediately - this will happen on popover close
-        if (onChangeComplete) onChangeComplete();
       } else {
         console.error('EyeDropper API not available in this browser');
+        // Alert the user but don't change the current color
         alert('Color picker is not supported in this browser');
+        // No need to revert the color as we haven't changed it
       }
     } catch (error) {
       console.error('EyeDropper error:', error);
+      // User probably canceled, don't display an error
+      // and don't change the current color
     } finally {
       setIsPickingColor(false);
     }
@@ -275,7 +263,21 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
               type="text"
               value={tempColor}
               onChange={(e) => setTempColor(e.target.value)}
-              onBlur={() => onChange(tempColor)}
+              onBlur={() => {
+                // Basic validation for hex color format (with or without # prefix)
+                const hexValue = tempColor.startsWith('#') ? tempColor : `#${tempColor}`;
+                const isValidHex = /^#([0-9A-F]{3}){1,2}$/i.test(hexValue);
+                
+                if (isValidHex) {
+                  // Ensure the color always has a # prefix
+                  const formattedColor = hexValue;
+                  setTempColor(formattedColor);
+                  onChange(formattedColor);
+                } else {
+                  // Revert to the valid color from props
+                  setTempColor(value);
+                }
+              }}
               className="flex-1 px-1.5 py-0.5 text-xs border border-gray-300 rounded w-full"
             />
           </div>

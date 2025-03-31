@@ -66,10 +66,10 @@ export const ControlItem: React.FC<ControlItemProps> = ({
 
   // Create slider content
   const sliderContent = hasSlider ? (
-    <div className="mt-1.5">
-      <div className="grid grid-cols-[65px_1fr] items-center gap-3.5">
-        <span className="text-xs text-zinc-400 pl-[35px] -mt-1">{sliderLabel}</span>
-        <div className="relative max-w-[250px]">
+    <div className="mt-0.5">
+      <div className="flex items-center">
+        <span className="text-xs text-zinc-400 w-[65px] pl-[35px]">{sliderLabel}</span>
+        <div className="flex-1 overflow-visible relative pr-[28px]">
           {valueConfig && <DevValueDisplay value={value} displayValue={displayValue} />}
           <ValueSlider
             value={[displayValue]}
@@ -98,7 +98,7 @@ export const ControlItem: React.FC<ControlItemProps> = ({
       onToggle={onToggle}
       isCollapsible={isCollapsible}
       headerRightContent={headerRightContent}
-      contentHeight={hasSlider ? "h-[14px]" : undefined}
+      contentHeight={hasSlider ? "h-[18px]" : undefined}
     >
       {sliderContent}
     </ControlContainer>

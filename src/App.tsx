@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ModernStyleSelector } from './components/ModernStyleSelector';
-import { ModernInputForm } from './components/ModernInputForm';
+import { StyleSelector } from './components/StyleSelector';
+import { InputForm } from './components/InputForm';
 import GraffitiDisplay from './components/GraffitiDisplay';
-import { ModernCustomizationToolbar } from './components/ModernCustomizationToolbar';
+import { CustomizationToolbar } from './components/CustomizationToolbar';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
 import stizakLogo from './assets/logos/stizak-wh.svg';
@@ -97,7 +97,7 @@ function App() {
             <div className="space-y-2">
               {/* Top section: Input and Style Selection */}
               <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
-                <ModernInputForm 
+                <InputForm 
                   inputText={displayInputText}
                   setInputText={handleInputTextChange}
                   isGenerating={isGenerating}
@@ -112,7 +112,7 @@ function App() {
                 
                 {/* Style Selector - removed extra top margin for better alignment */}
                 <div className="mt-1.5">
-                  <ModernStyleSelector 
+                  <StyleSelector 
                     styles={GRAFFITI_STYLES}
                     selectedStyle={selectedStyle}
                     onSelectStyle={handleStyleChange}
@@ -158,7 +158,7 @@ function App() {
               
               {/* Customization Section */}
               <div className="bg-zinc-800 shadow-md rounded-md p-0.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                <ModernCustomizationToolbar 
+                <CustomizationToolbar 
                   options={customizationOptions}
                   onChange={handleCustomizationChange}
                 />

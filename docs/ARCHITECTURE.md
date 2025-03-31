@@ -13,8 +13,10 @@ gbot_v01 is a React-based web application built with TypeScript, designed to cre
 - **Styling**: Tailwind CSS 3.4.1
 - **UI Components**: 
   - Radix UI primitives
+  - Shadcn UI components
   - Custom components
 - **Animation**: Framer Motion 12.5.0
+- **Icons**: Lucide React and React Icons
 
 ## Project Structure
 
@@ -22,15 +24,37 @@ gbot_v01 is a React-based web application built with TypeScript, designed to cre
 src/
 ├── assets/         # Static assets and SVG artwork
 ├── components/     # React components
+│   ├── controls/   # Control-specific components
+│   │   ├── BaseControlItem.tsx     # Foundation control component
+│   │   ├── ModernControlItem.tsx   # Enhanced control with color/slider
+│   │   ├── EffectControlItem.tsx   # Dual slider control component
+│   │   └── Specific controls (FillControl, OutlineControl, etc.)
 │   ├── ui/        # Reusable UI components
-│   └── GraffitiDisplay/  # Core graffiti rendering components
+│   │   ├── color-picker.tsx  # Enhanced color picker component
+│   │   ├── value-slider.tsx  # Custom slider with value display
+│   │   └── ... (other UI primitives)
+│   ├── GraffitiDisplay/  # Core graffiti rendering components
+│   │   ├── index.tsx        # Main container component
+│   │   ├── GraffitiContent.tsx  # SVG composition component
+│   │   ├── GraffitiLayers.tsx   # SVG layer management
+│   │   └── ... (export and history controls)
+│   └── Modern UI components (ModernCustomizationToolbar, StylePresetsPanel, etc.)
 ├── data/          # Static data and letter rules
 ├── hooks/         # Custom React hooks
+│   ├── useGraffitiGeneratorWithZustand.ts  # Main generator hook
+│   ├── useSvgCache.ts  # SVG caching mechanism
+│   └── useGraffitiGenerator.ts  # Legacy hook (unused)
 ├── lib/           # Core libraries and utilities
 ├── store/         # Zustand state management
-│   └── useGraffitiStore.ts  # Main state store
+│   ├── useGraffitiStore.ts  # Main state store
+│   └── useDevStore.ts       # Development-only store
 ├── styles/        # Global styles and Tailwind configurations
 ├── utils/         # SVG processing utilities
+│   ├── svgUtils.ts            # Core SVG processing functions
+│   ├── svgCustomizationUtils.ts  # SVG styling utilities
+│   ├── letterUtils.ts         # Letter-specific processing
+│   ├── svgCache.ts            # SVG caching mechanism
+│   └── sliderValueConversion.ts  # UI helper for slider values
 └── types.ts       # TypeScript type definitions
 ```
 
@@ -43,6 +67,7 @@ The application implements sophisticated SVG processing with features including:
 - Automatic rotation rules for specific letter combinations
 - Bounds detection and optimization for layout
 - Efficient caching mechanisms for processed SVGs
+- Memory-efficient batch processing for large inputs
 
 ### Letter Positioning System
 - Utilizes pixel data analysis for optimal letter overlap
@@ -55,12 +80,12 @@ The application implements sophisticated SVG processing with features including:
 All implemented effects include:
 - **Background**: Custom background colors and toggles
 - **Fill**: Color customization for letter fills
-- **Stroke**: Width and color customization for outlines
+- **Stroke/Outline**: Width and color customization for outlines
 - **Shadow**: Multi-parameter shadow effects with opacity and blur
 - **Stamp**: Custom width and color effects
-- **Shield**: Protective outline effect with width and color options
+- **Shield/Forcefield**: Protective outline effect with width and color options
 - **Shadow Effect**: Offset controls for depth
-- **Shine**: (Implementation ready but currently unused)
+- **Shine**: Basic implementation with opacity control
 
 ### State Management
 The application uses Zustand for efficient state management with:
@@ -69,6 +94,22 @@ The application uses Zustand for efficient state management with:
 - Efficient SVG caching and processing state
 - Real-time preview updates
 - Preset management system
+- Optimized rendering with fine-grained state updates
+
+### Control Component Hierarchy
+The application features a three-tier control component system:
+- **BaseControlItem**: Foundation component providing structure and toggle functionality
+- **ModernControlItem**: Mid-level component adding color picker and single slider
+- **EffectControlItem**: Advanced component with dual sliders for complex effects
+- **Specific Controls**: (FillControl, OutlineControl, etc.) that implement specific behaviors
+
+### Color Selection System
+The application features an optimized color selection system:
+- Custom color picker component with multiple selection methods
+- Recent colors memory with localStorage persistence
+- Color swatches with predefined color palettes
+- Deferred change pattern for optimal history integration
+- Global state for recently used and custom colors
 
 ## Component Architecture
 
@@ -76,7 +117,8 @@ The application uses Zustand for efficient state management with:
 The application uses a comprehensive UI system built with:
 - Radix UI primitives for accessibility and interaction
 - Custom components with Tailwind styling
-- Framer Motion for animations
+- Value conversion utilities for intuitive slider interactions
+- Framer Motion for animations and transitions
 
 ### Core Components
 
@@ -85,18 +127,23 @@ The application uses a comprehensive UI system built with:
 - Manages layout and positioning
 - Implements efficient update mechanisms
 - Provides real-time preview capabilities
+- Export controls for saving results
+- History controls for undo/redo operations
 
-#### CustomizationToolbar
+#### ModernCustomizationToolbar
 - Provides comprehensive customization controls
 - Implements customization sliders and toggles
 - Offers real-time preview updates
 - Groups related controls logically
+- Integrates optimized color selection components
+- Collapsible sections for better space management
 
 #### StylePresetsPanel
 - Manages preset style selection and application
 - Handles user-created preset management
 - Provides preset saving, loading, and deletion
 - Organizes presets in an easy-to-browse grid layout
+- Persists user presets in localStorage
 
 ## Development Guidelines
 
@@ -110,34 +157,48 @@ The application uses a comprehensive UI system built with:
 
 ### Performance Optimization
 - Implement SVG caching mechanisms
-- Use pixel-based density calculations
-- Optimize overlap calculations
-- Handle large text inputs efficiently
+- Use batch processing for large inputs
+- Employ memoization for frequently used calculations
+- Apply pixel-based density calculations
+- Optimize overlap calculations with pixel range analysis
+- Use deferred change patterns for user interactions
+
+### State Management Best Practices
+- Use consistent patterns for state updates
+- Follow unidirectional data flow
+- Implement proper history tracking
+- Optimize for minimal re-renders
+- Separate immediate UI feedback from finalized state changes
+- Leverage Zustand's fine-grained update capabilities
 
 ### SVG Processing Best Practices
 - Maintain vector quality throughout processing
 - Implement efficient bounds detection
 - Use proper SVG attribute management
 - Handle SVG parsing errors gracefully
+- Employ fallback strategies for unavailable assets
 
 ### Component Organization
 - Follow single responsibility principle
 - Create focused components for specific features
 - Extract reusable functionality into separate components
 - Maintain clear component hierarchies
+- Use composition over inheritance
 
 ## Future Considerations
 
 ### Planned Features
-- Implementation of shine effect variations
+- Enhanced shine effect variations and controls
 - Additional letter style presets
-- Enhanced export options
+- Enhanced export options with different file formats
 - Performance optimizations for large texts
+- Mobile-optimized UI improvements
 
 ### Performance Optimizations
-- Continuous improvement of SVG processing
-- Enhanced caching strategies
-- Optimization of letter positioning algorithms
+- Web worker implementation for SVG processing
+- Enhanced caching strategies with service workers
+- Further optimization of letter positioning algorithms
+- Reduction of unnecessary re-renders
 
 ---
 

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ModernControlItem } from './ModernControlItem';
+import React from 'react';
+import { ControlItem } from './ControlItem';
 
 interface BackgroundControlProps {
   enabled: boolean;
@@ -17,13 +17,12 @@ export const BackgroundControl: React.FC<BackgroundControlProps> = ({
   onColorComplete
 }) => {
   return (
-    <ModernControlItem
+    <ControlItem
       label="BG"
       hasToggle={true}
-      hasColorPicker={true}
-      isCollapsible={false}
       enabled={enabled}
       onToggle={onToggle}
+      hasColorPicker={true}
       color={color}
       onColorChange={onColorChange}
       onColorComplete={onColorComplete}

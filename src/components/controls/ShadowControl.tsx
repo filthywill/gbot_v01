@@ -1,6 +1,6 @@
 import React from 'react';
 import { EffectControlItem } from './EffectControlItem';
-import { shadowValueConfig } from '../../utils/sliderValueConversion';
+import { shadowHorizontalValueConfig, shadowVerticalValueConfig } from '../../utils/sliderValueConversion';
 
 interface ShadowControlProps {
   enabled: boolean;
@@ -33,7 +33,8 @@ export const ShadowControl: React.FC<ShadowControlProps> = ({
       secondSliderValue={offsetY}
       onSecondSliderChange={onOffsetYChange}
       onSliderComplete={onSliderComplete}
-      sliderConfig={shadowValueConfig}
+      firstSliderConfig={shadowHorizontalValueConfig}
+      secondSliderConfig={shadowVerticalValueConfig}
     />
   );
 }; 

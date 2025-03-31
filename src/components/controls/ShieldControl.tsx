@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModernControlItem } from './ModernControlItem';
+import { ControlItem } from './ControlItem';
 import { forcefieldValueConfig } from '../../utils/sliderValueConversion';
 
 interface ShieldControlProps {
@@ -24,7 +24,7 @@ export const ShieldControl: React.FC<ShieldControlProps> = ({
   onSliderComplete
 }) => {
   return (
-    <ModernControlItem
+    <ControlItem
       label="FORCEFIELD"
       hasToggle={true}
       enabled={enabled}

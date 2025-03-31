@@ -36,146 +36,14 @@ import { BackgroundControl } from './controls/BackgroundControl';
 import { FillControl } from './controls/FillControl';
 import { ShieldControl } from './controls/ShieldControl';
 import { DevValueDisplay } from './ui/dev-value-display';
+import { useHistoryTracking } from '../hooks/useHistoryTracking';
 
-interface ModernCustomizationToolbarProps {
+interface CustomizationToolbarProps {
   options: CustomizationOptions;
   onChange: (options: CustomizationOptions) => void;
 }
 
-interface ControlRowProps {
-  label: string;
-  enabled?: boolean;
-  onToggle?: (enabled: boolean) => void;
-  color?: string;
-  onColorChange?: (color: string) => void;
-  width?: number;
-  onWidthChange?: (width: number) => void;
-  onColorComplete?: () => void;
-  onSliderComplete?: () => void;
-}
-
-const ControlRow: React.FC<ControlRowProps> = ({
-  label,
-  enabled,
-  onToggle,
-  color,
-  onColorChange,
-  width,
-  onWidthChange,
-  onColorComplete,
-  onSliderComplete,
-}) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const hasSlider = width !== undefined && onWidthChange && enabled;
-
-  // Determine slider range and scaling based on label
-  const getSliderConfig = () => {
-    switch(label) {
-      case "OUTLINE":
-        return {
-          min: 25,
-          max: 200,
-          step: 1,
-          displayMin: 1,
-          displayMax: 25,
-          toDisplayValue: (value: number) => Math.round(((value - 25) / (200 - 25)) * 24 + 1),
-          toActualValue: (display: number) => Math.round(((display - 1) / 24) * (200 - 25) + 25)
-        };
-      case "FORCEFIELD":
-        return {
-          min: 1,
-          max: 250,
-          step: 2,
-          displayMin: 1,
-          displayMax: 50,
-          toDisplayValue: (value: number) => Math.round(((value - 1) / (250 - 1)) * 49 + 1),
-          toActualValue: (display: number) => Math.round(((display - 1) / 49) * (250 - 1) + 1)
-        };
-      default:
-        return {
-          min: 0,
-          max: 10,
-          step: 2,
-          displayMin: 0,
-          displayMax: 10,
-          toDisplayValue: (value: number) => value,
-          toActualValue: (display: number) => display
-        };
-    }
-  };
-
-  const sliderConfig = getSliderConfig();
-  const displayValue = width !== undefined ? sliderConfig.toDisplayValue(width) : 0;
-
-  // Determine container padding based on whether it has a slider
-  const containerPadding = hasSlider ? "p-1.5" : "py-1 px-1.5";
-
-  return (
-    <div className={`bg-zinc-500/25 rounded-lg ${containerPadding} relative`}>
-      {/* Header row with label, toggle, and color */}
-      <div className="flex items-center justify-between gap-1.5 min-h-[8px]">
-        <div className="flex items-center gap-1.5">
-          {enabled !== undefined && onToggle && (
-            <Switch
-              checked={enabled}
-              onCheckedChange={onToggle}
-              className="data-[state=checked]:bg-purple-600"
-            />
-          )}
-          <div className="flex items-center gap-0.5">
-            <span className="text-sm text-zinc-200 ui-label leading-none flex items-center -mt-[1px] pl-[2px]">{label}</span>
-            {hasSlider && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center justify-center w-4 h-4 hover:bg-zinc-600/30 rounded -mt-[1px]"
-              >
-                {isExpanded ? (
-                  <FaChevronCircleUp className="w-3 h-3 text-zinc-500" />
-                ) : (
-                  <FaChevronCircleDown className="w-3 h-3 text-zinc-500" />
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-        {color && onColorChange && (
-          <ColorPicker
-            value={color}
-            onChange={onColorChange}
-            onChangeComplete={onColorComplete}
-            className="w-6 h-6"
-          />
-        )}
-      </div>
-
-      {/* Width slider if applicable */}
-      {hasSlider && isExpanded && (
-        <div className="mt-1">
-          <div className="grid grid-cols-[65px_1fr] items-center gap-1.5">
-            <span className="text-xs text-zinc-400 ui-label pl-[36px]">Size</span>
-            <div className="relative">
-              <DevValueDisplay value={width || 0} displayValue={displayValue} />
-              <ValueSlider
-                value={[displayValue]}
-                min={sliderConfig.displayMin}
-                max={sliderConfig.displayMax}
-                step={1}
-                onValueChange={([value]) => {
-                  const actualValue = sliderConfig.toActualValue(value);
-                  onWidthChange(actualValue);
-                }}
-                onValueCommit={onSliderComplete}
-                className="data-[state=checked]:bg-purple-600"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProps> = ({ 
+export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({ 
   options,
   onChange,
 }) => {
@@ -192,6 +60,9 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
   // State for save preset dialog
   const [isSavePresetDialogOpen, setSavePresetDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
+  
+  // Use the history tracking hook
+  const { updateWithoutHistory, updateWithHistory } = useHistoryTracking();
   
   // Check if we're in development mode
   const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
@@ -219,8 +90,10 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
   
   // For toggle changes (switches) - create history entries immediately
   const handleToggleChange = useCallback((updates: Partial<CustomizationOptions>) => {
-    onChange({...options, ...updates});
-  }, [options, onChange]);
+    // Use updateWithHistory to create history entries immediately
+    const updatedOptions = updateWithHistory(updates);
+    onChange({...options, ...updatedOptions} as CustomizationOptions);
+  }, [options, onChange, updateWithHistory]);
   
   // For dragging operations (sliders, color pickers) - don't create history entries during dragging
   const handleDragChange = useCallback((updates: Partial<CustomizationOptions>) => {
@@ -234,38 +107,36 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
     setTempOptions(newTempOptions);
     
     // Update UI without creating history
-    onChange({...newTempOptions, __skipHistory: true});
-  }, [isDragging, tempOptions, onChange]);
+    const withoutHistory = updateWithoutHistory(newTempOptions);
+    onChange(withoutHistory as CustomizationOptions);
+  }, [isDragging, tempOptions, onChange, updateWithoutHistory]);
   
   // When dragging ends, commit the changes and create history
   const handleDragComplete = useCallback(() => {
     if (isDragging) {
       setIsDragging(false);
-      onChange(tempOptions); // Creates history entry without __skipHistory flag
+      // Use updateWithHistory to create history entries on completion
+      const withHistory = updateWithHistory(tempOptions);
+      onChange(withHistory as CustomizationOptions);
     }
-  }, [isDragging, tempOptions, onChange]);
+  }, [isDragging, tempOptions, onChange, updateWithHistory]);
   
   // Handler for when slider interaction completes
   const handleSliderComplete = () => {
-    // Remove the special flag and create a proper history entry
-    const { __skipHistory, ...finalOptions } = tempOptions;
-    onChange(finalOptions as CustomizationOptions);
+    handleDragComplete();
   };
   
   // Apply a preset with history
   const applyPreset = useCallback((preset: StylePreset) => {
     setIsDragging(false);
     
-    // Merge preset settings with options
-    const newOptions = { 
-      ...options, 
-      ...preset.settings,
-      __presetId: preset.id 
-    };
+    // Merge preset settings with options and mark with preset ID
+    const withHistory = updateWithHistory(preset.settings, preset.id);
+    onChange({ ...options, ...withHistory } as CustomizationOptions);
     
-    setTempOptions(newOptions);
-    onChange(newOptions);
-  }, [options, onChange]);
+    // Update temp options to match
+    setTempOptions({ ...options, ...preset.settings } as CustomizationOptions);
+  }, [options, onChange, updateWithHistory]);
   
   // Handler for saving a new preset
   const savePreset = () => {
@@ -360,7 +231,7 @@ export const ModernCustomizationToolbar: React.FC<ModernCustomizationToolbarProp
   const sectionContainerClass = "p-1 rounded-md";
 
   return (
-    <div className="flex flex-col min-[640px]:flex-row min-[640px]:space-x-2 space-y-0 min-[640px]:space-y-0">
+    <div className="flex flex-col min-[600px]:flex-row min-[640px]:space-x-2 space-y-0 min-[600px]:space-y-0">
       <div className={`${sectionContainerClass} flex-1`}>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger className={`${sectionHeaderClass} bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700`}>

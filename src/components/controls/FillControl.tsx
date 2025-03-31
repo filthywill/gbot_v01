@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModernControlItem } from './ModernControlItem';
+import { ControlItem } from './ControlItem';
 
 interface FillControlProps {
   color: string;
@@ -13,7 +13,7 @@ export const FillControl: React.FC<FillControlProps> = ({
   onColorComplete
 }) => {
   return (
-    <ModernControlItem
+    <ControlItem
       label="FILL"
       hasColorPicker={true}
       color={color}
