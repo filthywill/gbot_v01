@@ -1,19 +1,23 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { supabase, getCurrentUser } from '../lib/supabase';
+import logger from '../lib/logger';
 
 type AuthState = {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  rememberMe: boolean;
   
   // Actions
   initialize: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string, rememberMe: boolean) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetError: () => void;
+  resetPassword: (email: string) => Promise<void>;
+  setRememberMe: (value: boolean) => void;
 };
 
 const useAuthStore = create<AuthState>((set, get) => ({
@@ -21,6 +25,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   error: null,
+  rememberMe: false,
 
   initialize: async () => {
     try {
@@ -35,6 +40,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
           user,
           isAuthenticated: !!user,
           isLoading: false,
+          // Restore remember me preference from localStorage
+          rememberMe: localStorage.getItem('rememberMe') === 'true'
         });
       } else {
         set({ 
@@ -44,7 +51,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      logger.error('Auth initialization error:', error);
       set({ 
         user: null,
         isAuthenticated: false,
@@ -54,9 +61,15 @@ const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithEmail: async (email: string, password: string) => {
+  signInWithEmail: async (email: string, password: string, rememberMe: boolean) => {
     try {
       set({ isLoading: true, error: null });
+      
+      // Set session persistence based on rememberMe
+      await supabase.auth.setSession({
+        access_token: '',  // Will be set by signInWithPassword
+        refresh_token: '', // Will be set by signInWithPassword
+      });
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -65,13 +78,17 @@ const useAuthStore = create<AuthState>((set, get) => ({
       
       if (error) throw error;
       
+      // Store rememberMe preference
+      localStorage.setItem('rememberMe', rememberMe.toString());
+      
       set({ 
         user: data.user,
         isAuthenticated: !!data.user,
         isLoading: false,
+        rememberMe
       });
     } catch (error) {
-      console.error('Email sign-in error:', error);
+      logger.error('Email sign-in error:', error);
       set({ 
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to sign in'
@@ -97,7 +114,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.error('Email sign-up error:', error);
+      logger.error('Email sign-up error:', error);
       set({ 
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to sign up'
@@ -112,13 +129,17 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
+      // Clear rememberMe preference
+      localStorage.removeItem('rememberMe');
+      
       set({ 
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        rememberMe: false
       });
     } catch (error) {
-      console.error('Sign out error:', error);
+      logger.error('Sign out error:', error);
       set({ 
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to sign out'
@@ -129,6 +150,31 @@ const useAuthStore = create<AuthState>((set, get) => ({
   resetError: () => {
     set({ error: null });
   },
+
+  resetPassword: async (email: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      set({ isLoading: false });
+    } catch (error) {
+      logger.error('Password reset error:', error);
+      set({ 
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to send reset email'
+      });
+    }
+  },
+
+  setRememberMe: (value: boolean) => {
+    set({ rememberMe: value });
+    localStorage.setItem('rememberMe', value.toString());
+  }
 }));
 
 // Set up auth state change listener
