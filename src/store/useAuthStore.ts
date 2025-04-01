@@ -10,7 +10,6 @@ type AuthState = {
   
   // Actions
   initialize: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -51,29 +50,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
         error: 'Failed to initialize authentication'
-      });
-    }
-  },
-
-  signInWithGoogle: async () => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      
-      if (error) throw error;
-      
-      // Auth state will be updated by the onAuthStateChange listener
-    } catch (error) {
-      console.error('Google sign-in error:', error);
-      set({ 
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to sign in with Google'
       });
     }
   },

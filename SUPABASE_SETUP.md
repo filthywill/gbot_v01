@@ -3,6 +3,7 @@
 ## Prerequisites
 - A Supabase account (sign up at [supabase.com](https://supabase.com))
 - Node.js and npm installed
+- A Google Cloud Platform account (for Google authentication)
 
 ## Step 1: Create a Supabase Project
 
@@ -28,6 +29,7 @@
 ```
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
 ## Step 4: Create Database Tables
@@ -111,14 +113,30 @@ CREATE POLICY "Users can read their own feature access" ON public.user_feature_a
 
 ## Step 5: Configure Authentication Providers
 
-### For Google Authentication:
+### For Google Authentication (Direct Token Approach):
 
-1. Go to Settings > Authentication in your Supabase dashboard
-2. Under "External OAuth Providers", find Google
-3. Enable Google auth
-4. Follow the instructions to create OAuth credentials in Google Cloud Console
-5. Add your authorized domain and redirect URLs as instructed
-6. Save the Client ID and Client Secret from Google in Supabase
+1. Go to Google Cloud Console (https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to "APIs & Services" > "Credentials"
+4. Click "Create Credentials" > "OAuth client ID"
+5. Select "Web application" as the application type
+6. Add your application's domain and local development URLs to "Authorized JavaScript origins"
+   - Development: `http://localhost:5173` (or your Vite port)
+   - Production: `https://your-domain.com`
+7. You do not need to add redirect URIs for the direct token approach
+8. Copy your "Client ID" (you'll need it for Supabase and your .env file)
+
+9. Now, go to Supabase Dashboard:
+   - Navigate to Authentication > Providers
+   - Find Google in the list and enable it
+   - Paste your Google Client ID
+   - You can leave the Client Secret and other fields empty (not needed for direct token approach)
+   - Save changes
+
+10. Add your Google Client ID to your environment variables:
+    ```
+    VITE_GOOGLE_CLIENT_ID=your-google-client-id
+    ```
 
 ### For Email Authentication:
 
@@ -126,15 +144,62 @@ CREATE POLICY "Users can read their own feature access" ON public.user_feature_a
 2. Under "Email Auth", make sure it's enabled
 3. Configure as needed (confirm emails, password recovery, etc.)
 
-## Step 6: Test Your Setup
+## Step 6: Configure Google OAuth Consent Screen
+
+1. In Google Cloud Console, go to "APIs & Services" > "OAuth consent screen"
+2. Select "External" user type (unless you have Google Workspace)
+3. Fill in the required information:
+   - App name: "GraffitiSOFT" (or your application name)
+   - User support email: Your email address
+   - Developer contact information: Your email address
+4. Add the scopes you need:
+   - `email` 
+   - `profile`
+5. Add test users if you're still in testing mode
+6. Review and publish your app
+
+## Step 7: Test Your Setup
 
 1. Restart your development server
-2. Try signing in with Google and/or email
-3. Test creating and retrieving presets
-4. Verify that user actions are being tracked
+2. Try signing in with Google using the new direct token approach:
+   - The Google sign-in button should show up
+   - Clicking it should open a Google popup
+   - After signing in with Google, you should be authenticated in the app
+3. Try signing in with email/password
+4. Test creating and retrieving presets
+5. Verify that user actions are being tracked
 
 ## Troubleshooting
 
-- **Auth Errors**: Check that your redirect URLs are correctly configured
+### Google Authentication Issues
+
+- **Error 400: redirect_uri_mismatch**: This error is usually seen with OAuth redirect flow, but not with the direct token approach. If you still see this:
+  - Ensure you're using the `GoogleSignInButton` component which implements the direct token approach
+  - Check that your JavaScript origins in Google Cloud match your application URLs exactly
+
+- **Google Button Not Loading**: 
+  - Check browser console for script loading errors
+  - Verify the Google Client ID in your environment variables
+  - Ensure the Google Identity Services script is loading properly
+  
+- **Invalid Client ID**: 
+  - Double-check that the Client ID in your .env file matches the one in Google Cloud
+  - Make sure you're using the Web application client ID, not the Android or iOS one
+
+- **Token Validation Failures**: 
+  - Ensure both Supabase and your app are configured with the same Google Client ID
+  - Check that your application's domain is properly authorized in Google Cloud
+
+### Other Common Issues
+
 - **Database Errors**: Verify your RLS policies and table structure
-- **Type Errors**: Make sure your TypeScript types match your database schema 
+- **Type Errors**: Make sure your TypeScript types match your database schema
+- **CORS Errors**: Add your domain to the allowed origins in Supabase settings
+
+## Verification Steps
+
+To confirm your setup is working correctly:
+
+1. **Authentication Flow**: Complete a sign-in process and verify the user appears in the Supabase Auth dashboard
+2. **Database Access**: Create a preset and verify it appears in the Supabase database with the correct user_id
+3. **RLS Policies**: Try accessing another user's private data (should be blocked) 

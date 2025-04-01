@@ -1,108 +1,174 @@
-# GBot v0.1
+# GraffitiSOFT
 
-A modern web application for creating customizable vector-based graffiti artwork with advanced security features.
+A modern web application for creating and customizing graffiti text art with authentication using Supabase.
 
-## Features
+## Project Overview
 
-- Vector-based artwork processing with comprehensive security measures
-- Extensive customization options with real-time preview
-- Secure SVG processing pipeline with validation and sanitization
-- Advanced effects including fill, outline, shadow, and shine
-- Intelligent letter positioning system
-- Style presets with save/load functionality
-- Comprehensive error handling and logging
-- Modern, responsive UI built with React and TypeScript
+GraffitiSOFT is a React-based web application that allows users to generate customized graffiti text. The application features a robust authentication system, SVG processing for graffiti generation, and customization tools for personalizing the output.
 
-## Security Features
+## Core Features
 
-- Multi-layer SVG security system
-- Content validation and sanitization
-- XSS prevention
-- Secure error handling
-- Comprehensive logging
+- **Graffiti Text Generation**: Convert input text into stylized graffiti art
+- **Style Selection**: Choose from multiple graffiti styles
+- **Customization Tools**: Adjust colors, size, spacing, and other properties
+- **History & Undo/Redo**: Track changes and revert as needed
+- **Authentication**: User accounts with Google and email login options
+- **User Presets**: Save and load customization presets (for authenticated users)
+- **Export Options**: Download as SVG or PNG
 
-For detailed security information, see [Security Documentation](docs/SECURITY.md).
+## Tech Stack
+
+- **Frontend**: React, TypeScript, Tailwind CSS
+- **State Management**: Zustand
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase PostgreSQL
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+
+## Project Structure
+
+```
+src/
+├── assets/           # Static assets (images, logos, etc.)
+├── components/       # React components
+│   ├── Auth/         # Authentication components
+│   ├── GraffitiDisplay/  # SVG rendering components
+│   └── ui/           # Reusable UI components
+├── data/             # Static data like style definitions
+├── hooks/            # Custom React hooks
+├── lib/              # Utility libraries and configurations
+├── services/         # API service integrations
+├── store/            # Zustand state management
+├── types/            # TypeScript type definitions
+└── utils/            # Helper functions
+```
+
+## Authentication Implementation
+
+The application uses Supabase for authentication with a robust, type-safe implementation.
+
+### Authentication Flow
+
+1. **Client Initialization**: `supabase.ts` initializes the Supabase client with environment variables
+2. **State Management**: `useAuthStore.ts` manages authentication state with Zustand
+3. **UI Components**: Components in `components/Auth/` handle user interactions
+4. **Session Handling**: AuthProvider maintains session state throughout the app
+
+### Authentication Methods
+
+- **Google Sign-In**: Direct token approach using Google Identity Services
+- **Email/Password**: Traditional email and password authentication
+
+### Key Authentication Files
+
+- `src/lib/supabase.ts`: Supabase client configuration
+- `src/store/useAuthStore.ts`: Authentication state management
+- `src/components/Auth/AuthProvider.tsx`: Context provider for auth state
+- `src/components/Auth/AuthHeader.tsx`: Sign in/out UI
+- `src/components/Auth/AuthModal.tsx`: Authentication modal dialog
+- `src/components/Auth/GoogleSignInButton.tsx`: Google authentication integration
+- `src/components/Auth/AuthCallback.tsx`: Handles redirect-based auth flows
+
+## Google Authentication Implementation
+
+The application uses a direct token approach for Google authentication:
+
+1. Load Google Identity Services script
+2. Initialize button with client ID from environment variables
+3. Handle credential response by validating token with Supabase
+4. Update authentication state in Zustand store
+
+```tsx
+// GoogleSignInButton.tsx (simplified)
+const handleCredentialResponse = useCallback(async (response) => {
+  if (!response.credential) throw new Error('No credential');
+  
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: response.credential,
+  });
+  
+  if (error) {
+    logger.error('Supabase auth error', error);
+    return;
+  }
+  
+  // Authentication successful
+}, []);
+```
+
+## State Management
+
+The application uses Zustand for state management with dedicated stores:
+
+- `useAuthStore`: Manages authentication state
+- `useGraffitiStore`: Controls graffiti generation and customization
+- `useDevStore`: Development mode utilities and toggles
+
+## Logging System
+
+A structured logging system is implemented in `src/lib/logger.ts` with environment-aware behavior:
+
+- **Development**: Full logging with detailed information
+- **Production**: Minimal logging with sensitive data sanitization
+- **Log Levels**: ERROR, WARN, INFO, DEBUG
+
+## Environment Configuration
+
+Environment variables are managed through a `.env` file:
+
+```
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Google Authentication
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+```
 
 ## Getting Started
 
-### Prerequisites
+1. Clone the repository
+2. Install dependencies with `npm install`
+3. Copy `.env.example` to `.env` and add your configuration
+4. Follow the steps in `SUPABASE_SETUP.md` to configure Supabase
+5. Run the development server with `npm run dev`
 
-- Node.js 18.0.0 or higher
-- npm 9.0.0 or higher
+## Supabase Setup
 
-### Installation
+See `SUPABASE_SETUP.md` for detailed instructions on setting up Supabase, including:
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/gbot_v01.git
-cd gbot_v01
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Start the development server:
-```bash
-npm run dev
-```
-
-## Documentation
-
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Security Documentation](docs/SECURITY.md)
-- [Component Standards](docs/COMPONENT_STANDARDS.md)
-- [Component Structure](docs/COMPONENT_STRUCTURE.md)
+- Creating a Supabase project
+- Configuring authentication providers
+- Setting up database tables and security policies
+- Obtaining and configuring API keys
 
 ## Development
 
-### Key Commands
+### Development Mode
 
-```bash
-# Start development server
-npm run dev
+The application includes a development mode with debugging tools:
 
-# Build for production
-npm run build
+- **Debug Panel**: Visualize SVG processing details
+- **Value Overlays**: Display internal values for debugging
+- **Console Logging**: Detailed logging through the structured logger
 
-# Preview production build
-npm run preview
+Enable debug mode by setting `NODE_ENV=development` in your environment.
 
-# Run tests
-npm run test
+### Code Conventions
 
-# Run linting
-npm run lint
-```
+- **Component Structure**: Functional components with TypeScript interfaces
+- **State Management**: Zustand stores with clear actions and state
+- **Memoization**: React.memo, useMemo, and useCallback for performance optimization
+- **Error Handling**: Structured error logging and user-friendly messages
+- **Testing**: Component and utility tests using Vitest
 
-### Development Guidelines
+## Deployment
 
-1. Follow the security best practices outlined in the security documentation
-2. Use the secure SVG processing utilities for all SVG operations
-3. Implement proper error boundaries and logging
-4. Follow component standards and structure guidelines
-5. Write comprehensive tests for new features
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Security
-
-If you discover a security vulnerability, please follow our [security policy](SECURITY.md) for reporting.
+1. Build the application with `npm run build`
+2. Deploy the `dist` directory to your hosting provider
+3. Configure environment variables on your hosting platform
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- React team for the amazing framework
-- Zustand for efficient state management
-- Tailwind CSS for the styling system
-- All contributors who have helped shape this project
+Copyright © STIZAK. All rights reserved.

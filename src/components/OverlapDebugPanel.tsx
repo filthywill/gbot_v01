@@ -16,7 +16,7 @@ export function OverlapDebugPanel() {
   const [selectedLetter, setSelectedLetter] = useState<string>('');
   const [targetLetter, setTargetLetter] = useState<string>('');
   const [modifiedLetters, setModifiedLetters] = useState<Set<string>>(new Set());
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const { overlapRules, updateOverlapRule, updateSpecialCase } = useGraffitiStore();
 
   const selectedRule = selectedLetter ? overlapRules[selectedLetter] : null;

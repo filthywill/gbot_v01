@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSelector } from './components/StyleSelector';
 import { InputForm } from './components/InputForm';
 import GraffitiDisplay from './components/GraffitiDisplay';
 import { CustomizationToolbar } from './components/CustomizationToolbar';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
+// Note: There are multiple logo files with slightly different names (stizack-wh.svg and stizak-wh.svg)
 import stizakLogo from './assets/logos/stizack-wh.svg';
 import { OverlapDebugPanel } from './components/OverlapDebugPanel';
 import { cn } from './lib/utils';
@@ -20,7 +21,6 @@ function App() {
 
   // Get all state and actions from our Zustand-powered hook
   const {
-    inputText,
     displayInputText,
     isGenerating,
     error,
@@ -50,18 +50,6 @@ function App() {
     }
   }, [processedSvgs]);
 
-  // Handle form submission with error logging
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!displayInputText.trim()) return;
-    
-    try {
-      await generateGraffiti(displayInputText);
-    } catch (err) {
-      logger.error('Failed to generate graffiti', err);
-    }
-  };
-
   // Update debug logging to use secure logger
   useEffect(() => {
     debugLog('App history state:', {
@@ -78,34 +66,35 @@ function App() {
     }
   }, [error]);
 
-  // Handle undo button click
-  const handleUndo = () => {
-    if (currentHistoryIndex > 0) {
-      handleUndoRedo(currentHistoryIndex - 1);
-    }
-  };
-
-  // Handle redo button click
-  const handleRedo = () => {
-    if (currentHistoryIndex < history.length - 1) {
-      handleUndoRedo(currentHistoryIndex + 1);
-    }
-  };
-
   return (
     <AuthProvider>
       <div className="min-h-screen bg-zinc-900 text-white">
         {/* Main App Content */}
         <div className="min-h-screen">
-          {/* Logo Header */}
-          <header className="bg-zinc-800 shadow-sm">
-            <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3 flex justify-between items-center">
-              <img 
-                src={stizakLogo} 
-                alt="GraffitiSOFT"
-                className="h-[130px] w-auto" 
-              />
-              <AuthHeader />
+          {/* Header Section */}
+          <header>
+            {/* Auth Section */}
+            <div className="w-full bg-zinc-900">
+              <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
+                <div className="flex justify-end">
+                  <AuthHeader />
+                </div>
+              </div>
+            </div>
+            
+            {/* Logo Section */}
+            <div className="bg-zinc-900">
+              <div className="max-w-[800px] mx-auto py-0 px-2 sm:px-3">
+                <div className="bg-zinc-800 shadow-md rounded-md p-1">
+                  <div className="flex justify-center">
+                    <img 
+                      src={stizakLogo} 
+                      alt="STIZAK"
+                      className="h-[120px] w-auto" 
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </header>
           
@@ -200,7 +189,7 @@ function App() {
 
         {/* Dev Mode Buttons - only visible when debug panels are enabled */}
         {isDev && isDebugPanelEnabled() && (
-          <div className="fixed top-2 right-2 z-[9999] flex gap-2">
+          <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[9999] flex gap-2 opacity-[0.25]">
             <button
               onClick={toggleValueOverlays}
               className={cn(
