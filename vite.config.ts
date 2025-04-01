@@ -9,9 +9,6 @@ export default defineConfig({
     react(),
     basicSsl() // Add the SSL plugin
   ],
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
-  },
   optimizeDeps: {
     include: ['zustand'],
     exclude: ['lucide-react'],
@@ -25,8 +22,6 @@ export default defineConfig({
     rollupOptions: {
       external: [],
     },
-    minify: true,
-    sourcemap: false
   },
   // Add base URL configuration
   base: './',
