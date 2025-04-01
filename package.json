@@ -28,6 +28,8 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@supabase/supabase-js": "^2.49.4",
     "@types/zxcvbn": "^4.4.5",
+    "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "@vitejs/plugin-react": "^4.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.5.0",
@@ -40,6 +42,7 @@
     "simplify-path": "^1.1.0",
     "svgpath": "^2.6.0",
     "tailwind-merge": "^3.0.2",
+    "vite": "^6.2.2",
     "zustand": "^5.0.3",
     "zxcvbn": "^4.4.2"
   },
@@ -49,8 +52,6 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@types/svgo": "^2.6.4",
-    "@vitejs/plugin-basic-ssl": "^1.1.0",
-    "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
@@ -60,7 +61,6 @@
     "svgo": "^3.3.2",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
-    "typescript-eslint": "^8.3.0",
-    "vite": "^6.2.2"
+    "typescript-eslint": "^8.3.0"
   }
 }
