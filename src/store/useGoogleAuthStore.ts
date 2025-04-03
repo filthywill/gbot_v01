@@ -20,6 +20,7 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
   initializeSDK: async () => {
     // Skip if SDK is already loaded or is currently loading
     if (get().isSDKLoaded || get().isSDKLoading || get().initializationAttempted) {
+      logger.debug(`SDK status - loaded: ${get().isSDKLoaded}, loading: ${get().isSDKLoading}, attempted: ${get().initializationAttempted}`);
       return get().isSDKLoaded;
     }
 
@@ -39,7 +40,7 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
       const protocol = window.location.protocol;
       const isSecureContext = window.isSecureContext;
       
-      logger.debug(`Protocol: ${protocol}, Secure Context: ${isSecureContext}`);
+      logger.debug(`Protocol: ${protocol}, Secure Context: ${isSecureContext}, Import.meta.env.PROD: ${import.meta.env.PROD}, Client ID exists: ${!!import.meta.env.VITE_GOOGLE_CLIENT_ID}`);
       
       // Don't load SDK in insecure contexts
       if (!isSecureContext) {
@@ -59,8 +60,8 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
         script.async = true;
         script.defer = true;
         
-        script.onerror = () => {
-          logger.error('Failed to load Google SDK script');
+        script.onerror = (error) => {
+          logger.error('Failed to load Google SDK script', error);
           set({ 
             isSDKLoaded: false, 
             isSDKLoading: false,
@@ -74,6 +75,7 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
           
           // Verify Google object exists
           if (window.google?.accounts?.id) {
+            logger.debug('Google accounts.id object exists');
             set({ isSDKLoaded: true, isSDKLoading: false });
             resolve(true);
           } else {
@@ -87,6 +89,7 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
           }
         };
         
+        logger.debug('Appending Google SDK script to document body');
         document.body.appendChild(script);
       });
     } catch (error) {

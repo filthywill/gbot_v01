@@ -64,8 +64,10 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const isSecureContext = window.isSecureContext;
   const protocol = window.location.protocol;
   const isHttps = protocol === 'https:';
-  const canUseRealGoogleButton = isSecureContext || (isDevelopment && isHttps);
+  const canUseRealGoogleButton = isSecureContext;
 
+  logger.debug(`GoogleSignInButton rendering - isSDKLoaded: ${isSDKLoaded}, isSDKLoading: ${isSDKLoading}, canUseRealGoogleButton: ${canUseRealGoogleButton}, clientID exists: ${!!import.meta.env.VITE_GOOGLE_CLIENT_ID}, isDevelopment: ${isDevelopment}, isSecureContext: ${isSecureContext}, protocol: ${protocol}`);
+  
   // Cleanup function for unmounting
   useEffect(() => {
     return () => {
@@ -157,7 +159,10 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   
   // Render the Google Sign-In button
   const renderButton = useCallback(() => {
-    if (!buttonRef.current || !window.google?.accounts?.id) return;
+    if (!buttonRef.current || !window.google?.accounts?.id) {
+      logger.debug('Cannot render button: buttonRef.current exists: ' + !!buttonRef.current + ', window.google?.accounts?.id exists: ' + !!window.google?.accounts?.id);
+      return;
+    }
     
     try {
       logger.debug('Rendering Google Sign-In button');
@@ -186,19 +191,24 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   // Initialize the Google SDK on mount
   useEffect(() => {
     // Start SDK initialization if needed
+    logger.debug('Initializing SDK from GoogleSignInButton component');
     initializeSDK();
   }, [initializeSDK]);
   
   // When SDK loads or component mounts, initialize Google Sign-In
   useEffect(() => {
     if (isSDKLoaded && canUseRealGoogleButton) {
+      logger.debug('SDK loaded and canUseRealGoogleButton is true, initializing Google Sign-In');
       initializeGoogleSignIn();
+    } else {
+      logger.debug(`Not initializing Google Sign-In: isSDKLoaded=${isSDKLoaded}, canUseRealGoogleButton=${canUseRealGoogleButton}`);
     }
   }, [isSDKLoaded, canUseRealGoogleButton, initializeGoogleSignIn]);
 
   // Try to reload if button ref changes
   useEffect(() => {
     if (isSDKLoaded && buttonRef.current && canUseRealGoogleButton) {
+      logger.debug('Button ref changed, re-rendering button');
       renderButton();
     }
   }, [renderButton, isSDKLoaded, buttonRef, canUseRealGoogleButton]);
@@ -280,11 +290,26 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         </>
       )}
       
-      {isDevelopment && !canUseRealGoogleButton && !error && (
+      {import.meta.env.DEV && !canUseRealGoogleButton && !error && (
         <div className="mt-2 text-xs text-amber-700 text-center p-1 bg-amber-50 border border-amber-200 rounded">
           <strong>Development Mode:</strong> HTTPS required for real Google Sign-In
         </div>
       )}
+
+      {/* Temporary Debug Info - REMOVE AFTER DEBUGGING */}
+      <div className="mt-4 text-xs text-gray-500 border border-gray-200 p-2 rounded">
+        <p><strong>Debug Info</strong> (remove after fix):</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>SDK Loaded: {isSDKLoaded ? "Yes" : "No"}</li>
+          <li>SDK Loading: {isSDKLoading ? "Yes" : "No"}</li>
+          <li>Can Use Real Button: {canUseRealGoogleButton ? "Yes" : "No"}</li>
+          <li>Secure Context: {isSecureContext ? "Yes" : "No"}</li>
+          <li>Protocol: {protocol}</li>
+          <li>Client ID Available: {!!import.meta.env.VITE_GOOGLE_CLIENT_ID ? "Yes" : "No"}</li>
+          <li>Environment: {import.meta.env.PROD ? "Production" : "Development"}</li>
+          <li>Error: {error || "None"}</li>
+        </ul>
+      </div>
     </div>
   );
 };

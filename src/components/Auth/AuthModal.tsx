@@ -761,7 +761,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
               {!signupComplete && mode === 'signup' && 'Create An Account'}
               {!signupComplete && mode === 'forgot-password' && 'Reset Your Password'}
               {signupComplete && 'Check Your Email'}
-            </h2>
+          </h2>
             <p className="mt-3 text-sm text-gray-500">
               {mode === 'signin' && (
                 <>
@@ -935,16 +935,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
                'Enter your email to receive a password reset link'}
             </p>
             <div className="relative mt-1">
-              <input
-                id="email"
-                type="email"
-                value={email}
+            <input
+              id="email"
+              type="email"
+              value={email}
                 onChange={handleEmailChange}
                 onBlur={handleEmailBlur}
                 className={getInputClasses(validationState.email.status)}
                 placeholder="you@example.com"
-                required
-              />
+              required
+            />
               {validationState.email.status === 'valid' && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <CheckCircle className="h-5 w-5 text-green-500" aria-hidden="true" />
@@ -962,26 +962,26 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           </div>
           
           {mode !== 'forgot-password' && (
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
               <p className="text-sm text-gray-500 mb-1">
                 {mode === 'signup' 
                   ? 'Create a strong password with at least 8 characters'
                   : ''}
               </p>
               <div className="relative mt-1">
-                <input
-                  id="password"
+            <input
+              id="password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
+              value={password}
                   onChange={handlePasswordChange}
                   onBlur={handlePasswordBlur}
                   className={getInputClasses(validationState.password.status)}
                   placeholder={mode === 'signup' ? '••••••••' : 'Enter your password'}
-                  required
-                />
+              required
+            />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -1034,11 +1034,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           {mode === 'signup' && (
             <div className="text-sm text-gray-500">
               By creating an account, you agree to our <a href="#" className="text-indigo-600 hover:text-indigo-500">Terms of Service</a> and <a href="#" className="text-indigo-600 hover:text-indigo-500">Privacy Policy</a>.
-            </div>
+          </div>
           )}
           
-          <button
-            type="submit"
+            <button
+              type="submit"
             disabled={isAuthLoading}
             className={cn(
               "w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white",
@@ -1063,23 +1063,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
                   ? 'Sign Up'
                   : 'Send Reset Link'
             )}
-          </button>
+            </button>
         </form>
         
         {/* Google Sign-In section */}
         {isSDKLoaded && mode === 'signin' && (
-          <div className="mt-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
+        <div className="mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white text-gray-500">Or</span>
               </div>
-            </div>
-            
+          </div>
+          
             <div className="mt-4 stable-height-container">
-              <GoogleSignInButton
+            <GoogleSignInButton
                 className="w-full"
                 onSuccess={() => {
                   // Log the event
@@ -1095,9 +1095,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
                   setAuthError("Google Sign-In failed. Please try again or use email login.");
                   logger.error("Google Sign-In error:", error);
                 }}
-              />
-            </div>
+            />
           </div>
+        </div>
         )}
         
        
@@ -1106,18 +1106,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           <div className="text-center mt-6 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-              <button
-                type="button"
+          <button
+            type="button"
                 onClick={() => toggleMode('signin')}
                 className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
-              >
+          >
                 Sign In
-              </button>
+          </button>
             </p>
-          </div>
+        </div>
         )}
       </>
-    );
+  );
   }
 };
 
