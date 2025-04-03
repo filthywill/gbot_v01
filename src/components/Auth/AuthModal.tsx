@@ -324,6 +324,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           const result = await signUpWithEmail(email, password);
           if (result?.user) {
             setSignupComplete(true);
+            setMode('signup-confirmation');
           }
         } catch (error) {
           // Error is already handled by the store
@@ -417,17 +418,21 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           </div>
           
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 mb-3">
               <Mail className="h-8 w-8 text-indigo-600" />
             </div>
+          <div>
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">
+          Check your inbox!</h2>
+          </div>
           </div>
           
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-            <p className="font-medium">Check your inbox!</p>
+          <div className="text-center bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+          
             <p className="mt-1">We've sent a confirmation email to <strong>{email}</strong></p>
           </div>
           
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-6 text-sm text-center">
             Please click the verification link in the email to complete your account setup. 
             If you don't see the email within a few minutes, check your spam folder.
           </p>
