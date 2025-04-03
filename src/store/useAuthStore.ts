@@ -1,75 +1,118 @@
 import { create } from 'zustand';
-import { User } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser } from '../lib/supabase';
+import usePreferencesStore from './usePreferencesStore';
 import logger from '../lib/logger';
+
+// Auth states that represent the full lifecycle of authentication
+export type AuthStatus = 
+  | 'INITIAL'      // Initial state before any auth check
+  | 'LOADING'      // Auth check in progress
+  | 'AUTHENTICATED' // User is authenticated
+  | 'UNAUTHENTICATED' // User is not authenticated
+  | 'ERROR';       // Auth error occurred
 
 type AuthState = {
   user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
+  session: Session | null;
+  status: AuthStatus;
   error: string | null;
-  rememberMe: boolean;
+  lastError: Error | null;
   
   // Actions
   initialize: () => Promise<void>;
-  signInWithEmail: (email: string, password: string, rememberMe: boolean) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ user: User; session: Session } | undefined>;
+  signUpWithEmail: (email: string, password: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   signOut: () => Promise<void>;
   resetError: () => void;
   resetPassword: (email: string) => Promise<void>;
-  setRememberMe: (value: boolean) => void;
+  
+  // Computed / helpers
+  isAuthenticated: () => boolean;
+  isLoading: () => boolean;
+  hasInitialized: () => boolean;
 };
 
 const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isLoading: true,
-  isAuthenticated: false,
+  session: null,
+  status: 'INITIAL',
   error: null,
-  rememberMe: false,
+  lastError: null,
 
   initialize: async () => {
+    // Only initialize if we're in the initial state to prevent duplicate initializations
+    if (get().status !== 'INITIAL' && get().status !== 'ERROR') {
+      logger.debug('Auth already initialized, skipping initialization');
+      return;
+    }
+    
     try {
-      set({ isLoading: true });
+      logger.debug('Starting auth initialization');
+      set({ status: 'LOADING', error: null });
       
-      // Check if there's a session
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (session) {
-        const user = await getCurrentUser();
+      if (sessionError) {
+        throw sessionError;
+      }
+      
+      // No session means user is not authenticated
+      if (!session) {
+        logger.debug('No active session found, user is not authenticated');
         set({ 
-          user,
-          isAuthenticated: !!user,
-          isLoading: false,
-          // Restore remember me preference from localStorage
-          rememberMe: localStorage.getItem('rememberMe') === 'true'
-        });
-      } else {
-        set({ 
+          status: 'UNAUTHENTICATED',
           user: null,
-          isAuthenticated: false,
-          isLoading: false,
+          session: null 
+        });
+        return;
+      }
+      
+      // We have a session, get the user data
+      try {
+        const user = await getCurrentUser();
+        
+        if (user) {
+          logger.debug('User authenticated', { userId: user.id });
+          set({ 
+            user,
+            session,
+            status: 'AUTHENTICATED',
+            error: null
+          });
+        } else {
+          // Session exists but no user found
+          logger.warn('Session exists but user data not found');
+          set({ 
+            user: null,
+            session: null,
+            status: 'UNAUTHENTICATED',
+            error: 'Unable to retrieve user data'
+          });
+        }
+      } catch (error) {
+        logger.error('Error retrieving user data:', error);
+        set({ 
+          status: 'ERROR',
+          error: error instanceof Error ? error.message : 'Failed to get user information',
+          lastError: error instanceof Error ? error : new Error('Unknown error')
         });
       }
     } catch (error) {
       logger.error('Auth initialization error:', error);
       set({ 
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: 'Failed to initialize authentication'
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Authentication initialization failed',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
     }
   },
 
-  signInWithEmail: async (email: string, password: string, rememberMe: boolean) => {
+  signInWithEmail: async (email: string, password: string) => {
     try {
-      set({ isLoading: true, error: null });
-      
-      // Set session persistence based on rememberMe
-      await supabase.auth.setSession({
-        access_token: '',  // Will be set by signInWithPassword
-        refresh_token: '', // Will be set by signInWithPassword
-      });
+      set({ status: 'LOADING', error: null });
+      logger.debug('Starting email sign-in process');
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -78,27 +121,42 @@ const useAuthStore = create<AuthState>((set, get) => ({
       
       if (error) throw error;
       
-      // Store rememberMe preference
-      localStorage.setItem('rememberMe', rememberMe.toString());
+      if (!data.user) {
+        logger.warn('Sign-in response had no user data');
+        throw new Error('No user data received from authentication service');
+      }
       
+      // Update the store state
       set({ 
         user: data.user,
-        isAuthenticated: !!data.user,
-        isLoading: false,
-        rememberMe
+        session: data.session,
+        status: 'AUTHENTICATED',
+        error: null
       });
+      
+      // Update preferences if needed
+      const { rememberMe, setLastUsedEmail } = usePreferencesStore.getState();
+      if (rememberMe) {
+        setLastUsedEmail(email);
+      }
+      
+      logger.info('Email sign-in successful', { userId: data.user?.id });
+      
+      return data;
     } catch (error) {
       logger.error('Email sign-in error:', error);
       set({ 
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to sign in'
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to sign in',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
+      throw error;
     }
   },
 
   signUpWithEmail: async (email: string, password: string) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ status: 'LOADING', error: null });
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -110,87 +168,141 @@ const useAuthStore = create<AuthState>((set, get) => ({
       // For email confirmation flow, user won't be authenticated immediately
       set({ 
         user: data.user,
-        isAuthenticated: !!data.session,
-        isLoading: false,
+        session: data.session,
+        status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
+        error: null
       });
+      
+      return data;
     } catch (error) {
       logger.error('Email sign-up error:', error);
       set({ 
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to sign up'
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to sign up',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
+      return null;
     }
   },
 
   signOut: async () => {
     try {
-      set({ isLoading: true });
+      set({ status: 'LOADING' });
       
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      // Clear rememberMe preference
-      localStorage.removeItem('rememberMe');
-      
+      // Clear auth state
       set({ 
         user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        rememberMe: false
+        session: null,
+        status: 'UNAUTHENTICATED',
+        error: null
       });
+      
+      logger.info('User signed out successfully');
     } catch (error) {
       logger.error('Sign out error:', error);
       set({ 
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to sign out'
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to sign out',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
     }
   },
 
-  resetError: () => {
-    set({ error: null });
-  },
+  resetError: () => set({ error: null }),
 
   resetPassword: async (email: string) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ status: 'LOADING', error: null });
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: window.location.origin + '/reset-password',
       });
       
       if (error) throw error;
       
-      set({ isLoading: false });
+      set({ status: 'UNAUTHENTICATED' });
+      logger.info('Password reset email sent');
     } catch (error) {
       logger.error('Password reset error:', error);
       set({ 
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to send reset email'
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to send password reset email',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
     }
   },
-
-  setRememberMe: (value: boolean) => {
-    set({ rememberMe: value });
-    localStorage.setItem('rememberMe', value.toString());
-  }
+  
+  // Computed helpers
+  isAuthenticated: () => get().status === 'AUTHENTICATED',
+  isLoading: () => get().status === 'LOADING' || get().status === 'INITIAL',
+  hasInitialized: () => get().status !== 'INITIAL'
 }));
 
 // Set up auth state change listener
 supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    const user = await getCurrentUser();
+  try {
+    logger.debug('Auth state change:', { event, hasSession: !!session });
+    const currentState = useAuthStore.getState();
+    
+    // Skip processing if we're already handling an auth operation
+    if (currentState.status === 'LOADING') {
+      logger.debug('Skipping auth state change during loading');
+      return;
+    }
+    
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      if (session) {
+        try {
+          // Mark as loading while we fetch the user data
+          useAuthStore.setState({ status: 'LOADING' });
+          
+          const user = await getCurrentUser();
+          
+          if (user) {
+            useAuthStore.setState({ 
+              user,
+              session,
+              status: 'AUTHENTICATED',
+              error: null
+            });
+            
+            logger.info('User authenticated via state change', { userId: user.id, event });
+          } else {
+            logger.warn('Auth state change with session but no user data');
+            useAuthStore.setState({ 
+              status: 'UNAUTHENTICATED',
+              user: null,
+              session: null,
+              error: 'Failed to retrieve user information'
+            });
+          }
+        } catch (error) {
+          logger.error('Error during auth state change:', error);
+          useAuthStore.setState({ 
+            status: 'ERROR',
+            error: 'Authentication state error',
+            lastError: error instanceof Error ? error : new Error('Unknown error')
+          });
+        }
+      }
+    } else if (event === 'SIGNED_OUT') {
+      useAuthStore.setState({ 
+        user: null,
+        session: null,
+        status: 'UNAUTHENTICATED',
+        error: null
+      });
+      logger.info('User signed out via state change');
+    }
+  } catch (error) {
+    logger.error('Unhandled error in auth state change listener:', error);
     useAuthStore.setState({ 
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-  } else if (event === 'SIGNED_OUT') {
-    useAuthStore.setState({ 
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
+      status: 'ERROR',
+      error: 'Unhandled authentication error',
+      lastError: error instanceof Error ? error : new Error('Unknown error')
     });
   }
 });

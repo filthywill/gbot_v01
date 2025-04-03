@@ -1,21 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
 import AuthModal from './AuthModal';
 import { cn } from '../../lib/utils';
 
+/**
+ * Authentication header component that displays the current authentication state
+ * Uses non-blocking rendering to provide a smooth user experience
+ */
 const AuthHeader: React.FC = () => {
-  const { user, isAuthenticated, signOut } = useAuthStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { 
+    user, 
+    status, 
+    signOut,
+    isAuthenticated,
+    isLoading,
+    hasInitialized
+  } = useAuthStore();
   
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  
+  // Create a memoized signOut handler
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
+  
+  // Handle opening the modal for sign in
+  const handleOpenSignInModal = useCallback(() => {
+    setAuthMode('signin');
+    setShowAuthModal(true);
+  }, []);
+  
+  // Handle opening the modal for sign up
+  const handleOpenSignUpModal = useCallback(() => {
+    setAuthMode('signup');
+    setShowAuthModal(true);
+  }, []);
+  
+  // Handle closing the modal
+  const handleCloseModal = useCallback(() => {
+    setShowAuthModal(false);
+  }, []);
+  
+  // Close modal when authentication state changes to authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      setShowAuthModal(false);
+    }
+  }, [isAuthenticated]);
+  
+  // Render based on authentication status
   return (
     <div className="flex items-center">
-      {isAuthenticated ? (
+      {isLoading() ? (
+        // Show loading indicator until authentication is determined
+        <div className="px-4 py-1.5">
+          <div className="w-16 h-5 rounded-md bg-zinc-800 animate-pulse"></div>
+        </div>
+      ) : isAuthenticated() && user ? (
+        // User is authenticated, show profile and sign out button
         <div className="flex items-center space-x-3">
           <span className="text-sm text-zinc-400 hidden md:inline">
             {user?.email}
           </span>
           <button
-            onClick={() => signOut()}
+            onClick={handleSignOut}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-md",
               "bg-zinc-800 text-zinc-300 border border-zinc-700",
@@ -27,10 +76,11 @@ const AuthHeader: React.FC = () => {
             Sign Out
           </button>
         </div>
-      ) : (
-        <div>
+      ) : hasInitialized() ? (
+        // User is definitely not authenticated, show sign in button only
+        <div className="flex space-x-2">
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenSignInModal}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-md",
               "bg-indigo-600 text-white",
@@ -41,11 +91,21 @@ const AuthHeader: React.FC = () => {
           >
             Sign In
           </button>
-          <AuthModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-          />
         </div>
+      ) : (
+        // We're still waiting for initial auth check, show nothing
+        <div className="px-4 py-1.5">
+          <div className="w-16 h-5 rounded-md bg-zinc-800 animate-pulse"></div>
+        </div>
+      )}
+      
+      {/* Render the auth modal when needed with the appropriate initial mode */}
+      {showAuthModal && (
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={handleCloseModal}
+          initialMode={authMode}
+        />
       )}
     </div>
   );

@@ -43,6 +43,29 @@ src/
 └── utils/            # Helper functions
 ```
 
+## Features
+
+### Authentication
+- Secure email/password authentication
+- Google OAuth integration
+- Remember Me functionality
+- Password reset flow with email verification
+- Strong password requirements with strength meter
+- Persistent user preferences
+- Modern, responsive authentication UI
+- Real-time form validation
+- Comprehensive error handling
+
+### State Management
+- Zustand for efficient state management
+- Separate stores for different concerns:
+  - Authentication state
+  - User preferences
+  - Google OAuth
+  - Application features
+- Persistent storage where appropriate
+- Type-safe state management
+
 ## Authentication Implementation
 
 The application uses Supabase for authentication with a robust, type-safe implementation.

@@ -134,3 +134,38 @@
     font-weight: var(--font-weight-values);
   }
 }
+
+/* Google Sign-In Button stabilization */
+.auth-modal-google-container {
+  /* Fixed height ensures the modal doesn't shift when button states change */
+  height: 48px;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin: 0 auto;
+}
+
+.stable-height-container {
+  /* Prevent layout shifts during loading/sign-in state transitions */
+  min-height: 48px;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+/* When Google button is in personalized state (shows user profile) */
+#google-signin-button iframe {
+  /* Override any styles Google might apply dynamically */
+  position: relative !important;
+  display: block !important;
+  transform: none !important;
+}
+
+/* Make loading indicator same size as button */
+.auth-modal-google-container .loading-indicator {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

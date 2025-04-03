@@ -14,6 +14,7 @@ import { isDevelopment } from './lib/env';
 import { debugLog, isDebugPanelEnabled } from './lib/debug';
 import logger from './lib/logger';
 import { AuthProvider, AuthHeader } from './components/Auth';
+import useAuthStore from './store/useAuthStore';
 
 function App() {
   const { showValueOverlays, toggleValueOverlays } = useDevStore();

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
+import ResetPassword from '../pages/ResetPassword';
 
 const Router: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -53,6 +54,8 @@ const Router: React.FC = () => {
       return <PrivacyPolicy />;
     case '/terms-of-service':
       return <TermsOfService />;
+    case '/reset-password':
+      return <ResetPassword />;
     default:
       return <App />;
   }
