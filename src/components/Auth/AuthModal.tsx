@@ -137,16 +137,21 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
   useEffect(() => {
     if (isOpen) {
       // Different behavior based on mode
-      if (mode === 'signin' && !hasPrefilledEmail) {
+      if ((mode === 'signin' || mode === 'signup') && !hasPrefilledEmail) {
         // For sign-in, restore remembered email and preferences
         const { rememberMe, lastUsedEmail } = usePreferencesStore.getState();
         setRememberMeChecked(rememberMe);
         
         // Only set the email field once on initial open
-        if (rememberMe && lastUsedEmail) {
+        if (lastUsedEmail) {
           setEmail(lastUsedEmail);
           validateEmail(lastUsedEmail, true); // Validate immediately
           setHasPrefilledEmail(true); // Mark as prefilled to prevent overrides
+          
+          // If we just verified the email, we should remember this user
+          if (window.location.pathname === '/verification-success') {
+            setRememberMeChecked(true);
+          }
         }
       } 
       else if (mode === 'forgot-password' && email) {

@@ -26,6 +26,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetError: () => void;
   resetPassword: (email: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
   
   // Computed / helpers
   isAuthenticated: () => boolean;
@@ -230,6 +231,43 @@ const useAuthStore = create<AuthState>((set, get) => ({
       set({ 
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
+      });
+    }
+  },
+  
+  // Add new function to verify email
+  verifyEmail: async (token: string) => {
+    try {
+      set({ status: 'LOADING', error: null });
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: 'signup'
+      });
+      
+      if (error) throw error;
+      
+      // Update auth state with the new session if it exists
+      if (data.session) {
+        set({ 
+          user: data.user,
+          session: data.session,
+          status: 'AUTHENTICATED',
+          error: null
+        });
+        logger.info('Email verified and user authenticated');
+      } else {
+        // Just mark email as verified but not logged in
+        set({ status: 'UNAUTHENTICATED', error: null });
+        logger.info('Email verified successfully');
+      }
+      
+    } catch (error) {
+      logger.error('Email verification error:', error);
+      set({ 
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to verify email',
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
     }
