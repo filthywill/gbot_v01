@@ -41,9 +41,9 @@ const useGoogleAuthStore = create<GoogleAuthState>((set, get) => ({
       
       logger.debug(`Protocol: ${protocol}, Secure Context: ${isSecureContext}`);
       
-      // In development mode without secure context, don't try to load the SDK
-      if (import.meta.env.DEV && !isSecureContext) {
-        logger.info('Development mode without HTTPS, skipping SDK loading');
+      // Don't load SDK in insecure contexts
+      if (!isSecureContext) {
+        logger.info('Cannot load Google SDK in insecure context');
         set({ 
           isSDKLoaded: false, 
           isSDKLoading: false,
