@@ -295,21 +295,6 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           <strong>Development Mode:</strong> HTTPS required for real Google Sign-In
         </div>
       )}
-
-      {/* Temporary Debug Info - REMOVE AFTER DEBUGGING */}
-      <div className="mt-4 text-xs text-gray-500 border border-gray-200 p-2 rounded">
-        <p><strong>Debug Info</strong> (remove after fix):</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>SDK Loaded: {isSDKLoaded ? "Yes" : "No"}</li>
-          <li>SDK Loading: {isSDKLoading ? "Yes" : "No"}</li>
-          <li>Can Use Real Button: {canUseRealGoogleButton ? "Yes" : "No"}</li>
-          <li>Secure Context: {isSecureContext ? "Yes" : "No"}</li>
-          <li>Protocol: {protocol}</li>
-          <li>Client ID Available: {!!import.meta.env.VITE_GOOGLE_CLIENT_ID ? "Yes" : "No"}</li>
-          <li>Environment: {import.meta.env.PROD ? "Production" : "Development"}</li>
-          <li>Error: {error || "None"}</li>
-        </ul>
-      </div>
     </div>
   );
 };

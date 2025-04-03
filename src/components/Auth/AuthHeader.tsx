@@ -60,7 +60,7 @@ const AuthHeader: React.FC = () => {
       ) : isAuthenticated() && user ? (
         // User is authenticated, show profile and sign out button
         <div className="flex items-center space-x-3">
-          <span className="text-sm text-zinc-400 hidden md:inline">
+          <span className="text-sm text-zinc-400">
             {user?.email}
           </span>
           <button
