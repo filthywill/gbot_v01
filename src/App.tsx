@@ -18,6 +18,7 @@ import useAuthStore from './store/useAuthStore';
 import usePreferencesStore from './store/usePreferencesStore';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/Auth';
+import { showSuccess, showError, showInfo } from './lib/toast';
 
 function App() {
   const { showValueOverlays, toggleValueOverlays } = useDevStore();
@@ -30,6 +31,10 @@ function App() {
   const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
 
   // Get all state and actions from our Zustand-powered hook
   const {
@@ -184,6 +189,54 @@ function App() {
       logger.error('Application error occurred:', error);
     }
   }, [error]);
+
+  // Inside the App component, after any existing useEffect hooks
+  // Add a new useEffect to handle verification status from URL
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const verificationStatus = url.searchParams.get('verification');
+    const needsLogin = url.searchParams.get('needsLogin');
+    const authStatus = url.searchParams.get('auth');
+    const errorMessage = url.searchParams.get('error');
+    
+    // Clear the URL parameters without reloading the page
+    const cleanUrl = () => {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('verification');
+      newUrl.searchParams.delete('needsLogin');
+      newUrl.searchParams.delete('auth');
+      newUrl.searchParams.delete('error');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    };
+    
+    if (verificationStatus === 'success') {
+      logger.info('Email verification successful, showing confirmation');
+      
+      if (needsLogin === 'true') {
+        // Email verified but user needs to sign in
+        showSuccess('Your email has been verified. Please sign in to continue.');
+        
+        // Open the auth modal in sign-in mode
+        setAuthModalMode('signin');
+        setShowAuthModal(true);
+      } else {
+        // Email verified and user already signed in
+        showSuccess('Your email has been verified and you are now signed in.');
+      }
+      
+      cleanUrl();
+    } else if (verificationStatus === 'failed') {
+      // Verification failed
+      showError(errorMessage || 'There was a problem verifying your email. Please try again.');
+      
+      cleanUrl();
+    } else if (authStatus && authStatus !== 'success') {
+      // Handle other auth issues
+      showError(errorMessage || 'There was a problem with authentication.');
+      
+      cleanUrl();
+    }
+  }, []);
 
   return (
     <AuthProvider>
@@ -388,6 +441,15 @@ function App() {
               <p className="text-gray-600">Please wait while we verify your email address...</p>
             </div>
           </div>
+        )}
+        
+        {/* Auth Modal */}
+        {showAuthModal && (
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            initialMode={authModalMode}
+          />
         )}
       </div>
     </AuthProvider>
