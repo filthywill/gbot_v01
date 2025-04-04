@@ -195,3 +195,53 @@ Enable debug mode by setting `NODE_ENV=development` in your environment.
 ## License
 
 Copyright © STIZAK. All rights reserved.
+
+# OTP Verification Flow
+
+This repository has been updated to use a code-based verification flow for user sign-ups. This approach offers several advantages:
+
+- **No Browser Redirects**: Users stay in your app during the entire verification process
+- **More Reliable**: Eliminates issues with SPA routing and redirect handling
+- **Better User Experience**: Familiar to users (similar to two-factor authentication)
+- **Simpler Implementation**: No need for complex callback routes or URL parameter handling
+
+## Testing the Implementation
+
+1. Run the application locally
+2. Sign up with a valid email address
+3. You'll be presented with a code entry screen
+4. Check your email for the verification code
+5. Enter the code on the verification screen
+6. You should be automatically logged in after successful verification
+
+## Configuration
+
+Before testing, make sure to update your Supabase email template:
+
+1. Go to your [Supabase Dashboard](https://app.supabase.com/)
+2. Navigate to **Authentication** → **Email Templates**
+3. Select the **Confirm signup** template
+4. Replace the HTML code with the template from `docs/VERIFICATION_EMAIL_TEMPLATE.html`
+5. Save the changes
+
+For more detailed instructions, see [docs/OTP_VERIFICATION_SETUP.md](docs/OTP_VERIFICATION_SETUP.md).
+
+## Key Components
+
+- `VerificationCodeInput.tsx`: Handles OTP code entry and verification
+- `useAuthStore.ts`: Includes a new `verifyOtp` method for handling verification
+- `AuthModal.tsx`: Updated to handle the OTP verification flow
+
+## Advantages
+
+This implementation provides a better user experience by:
+
+1. Keeping users in the application during verification
+2. Providing instant feedback on verification status
+3. Supporting copy/paste for verification codes
+4. Eliminating cross-origin redirect issues
+5. Working consistently across all environments (local, staging, production)
+
+## Feedback
+
+If you encounter any issues or have suggestions for improvement, please open an issue on GitHub.

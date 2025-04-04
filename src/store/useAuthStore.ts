@@ -26,6 +26,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetError: () => void;
   resetPassword: (email: string) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   
   // Direct state setters (for auth callbacks and external auth sources)
   setUser: (user: User | null) => void;
@@ -236,6 +237,41 @@ const useAuthStore = create<AuthState>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
+    }
+  },
+  
+  // OTP verification method
+  verifyOtp: async (email: string, token: string) => {
+    try {
+      set({ status: 'LOADING', error: null });
+      logger.info('Verifying OTP code', { email });
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup'
+      });
+      
+      if (error) throw error;
+      
+      // Update auth state with verified user
+      set({ 
+        user: data.user,
+        session: data.session,
+        status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
+        error: null
+      });
+      
+      logger.info('OTP verification successful', { userId: data.user?.id });
+      return data;
+    } catch (error) {
+      logger.error('OTP verification error:', error);
+      set({ 
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to verify code',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
+      });
+      return null;
     }
   },
   

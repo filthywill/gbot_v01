@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Verification</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      color: #333;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eaeaea;
+    }
+    .header h1 {
+      color: #4f46e5;
+      margin: 0;
+      font-size: 24px;
+    }
+    .verification-code {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      background-color: #EFF6FF;
+      color: #1E40AF;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+      font-family: monospace;
+    }
+    .copy-tip {
+      font-size: 14px;
+      color: #6B7280;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #6B7280;
+      padding-top: 20px;
+      border-top: 1px solid #eaeaea;
+    }
+    p {
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Verify Your Account</h1>
+    </div>
+
+    <p>Hi there,</p>
+    
+    <p>Thanks for signing up! Please use the code below to verify your account:</p>
+
+    <div class="verification-code">{{ .Token }}</div>
+    
+    <p class="copy-tip">Tip: You can copy this code and paste it in the verification screen.</p>
+
+    <p>This code will expire in 24 hours.</p>
+    
+    <p>If you didn't create an account, you can safely ignore this email.</p>
+
+    <div class="footer">
+      <p>&copy; 2023 Your Company. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html> 

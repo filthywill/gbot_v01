@@ -4,6 +4,7 @@ import usePreferencesStore from '../../store/usePreferencesStore';
 import useGoogleAuthStore from '../../store/useGoogleAuthStore';
 import GoogleSignInButton from './GoogleSignInButton';
 import PasswordStrengthMeter from './PasswordStrengthMeter';
+import VerificationCodeInput from './VerificationCodeInput';
 import { cn } from '../../lib/utils';
 import { EyeIcon, EyeOffIcon, CheckCircle, AlertCircle, ArrowLeft, Mail, Save, X } from 'lucide-react';
 import logger from '../../lib/logger';
@@ -30,7 +31,7 @@ interface AuthModalProps {
   prefillEmail?: string | null;
 }
 
-type AuthMode = 'signin' | 'signup' | 'forgot-password' | 'reset-confirmation' | 'signup-confirmation' | 'update-password';
+type AuthMode = 'signin' | 'signup' | 'forgot-password' | 'reset-confirmation' | 'signup-confirmation' | 'update-password' | 'verification-code';
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin', prefillEmail }) => {
   const [email, setEmail] = useState('');
@@ -58,6 +59,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [rememberMeChecked, setRememberMeChecked] = useState(false);
   const [hasPrefilledEmail, setHasPrefilledEmail] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   
   // Ref to track mouse down state
   const mouseDownOnBackdrop = useRef(false);
@@ -308,7 +310,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
     switch (mode) {
       case 'signin':
         try {
-      await signInWithEmail(email, password);
+          await signInWithEmail(email, password);
           
           // Set last used email if "Remember me" is checked
           if (rememberMeChecked) {
@@ -332,10 +334,49 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
             return;
           }
           
-          const result = await signUpWithEmail(email, password);
-          if (result?.user) {
-            setSignupComplete(true);
-            setMode('signup-confirmation');
+          // Store email for verification step
+          logger.info('Starting code-based signup flow', { email });
+          
+          try {
+            // Set loading state
+            useAuthStore.setState({ status: 'LOADING', error: null });
+            
+            // Call Supabase with OTP option instead of email redirect
+            const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: undefined, // Disable link-based verification by setting to undefined
+              }
+            });
+            
+            if (error) throw error;
+            
+            // For email confirmation flow using OTP code
+            logger.info('Signup successful, waiting for OTP verification', { 
+              user: data.user?.id,
+              identityConfirmed: data.user?.identities?.[0]?.identity_data?.email_verified
+            });
+            
+            // Switch to verification code input
+            setVerificationEmail(email);
+            
+            // Store email for later use
+            setLastUsedEmail(email);
+            setRememberMe(true);
+            
+            // Success state
+            useAuthStore.setState({ 
+              status: 'UNAUTHENTICATED',
+              error: null
+            });
+          } catch (error) {
+            logger.error('Error during signup:', error);
+            setAuthError(error instanceof Error ? error.message : 'Failed to sign up');
+            useAuthStore.setState({ 
+              status: 'ERROR',
+              error: error instanceof Error ? error.message : 'Failed to sign up'
+            });
           }
         } catch (error) {
           // Error is already handled by the store
@@ -403,6 +444,47 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
       "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
     );
   };
+  
+  // Show verification code input screen
+  if (verificationEmail) {
+    return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        onMouseDown={handleBackdropMouseDown}
+        onMouseUp={handleBackdropMouseUp}
+      >
+        <div 
+          ref={modalRef}
+          className="w-full max-w-md bg-white rounded-lg p-6 shadow-lg"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Email Verification</h2>
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
+                hover:bg-gray-100 transition-colors duration-150 text-xl"
+              aria-label="Close"
+            >
+              <span className="text-2xl leading-none">&times;</span>
+            </button>
+          </div>
+          
+          <VerificationCodeInput 
+            email={verificationEmail}
+            onSuccess={() => {
+              // Handle successful verification
+              logger.info('Verification completed successfully');
+              onClose();
+            }}
+            onCancel={() => {
+              // Go back to sign-up form
+              setVerificationEmail(null);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
   
   // Show signup confirmation screen
   if (mode === 'signup-confirmation') {
