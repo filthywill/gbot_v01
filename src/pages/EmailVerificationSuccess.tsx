@@ -5,14 +5,18 @@ import usePreferencesStore from '../store/usePreferencesStore';
 import useAuthStore from '../store/useAuthStore';
 import logger from '../lib/logger';
 import { supabase } from '../lib/supabase';
+import { checkEmailVerification, forceVerifyEmail, signInDirectlyAfterVerification } from '../components/Auth/AuthWrapper';
 
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
   const { lastUsedEmail, setLastUsedEmail } = usePreferencesStore();
-  const { isAuthenticated, status, initialize, user } = useAuthStore();
+  const { isAuthenticated, status, initialize, user, signInWithEmail } = useAuthStore();
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [password, setPassword] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   
   // Make sure we have the latest auth status
   useEffect(() => {
@@ -108,6 +112,40 @@ const EmailVerificationSuccess: React.FC = () => {
           }
         }
         
+        // Try to auto-login the user if we have their email
+        const emailToUse = email || hashEmail || lastUsedEmail;
+        if (emailToUse) {
+          try {
+            // Check if the email is verified using our direct verification check
+            logger.info('Checking verification status for email:', emailToUse);
+            const verificationResult = await checkEmailVerification(emailToUse);
+            setDebugInfo(prev => ({ ...prev, verificationCheck: verificationResult }));
+            
+            if (verificationResult.verified) {
+              logger.info('Email is verified, proceeding with auto-login flow');
+              setShowPasswordInput(true);
+            } else {
+              logger.warn('Email not verified, attempting to force verify:', emailToUse);
+              
+              // Try to force-verify the email
+              const forceResult = await forceVerifyEmail(emailToUse);
+              setDebugInfo(prev => ({ ...prev, forceVerifyResult: forceResult }));
+              
+              if (forceResult.success) {
+                logger.info('Successfully initiated force verification, now user can sign in');
+                // Even if forcing verification succeeded, we'll show the password input
+                // since they still need to sign in
+                setShowPasswordInput(true);
+              } else {
+                logger.error('Failed to force verify email:', forceResult.error);
+              }
+            }
+          } catch (error) {
+            logger.error('Error during verification check:', error);
+            setDebugInfo(prev => ({ ...prev, verificationCheckError: error }));
+          }
+        }
+        
         // Initialize auth status to get the latest user state
         await initialize();
         setDebugInfo(prev => ({ 
@@ -119,17 +157,51 @@ const EmailVerificationSuccess: React.FC = () => {
           } 
         }));
         
+        setIsVerifying(false);
         setCheckedAuth(true);
       } catch (error) {
         logger.error('Error checking authentication status:', error);
         setVerificationError('Failed to check authentication status');
         setDebugInfo(prev => ({ ...prev, checkAuthError: error }));
+        setIsVerifying(false);
         setCheckedAuth(true);
       }
     };
     
     checkAuth();
-  }, [initialize, setLastUsedEmail, status, user, isAuthenticated]);
+  }, [initialize, setLastUsedEmail, status, user, isAuthenticated, lastUsedEmail]);
+  
+  // Handle auto-login with password
+  const handleAutoLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || !lastUsedEmail) return;
+    
+    setIsVerifying(true);
+    try {
+      logger.info('Attempting auto-login with verified email');
+      
+      // Use the direct sign-in function that checks verification first
+      const result = await signInDirectlyAfterVerification(lastUsedEmail, password);
+      
+      if (result.success) {
+        logger.info('Auto-login successful after verification');
+        // Redirect to home page on success
+        window.location.href = '/';
+      } else {
+        logger.error('Auto-login failed:', result.error);
+        setVerificationError(`Auto-login failed: ${result.error}`);
+        setShowPasswordInput(false);
+        setShowSignIn(true);
+      }
+    } catch (error) {
+      logger.error('Auto-login error:', error);
+      setVerificationError('Auto-login failed. Please try signing in manually.');
+      setShowPasswordInput(false);
+      setShowSignIn(true);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
   
   // Check if user is already authenticated
   const userIsLoggedIn = isAuthenticated();
@@ -137,17 +209,17 @@ const EmailVerificationSuccess: React.FC = () => {
   // Auto-show the sign-in modal after a brief delay to allow the user to read the message
   // But only if they're not already authenticated
   useEffect(() => {
-    if (checkedAuth && !userIsLoggedIn && !verificationError) {
+    if (checkedAuth && !userIsLoggedIn && !verificationError && !showPasswordInput && !isVerifying) {
       logger.info('User not authenticated, will show sign-in modal after delay');
       const timer = setTimeout(() => {
         if (!showSignIn) {
           handleSignIn();
         }
-      }, 3000); // Show sign-in modal after 3 seconds
+      }, 5000); // Show sign-in modal after 5 seconds
       
       return () => clearTimeout(timer);
     }
-  }, [showSignIn, userIsLoggedIn, checkedAuth, verificationError]);
+  }, [showSignIn, userIsLoggedIn, checkedAuth, verificationError, showPasswordInput, isVerifying]);
   
   const handleSignIn = () => {
     setShowSignIn(true);
@@ -163,11 +235,11 @@ const EmailVerificationSuccess: React.FC = () => {
   };
   
   // Show a loading state while checking auth
-  if (!checkedAuth) {
+  if (isVerifying) {
     return (
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        <p className="ml-3 text-white">Checking verification status...</p>
+        <p className="ml-3 text-white">Verifying your account...</p>
       </div>
     );
   }
@@ -220,6 +292,46 @@ const EmailVerificationSuccess: React.FC = () => {
           >
             Continue to App
           </button>
+        ) : showPasswordInput ? (
+          <form onSubmit={handleAutoLogin} className="space-y-4">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Enter your password to continue
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
+                  focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!password}
+              className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
+                text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 
+                hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                transition-all duration-200 ease-in-out transform hover:scale-[1.01] disabled:opacity-50"
+            >
+              Sign In
+            </button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordInput(false);
+                  handleSignIn();
+                }}
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                Use a different account
+              </button>
+            </div>
+          </form>
         ) : (
           <>
             <button
