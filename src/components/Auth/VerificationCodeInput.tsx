@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CheckCircle, Copy, AlertCircle, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import useAuthStore from '../../store/useAuthStore';
@@ -19,7 +19,9 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isPasting, setIsPasting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const codeBeforeVerifyRef = useRef('');
   
   // Get verifyOtp method from auth store
   const { verifyOtp } = useAuthStore();
@@ -31,14 +33,18 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     }
   }, []);
 
-  const handleVerify = async () => {
-    if (!code.trim()) {
+  // Memoize the verify function to avoid recreation on each render
+  const handleVerify = useCallback(async () => {
+    // Store the current code value to ensure we use the most up-to-date version
+    const currentCode = codeBeforeVerifyRef.current || code;
+    
+    if (!currentCode.trim()) {
       setError('Please enter the verification code');
       return;
     }
 
     // Ensure we only have digits
-    const cleanCode = code.replace(/\D/g, '');
+    const cleanCode = currentCode.replace(/\D/g, '');
     if (cleanCode.length !== 6) {
       setError('Please enter a valid 6-digit verification code');
       return;
@@ -48,7 +54,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     setError(null);
 
     try {
-      logger.info('Verifying OTP code', { email });
+      logger.info('Verifying OTP code', { email, codeLength: cleanCode.length });
       
       // Use the auth store method instead of direct Supabase call
       const result = await verifyOtp(email, cleanCode);
@@ -65,11 +71,38 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       logger.error('Verification error:', err);
-      setError(`Failed to verify: ${errorMessage}`);
+      
+      // Handle specific error cases
+      if (errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
+        setError('Network timeout - please try again or check your connection');
+      } else if (errorMessage.includes('invalid') || errorMessage.includes('incorrect')) {
+        setError('Invalid verification code - please check and try again');
+      } else if (errorMessage.includes('expired')) {
+        setError('Verification code has expired - please request a new one');
+      } else {
+        setError(`Failed to verify: ${errorMessage}`);
+      }
     } finally {
       setIsVerifying(false);
+      setIsPasting(false);
     }
-  };
+  }, [code, email, onSuccess, verifyOtp]);
+
+  // Effect to run verification after state updates when auto-verifying
+  useEffect(() => {
+    // Only proceed if we're in pasting mode and not already verifying
+    if (isPasting && !isVerifying && code.length === 6) {
+      codeBeforeVerifyRef.current = code;
+      
+      // Use a longer timeout to ensure state is properly updated
+      const timer = setTimeout(() => {
+        logger.debug('Auto-verifying after paste', { code, storedCode: codeBeforeVerifyRef.current });
+        handleVerify();
+      }, 800); // Increased timeout to allow for state updates
+      
+      return () => clearTimeout(timer);
+    }
+  }, [code, isPasting, isVerifying, handleVerify]);
 
   // Handle input change
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,11 +114,17 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     if (error) {
       setError(null);
     }
+    
+    // Turn off pasting mode when user manually types
+    if (isPasting) {
+      setIsPasting(false);
+    }
   };
   
   // Handle keydown to support Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && code.length === 6 && !isVerifying) {
+      codeBeforeVerifyRef.current = code;
       handleVerify();
     }
   };
@@ -93,6 +132,8 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
   // Function to handle clipboard paste
   const handlePaste = async () => {
     try {
+      setError(null);
+      
       const clipboardText = await navigator.clipboard.readText();
       // Extract digits only (in case user copied the whole message with other text)
       const digits = clipboardText.replace(/\D/g, '');
@@ -100,19 +141,23 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       if (digits.length > 0) {
         // Use first 6 digits if available
         const verificationCode = digits.substring(0, 6);
+        
+        // Set pasting flag to trigger auto-verification
+        setIsPasting(true);
+        
+        // Update the code state
         setCode(verificationCode);
-        setError(null);
         
-        logger.debug('Pasted verification code', { codeLength: verificationCode.length });
+        // Also store in ref for immediate access
+        codeBeforeVerifyRef.current = verificationCode;
         
-        // Auto-verify if we get a 6-digit code
-        if (verificationCode.length === 6) {
-          setTimeout(() => {
-            handleVerify();
-          }, 200);
-        }
+        logger.debug('Pasted verification code', { 
+          codeLength: verificationCode.length,
+          isPasting: true 
+        });
       } else {
         logger.debug('No digits found in clipboard content');
+        setError('No valid verification code found in clipboard');
       }
     } catch (err) {
       logger.error('Failed to read clipboard:', err);
@@ -125,6 +170,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     return cn(
       "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-gray-900 placeholder-gray-400",
       error ? "border-red-500 focus:border-red-500 focus:ring-red-500" : 
+      isPasting && code.length === 6 ? "border-yellow-500 focus:border-yellow-500 focus:ring-yellow-500" :
       "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
     );
   };
@@ -168,11 +214,16 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
               placeholder="123456"
               className={getInputClasses()}
               maxLength={6}
+              disabled={isVerifying}
             />
             <button
               type="button"
               onClick={handlePaste}
-              className="ml-2 px-3 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md flex items-center"
+              disabled={isVerifying || isPasting}
+              className={cn(
+                "ml-2 px-3 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md flex items-center",
+                (isVerifying || isPasting) ? "opacity-50 cursor-not-allowed" : ""
+              )}
               title="Paste from clipboard"
             >
               <Copy size={18} className="mr-1" />
@@ -183,6 +234,11 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             <span className="text-xs text-gray-500">
               Check your inbox & spam folder
             </span>
+            {isPasting && code.length === 6 && !error && !isVerifying && (
+              <span className="text-xs text-yellow-600">
+                Verifying code...
+              </span>
+            )}
           </div>
         </div>
 
@@ -192,25 +248,38 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             <span>{error}</span>
           </div>
         )}
+        
+        {isPasting && !error && !isVerifying && code.length === 6 && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded flex items-center">
+            <span className="animate-pulse">Automatically verifying pasted code...</span>
+          </div>
+        )}
 
         <div className="flex space-x-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            disabled={isVerifying}
+            className={cn(
+              "flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+              isVerifying ? "opacity-50 cursor-not-allowed" : ""
+            )}
           >
             Back
           </button>
           <button
             type="button"
-            onClick={handleVerify}
-            disabled={isVerifying || code.length < 6}
+            onClick={() => {
+              codeBeforeVerifyRef.current = code;
+              handleVerify();
+            }}
+            disabled={isVerifying || code.length < 6 || isPasting}
             className={cn(
               "flex-1 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white",
               "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700",
               "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
               "transition-all duration-200 ease-in-out transform hover:scale-[1.01]",
-              (isVerifying || code.length < 6) ? "opacity-70 cursor-not-allowed" : ""
+              (isVerifying || code.length < 6 || isPasting) ? "opacity-70 cursor-not-allowed" : ""
             )}
           >
             {isVerifying ? 'Verifying...' : 'Verify Email'}
@@ -227,6 +296,12 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             onClick={() => {
               // Resend verification email (OTP)
               logger.info('Resending verification code', { email });
+              setError(null);
+              
+              // Disable any ongoing verification
+              setIsVerifying(false);
+              setIsPasting(false);
+              
               supabase.auth.signUp({
                 email,
                 password: 'PLACEHOLDER-PASSWORD' // Password is required by API but will be ignored for resending

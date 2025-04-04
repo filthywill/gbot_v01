@@ -246,13 +246,36 @@ const useAuthStore = create<AuthState>((set, get) => ({
       set({ status: 'LOADING', error: null });
       logger.info('Verifying OTP code', { email });
       
-      const { data, error } = await supabase.auth.verifyOtp({
+      // Create a timeout promise to handle potential hanging requests
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Verification request timed out. Please try again.'));
+        }, 10000); // 10 second timeout
+      });
+      
+      // Create the actual verification promise
+      const verificationPromise = supabase.auth.verifyOtp({
         email,
         token,
         type: 'signup'
       });
       
+      // Race the verification against the timeout
+      const result = await Promise.race([
+        verificationPromise,
+        timeoutPromise
+      ]);
+      
+      // Since result will be the verification response if it won the race
+      const { data, error } = result;
+      
       if (error) throw error;
+      
+      // Handle case where we got data but no user
+      if (!data.user) {
+        logger.warn('Verification completed but no user returned');
+        throw new Error('Verification successful but user data unavailable. Please try signing in.');
+      }
       
       // Update auth state with verified user
       set({ 
@@ -265,11 +288,23 @@ const useAuthStore = create<AuthState>((set, get) => ({
       logger.info('OTP verification successful', { userId: data.user?.id });
       return data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify code';
       logger.error('OTP verification error:', error);
+      
+      // Set more user-friendly error messages based on error type
+      let userFriendlyError = errorMessage;
+      if (errorMessage.includes('timeout')) {
+        userFriendlyError = 'Verification timed out. Please try again.';
+      } else if (errorMessage.includes('expired')) {
+        userFriendlyError = 'This verification code has expired. Please request a new one.';
+      } else if (errorMessage.includes('invalid')) {
+        userFriendlyError = 'Invalid verification code. Please check and try again.';
+      }
+      
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to verify code',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
       });
       return null;
     }
