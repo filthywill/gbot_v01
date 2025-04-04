@@ -508,21 +508,20 @@ className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-op
   if (mode === 'signup-confirmation') {
     return (
       <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
         onMouseDown={handleBackdropMouseDown}
         onMouseUp={handleBackdropMouseUp}
       >
         <div 
           ref={modalRef}
-          className="w-full max-w-md bg-white rounded-lg p-5 shadow-lg"
+          className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
         >
-         <div className="relative mb-6"> 
-         <div className="text-center w-full">
-            <h2 className="text-xl font-extrabold text-indigo-900 tracking-tight -mb-2">Verify Your Email</h2>
+         <div className="relative mb-6">
+          <div className="text-center w-full">
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">Verify Your Email</h2>
             <button 
               onClick={onClose} 
-              className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
-                hover:bg-gray-100 transition-colors duration-150 text-xl"
+              className="absolute -top-2 -right-2 text-gray-400 hover:text-indigo-500 transition-colors p-1 hover:bg-gray-100 rounded-full"
               aria-label="Close"
             >
               <span className="text-2xl leading-none">&times;</span>
