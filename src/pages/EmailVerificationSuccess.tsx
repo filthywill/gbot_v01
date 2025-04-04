@@ -18,6 +18,9 @@ const EmailVerificationSuccess: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [processingVerification, setProcessingVerification] = useState(true);
+  const [needsReVerification, setNeedsReVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   
   // Make sure we have the latest auth status
   useEffect(() => {
@@ -278,7 +281,14 @@ const EmailVerificationSuccess: React.FC = () => {
         }, 1000);
       } else {
         logger.error('Auto-login failed:', result.error);
-        setVerificationError(`Auto-login failed: ${result.error}`);
+        
+        // Check if we need to re-verify the email
+        if (result.needsVerification) {
+          setNeedsReVerification(true);
+          setVerificationError('Your email needs to be verified again. Please click the verification link in your email or request a new verification email.');
+        } else {
+          setVerificationError(`Auto-login failed: ${result.error}`);
+        }
         
         // Keep the password input form visible with the error
         setShowPasswordInput(true);
@@ -289,6 +299,45 @@ const EmailVerificationSuccess: React.FC = () => {
       setShowPasswordInput(true); // Keep form visible with error
     } finally {
       setIsVerifying(false);
+    }
+  };
+  
+  // Handle resending verification email
+  const handleResendVerification = async () => {
+    if (!lastUsedEmail) return;
+    
+    setResendingVerification(true);
+    setResendSuccess(false);
+    
+    try {
+      logger.info('Requesting new verification email for:', lastUsedEmail);
+      
+      const { error } = await supabase.auth.signInWithOtp({
+        email: lastUsedEmail,
+        options: {
+          shouldCreateUser: false
+        }
+      });
+      
+      if (error) {
+        logger.error('Error sending verification email:', error);
+        
+        // Handle rate limiting errors specifically
+        if (error.message.includes('security purposes') || error.message.includes('rate limit')) {
+          setVerificationError('Please wait a moment before requesting another verification email.');
+        } else {
+          setVerificationError(`Failed to send verification email: ${error.message}`);
+        }
+      } else {
+        logger.info('Successfully sent new verification email');
+        setResendSuccess(true);
+        setVerificationError(null);
+      }
+    } catch (error) {
+      logger.error('Exception sending verification email:', error);
+      setVerificationError('Failed to send verification email. Please try again later.');
+    } finally {
+      setResendingVerification(false);
     }
   };
   
@@ -364,11 +413,36 @@ const EmailVerificationSuccess: React.FC = () => {
           </p>
         </div>
         
+        {resendSuccess && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+            <p className="font-medium">Verification email sent!</p>
+            <p className="mt-1">Please check your inbox and click the verification link.</p>
+          </div>
+        )}
+        
         {verificationError ? (
           <div className="bg-amber-100 border border-amber-400 text-amber-700 px-4 py-3 rounded mb-6">
             <p className="font-medium">Verification issue</p>
             <p className="mt-1">{verificationError}</p>
             <p className="mt-1">If you've already verified your email, you can try signing in directly.</p>
+            
+            {needsReVerification && !resendSuccess && (
+              <button
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="mt-3 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm 
+                  font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none 
+                  focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
+              >
+                {resendingVerification ? (
+                  <span className="flex items-center justify-center">
+                    <span className="animate-spin mr-2">⟳</span> Sending...
+                  </span>
+                ) : (
+                  'Resend Verification Email'
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
@@ -411,13 +485,19 @@ const EmailVerificationSuccess: React.FC = () => {
             </div>
             <button
               type="submit"
-              disabled={!password}
+              disabled={!password || isVerifying}
               className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
                 text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 
                 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
                 transition-all duration-200 ease-in-out transform hover:scale-[1.01] disabled:opacity-50"
             >
-              Sign In
+              {isVerifying ? (
+                <span className="flex items-center justify-center">
+                  <span className="animate-spin mr-2">⟳</span> Signing In...
+                </span>
+              ) : (
+                'Sign In'
+              )}
             </button>
             <div className="text-center">
               <button
