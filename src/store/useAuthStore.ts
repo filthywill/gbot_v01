@@ -307,4 +307,61 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
+// Add a new function to check if a user's email is verified
+
+export const checkEmailVerificationStatus = async (email: string) => {
+  try {
+    // We can't directly get a user by email, so we'll need to use the current session
+    // and additional checks to determine verification status
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (sessionData && sessionData.session) {
+      // If we have a session, check if the user is the same as the email we're checking
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData?.user && userData.user.email === email) {
+        // Check if the user's email is verified
+        const isVerified = userData.user.email_confirmed_at != null;
+        
+        return { 
+          verified: isVerified, 
+          user: userData.user,
+          confirmedAt: userData.user.email_confirmed_at,
+          error: null 
+        };
+      }
+    }
+    
+    // If we don't have a session or the emails don't match,
+    // we can't directly check verification status, so we'll try to sign in
+    // with a dummy password to see if there's a verification error
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: 'dummy_password_for_verification_check'
+    });
+    
+    if (error) {
+      // If the error is about unverified email, then we know the user exists but isn't verified
+      if (error.message.includes('Email not confirmed')) {
+        return { verified: false, error: 'Email not confirmed' };
+      }
+      
+      // If it's an invalid credentials error, the user likely exists but the password is wrong
+      // which means they have an account that may or may not be verified
+      if (error.message.includes('Invalid login credentials')) {
+        return { verified: null, error: 'Cannot determine verification status' };
+      }
+      
+      // Other errors
+      return { verified: false, error: error.message };
+    }
+    
+    // If we get here, something unexpected happened
+    return { verified: null, error: 'Unexpected outcome when checking verification' };
+  } catch (error) {
+    logger.error('Exception checking verification status:', error);
+    return { verified: false, error: String(error) };
+  }
+};
+
 export default useAuthStore; 

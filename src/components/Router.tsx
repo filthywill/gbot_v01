@@ -3,6 +3,7 @@ import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
 import ResetPassword from '../pages/ResetPassword';
+import VerificationDebug from '../pages/VerificationDebug';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSuccess').then(module => {
   return { default: module.default };
@@ -111,6 +112,8 @@ const Router: React.FC = () => {
         <EmailVerificationSuccess />
       </Suspense>
     );
+  } else if (pathStartsWith('/debug-verification')) {
+    return <VerificationDebug />;
   } else {
     return <App />;
   }

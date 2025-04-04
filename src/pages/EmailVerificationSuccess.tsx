@@ -235,6 +235,15 @@ const EmailVerificationSuccess: React.FC = () => {
             <div className="mt-4 text-center text-xs text-gray-400">
               <p>The sign-in form will open automatically in a few seconds...</p>
             </div>
+
+            <div className="mt-4 text-center">
+              <a 
+                href="/debug-verification" 
+                className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline"
+              >
+                Debug Verification
+              </a>
+            </div>
           </>
         )}
         
