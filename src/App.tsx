@@ -66,7 +66,7 @@ function App() {
       
       // Check if this is a verification request
       if (token && (type === 'verification' || type === 'signup') && email) {
-        logger.info('Detected verification parameters in URL');
+        logger.info('Detected verification parameters in URL:', { token, type, email });
         setIsVerifying(true);
         setVerificationEmail(email);
         
@@ -75,24 +75,38 @@ function App() {
           setLastUsedEmail(email);
           setRememberMe(true);
           
-          // Process the verification token
+          // The correct way to handle email verification in Supabase v2
           logger.info('Verifying email with token');
-          const { data, error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: token,
-            type: 'signup'
-          });
           
-          if (verifyError) {
-            logger.error('Error verifying email:', verifyError);
-            setVerificationError(verifyError.message);
-          } else {
-            logger.info('Email verified successfully');
+          // First try exchangeCodeForSession which is the recommended method
+          try {
+            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(token);
+            if (sessionError) {
+              logger.error('Error exchanging code for session, falling back to verifyOtp:', sessionError);
+              
+              // Fallback to verifyOtp if exchangeCodeForSession fails
+              const { error: verifyError } = await supabase.auth.verifyOtp({
+                token_hash: token,
+                type: 'signup'
+              });
+              
+              if (verifyError) {
+                logger.error('Error verifying email with verifyOtp:', verifyError);
+                setVerificationError(verifyError.message);
+                throw verifyError;
+              }
+            }
+            
+            logger.info('Email verified successfully!');
             
             // Refresh auth state to confirm the user is logged in
             await initialize();
             
             // Show success modal - don't show sign-in modal
             setShowVerificationModal(true);
+          } catch (exchangeError) {
+            logger.error('Failed to exchange token:', exchangeError);
+            throw exchangeError;
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
