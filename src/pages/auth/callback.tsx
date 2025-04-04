@@ -7,13 +7,26 @@ import usePreferencesStore from '../../store/usePreferencesStore';
 
 // This component handles all Supabase auth callbacks
 const AuthCallback: React.FC = () => {
+  // Immediate logging to confirm component is loaded and rendered
+  console.log('AUTH CALLBACK LOADED', { timestamp: new Date().toISOString(), location: window.location.href });
+  logger.info('AUTH CALLBACK COMPONENT LOADED', { timestamp: new Date().toISOString(), url: window.location.href });
+  
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
+  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({
+    componentLoaded: new Date().toISOString(),
+    initialUrl: window.location.href
+  });
   const [message, setMessage] = useState<string>('Processing authentication...');
 
   useEffect(() => {
+    // Log immediately when the effect runs
+    console.log('AUTH CALLBACK EFFECT RUNNING', { timestamp: new Date().toISOString() });
+    logger.info('AUTH CALLBACK EFFECT TRIGGERED', { timestamp: new Date().toISOString() });
+    
     const handleCallback = async () => {
+      console.log('HANDLE CALLBACK STARTED', { timestamp: new Date().toISOString() });
+      
       try {
         logger.info('AuthCallback: Processing verification');
         
@@ -24,6 +37,14 @@ const AuthCallback: React.FC = () => {
         const email = url.searchParams.get('email');
         
         // Log URL information for debugging
+        console.log('AUTH CALLBACK PARAMETERS', { 
+          fullUrl: window.location.href,
+          token: token ? `${token.substring(0, 8)}...` : null,
+          type, 
+          email,
+          timestamp: new Date().toISOString()
+        });
+        
         logger.debug('AuthCallback URL info:', { 
           path: url.pathname,
           token: token ? `${token.substring(0, 8)}...` : null,
@@ -32,6 +53,8 @@ const AuthCallback: React.FC = () => {
         });
         
         setDebugInfo({
+          componentLoaded: new Date().toISOString(),
+          handlerStarted: new Date().toISOString(),
           currentUrl: window.location.href,
           token: token ? 'present' : 'missing',
           type,
@@ -41,15 +64,23 @@ const AuthCallback: React.FC = () => {
         // Handle verification token
         if (token) {
           logger.info('Found token in URL, attempting verification');
+          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION');
           
           try {
             setMessage('Verifying your email...');
             
             // Verify OTP token
+            console.log('CALLING SUPABASE VERIFY OTP', { type: type === 'recovery' ? 'recovery' : 'signup' });
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
               token_hash: token,
               type: type === 'recovery' ? 'recovery' : 'signup',
               email: email || undefined
+            });
+            
+            console.log('VERIFY OTP RESULT', { 
+              success: !verifyError, 
+              hasSession: !!data?.session,
+              error: verifyError ? verifyError.message : null
             });
             
             if (verifyError) {
@@ -57,6 +88,7 @@ const AuthCallback: React.FC = () => {
               setError(`Verification failed: ${verifyError.message}`);
               
               // Redirect to home with error
+              console.log('REDIRECTING DUE TO VERIFICATION ERROR');
               setTimeout(() => {
                 window.location.replace(`/?verification=failed&error=${encodeURIComponent(verifyError.message)}`);
               }, 2000);
@@ -64,11 +96,13 @@ const AuthCallback: React.FC = () => {
             }
             
             logger.info('Email verified successfully!');
+            console.log('EMAIL VERIFIED SUCCESSFULLY');
             setMessage('Email verified! Signing you in...');
             
             // If we have a session from verification, we're already signed in
             if (data?.session) {
               logger.info('Session created during verification - user is authenticated');
+              console.log('SESSION CREATED DURING VERIFICATION');
               
               // Store the email in preferences if provided
               if (email) {
@@ -76,22 +110,27 @@ const AuthCallback: React.FC = () => {
                 setLastUsedEmail(email);
                 setRememberMe(true);
                 logger.info('Stored verified email in preferences');
+                console.log('STORED EMAIL IN PREFERENCES', { email });
               }
               
               // Redirect to home with success
+              console.log('REDIRECTING TO HOME WITH SUCCESS');
               window.location.replace('/?verification=success');
               return;
             }
             
             // If no session yet, but we have the email, try to establish session
             if (email) {
+              console.log('NO SESSION YET BUT EMAIL AVAILABLE');
               // Store the email in preferences for later use
               const { setLastUsedEmail, setRememberMe } = usePreferencesStore.getState();
               setLastUsedEmail(email);
               setRememberMe(true);
+              console.log('STORED EMAIL IN PREFERENCES', { email });
               
               // Redirect to home with pending status - user will need to sign in
               // but the app will know verification was successful
+              console.log('REDIRECTING FOR LOGIN WITH VERIFIED EMAIL');
               window.location.replace('/?verification=success&needsLogin=true');
               return;
             }
