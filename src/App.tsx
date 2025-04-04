@@ -58,15 +58,49 @@ function App() {
   // Handle email verification
   useEffect(() => {
     const checkForVerification = async () => {
-      // Get URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const type = urlParams.get('type');
-      const email = urlParams.get('email');
+      // First check for hash fragments in the URL (Supabase uses these for email verification)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
       
-      // Check if this is a verification request
+      // Get URL parameters - from either query string or hash fragment
+      const token = hashParams.get('access_token') || 
+                   new URLSearchParams(window.location.search).get('token');
+      const type = hashParams.get('type') || 
+                  new URLSearchParams(window.location.search).get('type');
+      const email = hashParams.get('email') || 
+                   new URLSearchParams(window.location.search).get('email');
+                   
+      logger.info('Checking for verification params:', { token: token?.substring(0, 8), type, email });
+      
+      // Handle callback from Supabase with #access_token in URL
+      if (hashParams.get('access_token')) {
+        setIsVerifying(true);
+        try {
+          // Supabase automatically handles the session when it detects the access_token in URL
+          // We just need to refresh the auth state
+          logger.info('Detected Supabase auth redirect with access_token');
+          
+          // Refresh auth state to confirm the user is logged in
+          await initialize();
+          
+          // Check if the user is authenticated after initialization
+          const { user, status } = useAuthStore.getState();
+          logger.info('Auth state after handling Supabase redirect:', { status, hasUser: !!user });
+          
+          // Show success modal and clean up the URL
+          setShowVerificationModal(true);
+          window.history.replaceState({}, document.title, '/');
+        } catch (error) {
+          logger.error('Failed to process Supabase auth redirect:', error);
+          setVerificationError('Failed to complete authentication');
+        } finally {
+          setIsVerifying(false);
+        }
+        return;
+      }
+      
+      // Check if this is our custom verification request with token param
       if (token && (type === 'verification' || type === 'signup') && email) {
-        logger.info('Detected verification parameters in URL:', { token, type, email });
+        logger.info('Detected verification parameters in URL:', { token: token.substring(0, 8), type, email });
         setIsVerifying(true);
         setVerificationEmail(email);
         
@@ -101,6 +135,10 @@ function App() {
             
             // Refresh auth state to confirm the user is logged in
             await initialize();
+            
+            // Check if the user is authenticated after initialization
+            const { user, status } = useAuthStore.getState();
+            logger.info('Auth state after verification:', { status, hasUser: !!user });
             
             // Show success modal - don't show sign-in modal
             setShowVerificationModal(true);
