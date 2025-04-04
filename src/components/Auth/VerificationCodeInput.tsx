@@ -3,6 +3,7 @@ import { CheckCircle, Copy, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import useAuthStore from '../../store/useAuthStore';
 import logger from '../../lib/logger';
+import { cn } from '../../lib/utils';
 
 interface VerificationCodeInputProps {
   email: string;
@@ -21,8 +22,8 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Get initialize and verifyOtp methods from auth store
-  const { initialize, verifyOtp } = useAuthStore();
+  // Get verifyOtp method from auth store
+  const { verifyOtp } = useAuthStore();
   
   // Auto-focus the input field when component loads
   useEffect(() => {
@@ -93,11 +94,20 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     setTimeout(() => setCopiedToClipboard(false), 3000);
   };
 
+  // Input class matching AuthModal styles
+  const getInputClasses = () => {
+    return cn(
+      "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-gray-900 placeholder-gray-400",
+      error ? "border-red-500 focus:border-red-500 focus:ring-red-500" : 
+      "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2">Verify Your Email</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight mb-2">Verify Your Email</h2>
+        <p className="text-gray-500 text-sm">
           We've sent a verification code to <strong>{email}</strong>
         </p>
       </div>
@@ -115,7 +125,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
               placeholder="123456"
-              className="block w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className={getInputClasses()}
               maxLength={6}
             />
             <button
@@ -166,9 +176,13 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             type="button"
             onClick={handleVerify}
             disabled={isVerifying || code.length < 6}
-            className={`flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-              (isVerifying || code.length < 6) ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
+            className={cn(
+              "flex-1 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white",
+              "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700",
+              "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+              "transition-all duration-200 ease-in-out transform hover:scale-[1.01]",
+              (isVerifying || code.length < 6) ? "opacity-70 cursor-not-allowed" : ""
+            )}
           >
             {isVerifying ? 'Verifying...' : 'Verify Email'}
           </button>
