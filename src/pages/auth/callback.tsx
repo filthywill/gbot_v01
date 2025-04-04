@@ -18,6 +18,8 @@ const AuthCallback: React.FC = () => {
     initialUrl: window.location.href
   });
   const [message, setMessage] = useState<string>('Processing authentication...');
+  const { setUser, setSession } = useAuthStore();
+  const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
 
   useEffect(() => {
     // Log immediately when the effect runs
@@ -35,6 +37,7 @@ const AuthCallback: React.FC = () => {
         const token = url.searchParams.get('token');
         const type = url.searchParams.get('type');
         const email = url.searchParams.get('email');
+        const code = url.searchParams.get('code');
         
         // Log URL information for debugging
         console.log('AUTH CALLBACK PARAMETERS', { 
@@ -42,6 +45,7 @@ const AuthCallback: React.FC = () => {
           token: token ? `${token.substring(0, 8)}...` : null,
           type, 
           email,
+          hasCode: !!code,
           timestamp: new Date().toISOString()
         });
         
@@ -49,7 +53,8 @@ const AuthCallback: React.FC = () => {
           path: url.pathname,
           token: token ? `${token.substring(0, 8)}...` : null,
           type, 
-          email
+          email,
+          hasCode: !!code
         });
         
         setDebugInfo({
@@ -58,8 +63,16 @@ const AuthCallback: React.FC = () => {
           currentUrl: window.location.href,
           token: token ? 'present' : 'missing',
           type,
-          email
+          email,
+          hasCode: !!code
         });
+        
+        // Store the email for future use if provided
+        if (email) {
+          setLastUsedEmail(email);
+          setRememberMe(true);
+          console.log('STORED EMAIL IN PREFERENCES', { email });
+        }
         
         // Handle verification token
         if (token) {
@@ -69,8 +82,16 @@ const AuthCallback: React.FC = () => {
           try {
             setMessage('Verifying your email...');
             
-            // Verify OTP token
-            console.log('CALLING SUPABASE VERIFY OTP', { type: type === 'recovery' ? 'recovery' : 'signup' });
+            // First, try to sign out to ensure a clean verification
+            await supabase.auth.signOut();
+            console.log('SIGNED OUT BEFORE VERIFICATION');
+            
+            // Verify OTP token with explicit handling for signup
+            console.log('CALLING SUPABASE VERIFY OTP', { 
+              type: type === 'recovery' ? 'recovery' : 'signup',
+              email: email || 'not provided' 
+            });
+            
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
               token_hash: token,
               type: type === 'recovery' ? 'recovery' : 'signup',
@@ -80,84 +101,109 @@ const AuthCallback: React.FC = () => {
             console.log('VERIFY OTP RESULT', { 
               success: !verifyError, 
               hasSession: !!data?.session,
-              error: verifyError ? verifyError.message : null
+              error: verifyError ? verifyError.message : null,
+              user: data?.user ? 'present' : 'missing'
             });
             
             if (verifyError) {
               logger.error('Error verifying email:', verifyError);
               setError(`Verification failed: ${verifyError.message}`);
               
-              // Redirect to home with error
+              // Redirect to verification page with error
               console.log('REDIRECTING DUE TO VERIFICATION ERROR');
               setTimeout(() => {
-                window.location.replace(`/?verification=failed&error=${encodeURIComponent(verifyError.message)}`);
-              }, 2000);
+                window.location.replace(`/verification-success?verification=failed&error=${encodeURIComponent(verifyError.message)}`);
+              }, 1500);
               return;
             }
             
             logger.info('Email verified successfully!');
             console.log('EMAIL VERIFIED SUCCESSFULLY');
-            setMessage('Email verified! Signing you in...');
+            setMessage('Email verified! Setting up your account...');
             
-            // If we have a session from verification, we're already signed in
-            if (data?.session) {
+            // If we have a session from verification, update our auth store directly
+            if (data?.session && data?.user) {
               logger.info('Session created during verification - user is authenticated');
               console.log('SESSION CREATED DURING VERIFICATION');
               
+              // Directly update our auth state
+              setUser(data.user);
+              setSession(data.session);
+              
               // Store the email in preferences if provided
               if (email) {
-                const { setLastUsedEmail, setRememberMe } = usePreferencesStore.getState();
                 setLastUsedEmail(email);
                 setRememberMe(true);
                 logger.info('Stored verified email in preferences');
                 console.log('STORED EMAIL IN PREFERENCES', { email });
               }
               
-              // Redirect to home with success
-              console.log('REDIRECTING TO HOME WITH SUCCESS');
-              window.location.replace('/?verification=success');
+              // Double-check the session to confirm it's valid
+              const { data: sessionCheck } = await supabase.auth.getSession();
+              if (sessionCheck?.session) {
+                console.log('SESSION CONFIRMED VALID');
+              } else {
+                console.log('SESSION NOT CONFIRMED - FALLING BACK');
+                // Try to set the session explicitly as a fallback
+                try {
+                  await supabase.auth.setSession({
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token
+                  });
+                  console.log('MANUALLY SET SESSION');
+                } catch (sessionError) {
+                  console.error('FAILED TO MANUALLY SET SESSION', sessionError);
+                }
+              }
+              
+              // Redirect to verification success page
+              console.log('REDIRECTING TO VERIFICATION SUCCESS');
+              window.location.replace('/verification-success?verification=success');
+              return;
+            } else if (data?.user) {
+              // We have a user but no session - try to establish one
+              console.log('USER BUT NO SESSION - TRYING TO ESTABLISH SESSION');
+              
+              // Try setting the user in our store
+              setUser(data.user);
+              
+              // Redirect to verification success with flag to prompt login
+              window.location.replace('/verification-success?verification=success&needsLogin=true&email=' + encodeURIComponent(email || ''));
               return;
             }
             
-            // If no session yet, but we have the email, try to establish session
+            // If email is present but no session, redirect to the verification success page
+            // and let it handle the rest of the flow
             if (email) {
               console.log('NO SESSION YET BUT EMAIL AVAILABLE');
-              // Store the email in preferences for later use
-              const { setLastUsedEmail, setRememberMe } = usePreferencesStore.getState();
-              setLastUsedEmail(email);
-              setRememberMe(true);
-              console.log('STORED EMAIL IN PREFERENCES', { email });
-              
-              // Redirect to home with pending status - user will need to sign in
-              // but the app will know verification was successful
-              console.log('REDIRECTING FOR LOGIN WITH VERIFIED EMAIL');
-              window.location.replace('/?verification=success&needsLogin=true');
+              window.location.replace('/verification-success?verification=success&needsLogin=true&email=' + encodeURIComponent(email));
               return;
             }
             
-            // Fallback - redirect to home with generic success
-            window.location.replace('/?verification=success');
+            // Fallback - redirect to verification success page
+            window.location.replace('/verification-success?verification=pending');
             return;
           } catch (err) {
             logger.error('Error processing verification:', err);
+            console.error('VERIFICATION PROCESSING ERROR', err);
             setError('Verification failed. Please try again.');
             
-            // Redirect to home with error
+            // Redirect to verification page with error
             setTimeout(() => {
-              window.location.replace('/?verification=failed&error=processing_error');
-            }, 2000);
+              window.location.replace('/verification-success?verification=failed&error=processing_error');
+            }, 1500);
             return;
           }
         }
         
         // Handle code exchange (OAuth and magic link flows)
-        const code = url.searchParams.get('code');
         if (code) {
           logger.info('Found code in URL, exchanging for session');
+          console.log('CODE EXCHANGE FLOW DETECTED', { hasCode: true });
           
           try {
             setMessage('Completing authentication...');
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
             
             if (error) {
               logger.error('Error exchanging code for session:', error);
@@ -166,22 +212,34 @@ const AuthCallback: React.FC = () => {
               // Redirect to home with error
               setTimeout(() => {
                 window.location.replace(`/?auth=failed&error=${encodeURIComponent(error.message)}`);
-              }, 2000);
-            } else {
+              }, 1500);
+            } else if (data?.session) {
               logger.info('Successfully exchanged code for session');
+              console.log('CODE EXCHANGE SUCCESSFUL', { hasSession: true });
+              
+              // Update auth store
+              setSession(data.session);
+              if (data.user) {
+                setUser(data.user);
+              }
               
               // Redirect to home page
               window.location.replace('/');
               return;
+            } else {
+              logger.warn('Code exchange succeeded but no session returned');
+              console.log('CODE EXCHANGE NO SESSION', { success: true, hasSession: false });
+              window.location.replace('/?auth=partial');
             }
           } catch (err) {
             logger.error('Error exchanging code:', err);
+            console.error('CODE EXCHANGE ERROR', err);
             setError('Failed to complete authentication');
             
             // Redirect to home with error
             setTimeout(() => {
               window.location.replace('/?auth=failed&error=processing_error');
-            }, 2000);
+            }, 1500);
           }
         }
         
@@ -189,17 +247,24 @@ const AuthCallback: React.FC = () => {
         const hashFragment = window.location.hash.substring(1);
         if (hashFragment && (hashFragment.includes('access_token=') || hashFragment.includes('type='))) {
           logger.info('Found hash fragment, processing');
+          console.log('HASH FRAGMENT DETECTED', { hasHash: true });
           
           // Extract hash parameters
           const hashParams = new URLSearchParams(hashFragment);
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
+          const hashEmail = hashParams.get('email');
+          
+          if (hashEmail) {
+            setLastUsedEmail(hashEmail);
+            setRememberMe(true);
+          }
           
           if (accessToken) {
             try {
               setMessage('Setting up your session...');
               // Set session from tokens
-              const { error } = await supabase.auth.setSession({
+              const { data, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken || ''
               });
@@ -211,13 +276,29 @@ const AuthCallback: React.FC = () => {
                 // Redirect to home with error
                 setTimeout(() => {
                   window.location.replace(`/?auth=failed&error=${encodeURIComponent(error.message)}`);
-                }, 2000);
-              } else {
+                }, 1500);
+              } else if (data?.session) {
                 logger.info('Successfully set session from tokens');
+                console.log('SET SESSION FROM HASH SUCCESS', { hasSession: true });
+                
+                // Update auth store
+                setSession(data.session);
+                if (data.user) {
+                  setUser(data.user);
+                  
+                  // If we have a verified email, store it
+                  if (data.user.email) {
+                    setLastUsedEmail(data.user.email);
+                    setRememberMe(true);
+                  }
+                }
                 
                 // Redirect to home page
                 window.location.replace('/');
                 return;
+              } else {
+                logger.warn('Set session succeeded but no session data returned');
+                window.location.replace('/?auth=partial');
               }
             } catch (err) {
               logger.error('Error processing tokens:', err);
@@ -226,7 +307,7 @@ const AuthCallback: React.FC = () => {
               // Redirect to home with error
               setTimeout(() => {
                 window.location.replace('/?auth=failed&error=token_processing_error');
-              }, 2000);
+              }, 1500);
             }
           }
         }
@@ -234,59 +315,86 @@ const AuthCallback: React.FC = () => {
         // If we get here, we didn't recognize the auth parameters
         if (!error) {
           setError('No valid authentication parameters found');
+          logger.warn('No valid auth parameters found in URL');
+          console.log('NO VALID AUTH PARAMETERS FOUND');
         }
         
         // Redirect to home page after delay
         setTimeout(() => {
           window.location.replace('/?auth=unknown');
-        }, 3000);
+        }, 2000);
       } catch (err) {
         logger.error('Unexpected error in auth callback:', err);
+        console.error('UNEXPECTED AUTH CALLBACK ERROR', err);
         setError('An unexpected error occurred');
         
         // Redirect to home page after delay
         setTimeout(() => {
           window.location.replace('/?auth=error');
-        }, 3000);
+        }, 2000);
       } finally {
         setIsProcessing(false);
       }
     };
     
-    // Execute the callback handler
     handleCallback();
   }, []);
-  
-  return (
-    <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
-        <h1 className="text-xl font-bold text-center mb-4">Authentication</h1>
-        
-        {isProcessing ? (
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-            <p className="text-center">{message}</p>
+
+  if (isProcessing) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-900 text-white p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+        <h2 className="text-xl font-semibold mb-2">Verifying your account</h2>
+        <p className="mb-4">{message}</p>
+        <p className="text-sm text-gray-400">You'll be redirected automatically when complete.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-900 p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full mb-4">
+          <div className="flex items-center mb-2">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <p className="font-bold">Verification Error</p>
           </div>
-        ) : error ? (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-start">
-            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+          <p>{error}</p>
+        </div>
         
-        <p className="text-center mt-4">
-          Redirecting you shortly...
-        </p>
+        <p className="text-white mb-4">You'll be redirected in a moment...</p>
+        
+        <a href="/" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
+          Return to Home
+        </a>
         
         {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 border-t border-gray-200 pt-4">
-            <p className="text-xs font-medium text-gray-500">Debug Information:</p>
-            <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-64">
+          <div className="mt-8 max-w-md w-full bg-gray-800 p-4 rounded">
+            <p className="text-gray-300 mb-2 text-sm">Debug Information:</p>
+            <pre className="text-xs bg-gray-900 p-2 rounded text-gray-300 overflow-auto max-h-96">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
           </div>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-900 text-white p-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+      <h2 className="text-xl font-semibold mb-2">Processing authentication</h2>
+      <p className="mb-4">{message}</p>
+      <p className="text-sm text-gray-400">You'll be redirected automatically when complete.</p>
+      
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 max-w-md w-full bg-gray-800 p-4 rounded">
+          <p className="text-gray-300 mb-2 text-sm">Debug Information:</p>
+          <pre className="text-xs bg-gray-900 p-2 rounded text-gray-300 overflow-auto max-h-96">
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 };

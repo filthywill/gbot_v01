@@ -21,6 +21,7 @@ const EmailVerificationSuccess: React.FC = () => {
   const [needsReVerification, setNeedsReVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [message, setMessage] = useState('');
   
   // Make sure we have the latest auth status
   useEffect(() => {
@@ -262,37 +263,48 @@ const EmailVerificationSuccess: React.FC = () => {
     
     setIsVerifying(true);
     try {
-      logger.info('Attempting auto-login with verified email');
+      logger.info('Attempting auto-login with verified email:', lastUsedEmail);
+      console.log('AUTO-LOGIN ATTEMPT', { email: lastUsedEmail });
       
       // Set remember me to true so the user stays logged in
       setRememberMe(true);
       
       // Use the direct sign-in function that checks verification first
       const result = await signInDirectlyAfterVerification(lastUsedEmail, password);
+      console.log('AUTO-LOGIN RESULT:', result);
       
       if (result.success) {
         logger.info('Auto-login successful after verification');
+        console.log('AUTO-LOGIN SUCCESSFUL');
         
-        // Set user as authenticated in preferences
+        // Store the user's email in preferences
         setLastUsedEmail(lastUsedEmail);
+        setRememberMe(true);
         
         // Reinitialize auth to make sure we have the latest state
         await initialize();
         
-        // Create a small delay to allow auth state to update
+        // Add loading feedback for user
+        setMessage('Login successful! Redirecting to home...');
+        
+        // Create a small delay to allow auth state to update and give user feedback
         setTimeout(() => {
-          // Force reload the page to ensure auth state is fresh and redirect to home
+          // Force redirect to home page
           window.location.href = '/';
-        }, 1000);
+        }, 1500);
       } else {
         logger.error('Auto-login failed:', result.error);
+        console.log('AUTO-LOGIN FAILED:', result.error);
+        
+        // Clear any existing session to be safe
+        await supabase.auth.signOut();
         
         // Check if we need to re-verify the email
         if (result.needsVerification) {
           setNeedsReVerification(true);
-          setVerificationError('Your email needs to be verified again. Please click the verification link in your email or request a new verification email.');
+          setVerificationError('Your email needs to be verified. Please check your inbox for a verification link or request a new verification email.');
         } else {
-          setVerificationError(`Auto-login failed: ${result.error}`);
+          setVerificationError(`Sign-in failed: ${result.error}`);
         }
         
         // Keep the password input form visible with the error
@@ -300,7 +312,8 @@ const EmailVerificationSuccess: React.FC = () => {
       }
     } catch (error) {
       logger.error('Auto-login error:', error);
-      setVerificationError('Auto-login failed. Please try signing in manually.');
+      console.error('AUTO-LOGIN EXCEPTION:', error);
+      setVerificationError('Sign-in failed. Please try again or use the sign-in option below.');
       setShowPasswordInput(true); // Keep form visible with error
     } finally {
       setIsVerifying(false);

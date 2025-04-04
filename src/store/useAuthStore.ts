@@ -27,6 +27,10 @@ type AuthState = {
   resetError: () => void;
   resetPassword: (email: string) => Promise<void>;
   
+  // Direct state setters (for auth callbacks and external auth sources)
+  setUser: (user: User | null) => void;
+  setSession: (session: Session | null) => void;
+  
   // Computed / helpers
   isAuthenticated: () => boolean;
   isLoading: () => boolean;
@@ -231,6 +235,54 @@ const useAuthStore = create<AuthState>((set, get) => ({
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
         lastError: error instanceof Error ? error : new Error('Unknown error')
+      });
+    }
+  },
+  
+  // Direct state setters for auth callbacks
+  setUser: (user: User | null) => {
+    logger.debug('Explicitly setting user in auth store', { userId: user?.id });
+    const currentStatus = get().status;
+    
+    set({ 
+      user, 
+      status: user ? 'AUTHENTICATED' : (currentStatus === 'AUTHENTICATED' ? 'UNAUTHENTICATED' : currentStatus)
+    });
+    
+    // If we're setting a user but don't have a session, try to get the current session
+    if (user && !get().session) {
+      logger.debug('User set but no session, attempting to get current session');
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) {
+          logger.debug('Retrieved session to match user');
+          set({ session: data.session });
+        }
+      }).catch(error => {
+        logger.error('Error getting session after setting user:', error);
+      });
+    }
+  },
+  
+  setSession: (session: Session | null) => {
+    logger.debug('Explicitly setting session in auth store', { hasSession: !!session });
+    const currentUser = get().user;
+    const currentStatus = get().status;
+    
+    set({ 
+      session, 
+      status: session ? 'AUTHENTICATED' : (currentStatus === 'AUTHENTICATED' ? 'UNAUTHENTICATED' : currentStatus)
+    });
+    
+    // If we're setting a session but don't have a user, try to get the current user
+    if (session && !currentUser) {
+      logger.debug('Session set but no user, attempting to get current user');
+      getCurrentUser().then(user => {
+        if (user) {
+          logger.debug('Retrieved user to match session');
+          set({ user });
+        }
+      }).catch(error => {
+        logger.error('Error getting user after setting session:', error);
       });
     }
   },
