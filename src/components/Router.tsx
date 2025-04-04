@@ -8,7 +8,8 @@ import VerificationDebug from '../pages/VerificationDebug';
 const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSuccess').then(module => {
   return { default: module.default };
 }));
-import AuthCallback from '../pages/AuthCallback';
+// Import the auth callback from the correct location
+import AuthCallback from '../pages/auth/callback';
 import logger from '../lib/logger';
 
 const Router: React.FC = () => {
@@ -59,7 +60,7 @@ const Router: React.FC = () => {
   // Log the current URL
   useEffect(() => {
     logger.info('Current location:', window.location.href);
-  }, []);
+  }, [currentPath]);
 
   // Check if the path starts with a specific route
   const pathStartsWith = (route: string): boolean => {
@@ -69,36 +70,50 @@ const Router: React.FC = () => {
     return normalizedPath.startsWith(route);
   };
 
-  // Check for auth callback directly from full URL
+  // Improved function to check for auth callback
   const isAuthCallback = (): boolean => {
     const fullUrl = window.location.href;
+    const currentPathNormalized = currentPath.replace(/\/+/g, '/');
+    
+    // Check if path is /auth/callback
+    const isPathCallback = currentPathNormalized.startsWith('/auth/callback');
+    
+    // Check URL for authentication query parameters
+    const hasAuthParams = window.location.search.includes('token=') || 
+                         window.location.search.includes('code=') || 
+                         window.location.search.includes('type=signup');
+                         
+    // Check hash for authentication data
     const urlHash = window.location.hash;
+    const hasAuthHash = urlHash.length > 0 && 
+                        (urlHash.includes('access_token=') || 
+                         urlHash.includes('refresh_token=') || 
+                         urlHash.includes('type=signup'));
     
-    // Check path-based auth callback
-    const isPathCallback = fullUrl.includes('/auth/callback');
+    const result = isPathCallback || hasAuthParams || hasAuthHash;
     
-    // Check hash-based auth callback (Supabase often uses this format)
-    const isHashCallback = urlHash.length > 0 && 
-                           (urlHash.includes('access_token=') || 
-                            urlHash.includes('refresh_token=') || 
-                            urlHash.includes('type=signup'));
-    
-    // Log what we're detecting
-    if (isPathCallback || isHashCallback) {
+    if (result) {
       logger.debug('Auth callback detected:', { 
         path: isPathCallback, 
-        hash: isHashCallback, 
-        hashContent: urlHash.length > 0 ? urlHash.substring(0, 20) + '...' : 'none' 
+        params: hasAuthParams, 
+        hash: hasAuthHash,
+        fullUrl
       });
     }
     
-    return isPathCallback || isHashCallback;
+    return result;
   };
 
+  // Debug logging for the current route
+  useEffect(() => {
+    if (isAuthCallback()) {
+      logger.info('Auth callback route detected');
+    }
+  }, [currentPath]);
+
   // Render the appropriate component based on the current path
-  // Using startsWith to match routes even with query parameters
   if (isAuthCallback()) {
-    logger.info('Detected auth callback URL, rendering AuthCallback');
+    logger.info('Rendering AuthCallback component');
     return <AuthCallback />;
   } else if (pathStartsWith('/privacy-policy')) {
     return <PrivacyPolicy />;
