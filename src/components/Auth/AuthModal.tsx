@@ -486,6 +486,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
     );
   }
   
+{/*
+
+className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
+      onMouseDown={handleBackdropMouseDown}
+      onMouseUp={handleBackdropMouseUp}
+    >
+      <div 
+        ref={modalRef}
+        className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
+      >
+        <div className="relative mb-6">
+          <div className="text-center w-full">
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">
+{!signupComplete && mode === 'signin' && 'Sign In'}
+
+  */}
+
+
   // Show signup confirmation screen
   if (mode === 'signup-confirmation') {
     return (
@@ -496,10 +514,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
       >
         <div 
           ref={modalRef}
-          className="w-full max-w-md bg-white rounded-lg p-6 shadow-lg"
+          className="w-full max-w-md bg-white rounded-lg p-5 shadow-lg"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Verify Your Email</h2>
+         <div className="relative mb-6"> 
+         <div className="text-center w-full">
+            <h2 className="text-xl font-extrabold text-indigo-900 tracking-tight -mb-2">Verify Your Email</h2>
             <button 
               onClick={onClose} 
               className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
@@ -509,7 +528,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
               <span className="text-2xl leading-none">&times;</span>
             </button>
           </div>
-          
+          </div>
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 mb-3">
               <Mail className="h-8 w-8 text-indigo-600" />
