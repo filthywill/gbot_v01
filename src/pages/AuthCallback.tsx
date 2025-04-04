@@ -99,8 +99,10 @@ const AuthCallback: React.FC = () => {
               await initialize();
             }
             
-            // Redirect to verification success page
-            window.location.replace('/verification-success');
+            // Only redirect to verification success if we're not already on the main app
+            if (window.location.pathname === '/auth/callback') {
+              window.location.replace('/');
+            }
             return;
           }
           
@@ -119,12 +121,16 @@ const AuthCallback: React.FC = () => {
               await initialize();
             }
             
-            // Redirect to verification success regardless
-            window.location.replace('/verification-success');
+            // Only redirect if we're not already on the main app
+            if (window.location.pathname === '/auth/callback') {
+              window.location.replace('/');
+            }
             return;
           } catch (verifyError) {
             logger.error('Error in fallback verification:', verifyError);
-            window.location.replace('/verification-success');
+            if (window.location.pathname === '/auth/callback') {
+              window.location.replace('/');
+            }
             return;
           }
         }

@@ -69,8 +69,8 @@ const Router: React.FC = () => {
   // Check for auth callback directly from full URL
   const isAuthCallback = (): boolean => {
     const fullUrl = window.location.href;
-    return fullUrl.includes('/auth/callback') || 
-           (fullUrl.includes('token=') && fullUrl.includes('type=verification'));
+    // Only match true auth callback URLs, not verification tokens on main page
+    return fullUrl.includes('/auth/callback');
   };
 
   // Render the appropriate component based on the current path
