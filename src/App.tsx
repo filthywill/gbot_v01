@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSelector } from './components/StyleSelector';
 import { InputForm } from './components/InputForm';
 import GraffitiDisplay from './components/GraffitiDisplay';
@@ -15,10 +15,21 @@ import { debugLog, isDebugPanelEnabled } from './lib/debug';
 import logger from './lib/logger';
 import { AuthProvider, AuthHeader } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
+import usePreferencesStore from './store/usePreferencesStore';
+import { supabase } from './lib/supabase';
+import { AuthModal } from './components/Auth';
 
 function App() {
   const { showValueOverlays, toggleValueOverlays } = useDevStore();
   const isDev = isDevelopment();
+  const { status, initialize, user } = useAuthStore();
+  const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
+  
+  // Modal state for verification success
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Get all state and actions from our Zustand-powered hook
   const {
@@ -43,6 +54,61 @@ function App() {
   
   // Flag to track if we've had at least one successful generation
   const hasInitialGeneration = React.useRef(false);
+
+  // Handle email verification
+  useEffect(() => {
+    const checkForVerification = async () => {
+      // Get URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const type = urlParams.get('type');
+      const email = urlParams.get('email');
+      
+      // Check if this is a verification request
+      if (token && (type === 'verification' || type === 'signup') && email) {
+        logger.info('Detected verification parameters in URL');
+        setIsVerifying(true);
+        setVerificationEmail(email);
+        
+        try {
+          // Save email for login form
+          setLastUsedEmail(email);
+          setRememberMe(true);
+          
+          // Process the verification token
+          logger.info('Verifying email with token');
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'signup'
+          });
+          
+          if (verifyError) {
+            logger.error('Error verifying email:', verifyError);
+            setVerificationError(verifyError.message);
+          } else {
+            logger.info('Email verified successfully');
+            
+            // Refresh auth state
+            await initialize();
+            
+            // Show success modal
+            setShowVerificationModal(true);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          logger.error('Exception during verification:', errorMessage);
+          setVerificationError(errorMessage);
+        } finally {
+          setIsVerifying(false);
+          
+          // Clean up URL parameters
+          window.history.replaceState({}, document.title, '/');
+        }
+      }
+    };
+    
+    checkForVerification();
+  }, [initialize, setLastUsedEmail, setRememberMe]);
 
   // Effect to update the hasInitialGeneration ref when we have processed SVGs
   useEffect(() => {
@@ -202,6 +268,45 @@ function App() {
             >
               {showValueOverlays ? 'Hide Values' : 'Show Values'}
             </button>
+          </div>
+        )}
+        
+        {/* Email Verification Success Modal */}
+        {showVerificationModal && (
+          <AuthModal 
+            isOpen={true}
+            onClose={() => setShowVerificationModal(false)}
+            initialMode="signin"
+          />
+        )}
+        
+        {/* Verification Error Display */}
+        {verificationError && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+              <h2 className="text-xl font-bold text-red-600 mb-4">Verification Failed</h2>
+              <p className="text-gray-700 mb-4">{verificationError}</p>
+              <p className="text-gray-700 mb-4">Please try signing in directly or contact support for assistance.</p>
+              <div className="flex justify-end">
+                <button 
+                  onClick={() => setVerificationError(null)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Loading indicator during verification */}
+        {isVerifying && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
+              <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Verifying Your Email</h2>
+              <p className="text-gray-600">Please wait while we verify your email address...</p>
+            </div>
           </div>
         )}
       </div>
