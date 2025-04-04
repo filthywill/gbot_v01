@@ -84,111 +84,88 @@ const EmailVerificationSuccess: React.FC = () => {
           return;
         }
         
-        // Process verification tokens
-        if (token || accessToken) {
-          let verificationSuccess = false;
+        // Process verification token if present
+        let verificationSuccess = false;
+        
+        // Direct token verification logic
+        if (token && (type === 'verification' || type === 'signup' || type === 'recovery' || !type)) {
+          logger.info('Found verification token in URL, processing directly');
           
-          // Handle direct access with token in URL
-          if (token && (type === 'verification' || type === 'signup')) {
-            logger.info('Found verification token in URL, processing directly');
+          try {
+            // Try to complete verification using the token
+            const { data, error } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'signup'
+            });
             
-            try {
-              const { data, error } = await supabase.auth.verifyOtp({
-                token_hash: token,
-                type: 'signup'
-              });
-              
-              setDebugInfo(prev => ({ ...prev, verifyResult: { success: !error, hasData: !!data } }));
-              
-              if (error) {
-                logger.error('Error verifying email on success page:', error);
-                
-                // If we get an error during verification, let's check if the email is already verified
-                if (emailToUse) {
-                  const verificationStatus = await checkEmailVerification(emailToUse);
-                  if (verificationStatus.verified) {
-                    verificationSuccess = true;
-                    logger.info('Email was already verified, proceeding with login flow');
-                  } else {
-                    setVerificationError(`Verification failed: ${error.message}`);
-                  }
-                } else {
-                  setVerificationError(`Verification error: ${error.message}`);
-                }
-              } else {
-                logger.info('Successfully verified email on success page');
-                verificationSuccess = true;
-              }
-            } catch (verifyError) {
-              logger.error('Error processing verification token on success page:', verifyError);
-              setVerificationError('Failed to process verification token');
-              setDebugInfo(prev => ({ ...prev, verifyError }));
-            }
-          }
-          
-          // Process access token from hash
-          if (accessToken && hashType === 'signup') {
-            logger.info('Found access token in hash, attempting to set session');
+            setDebugInfo(prev => ({ ...prev, verifyResult: { success: !error, hasData: !!data } }));
             
-            try {
-              const refreshToken = hashParams.get('refresh_token') || '';
-              const { error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken
-              });
+            if (error) {
+              logger.error('Error verifying email with token:', error);
+              setVerificationError(`Verification failed: ${error.message}`);
+            } else {
+              logger.info('Successfully verified email with token');
+              verificationSuccess = true;
               
-              if (error) {
-                logger.error('Error setting session from hash:', error);
-                setDebugInfo(prev => ({ ...prev, sessionError: error }));
-              } else {
-                logger.info('Successfully set session from hash');
-                verificationSuccess = true;
-                
-                // Check auth status again after setting session
-                await initialize();
-                
-                // If successfully authenticated, we can return early
-                if (isAuthenticated()) {
-                  logger.info('User is now authenticated after setting session from hash');
-                  setIsVerifying(false);
-                  setCheckedAuth(true);
-                  setProcessingVerification(false);
-                  return;
-                }
+              // Wait a moment for Supabase to update verification status
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Check if we're authenticated after verification
+              await initialize();
+              if (isAuthenticated()) {
+                logger.info('User is now authenticated after token verification');
+                setIsVerifying(false);
+                setCheckedAuth(true);
+                setProcessingVerification(false);
+                return;
               }
-            } catch (tokenError) {
-              logger.error('Error processing hash tokens:', tokenError);
-              setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
             }
-          }
-          
-          // Delay a bit to allow Supabase to process the verification
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Initialize auth again to check if token processing resulted in authentication
-          await initialize();
-          if (isAuthenticated()) {
-            logger.info('User is now authenticated after processing tokens');
-            setIsVerifying(false);
-            setCheckedAuth(true);
-            setProcessingVerification(false);
-            return;
-          }
-          
-          // If verification was successful but user is not yet authenticated,
-          // we'll show the password input for them to complete login
-          if (verificationSuccess && emailToUse) {
-            logger.info('Verification successful, but user not yet authenticated. Showing password input.');
-            setShowPasswordInput(true);
-            setIsVerifying(false);
-            setCheckedAuth(true);
-            setProcessingVerification(false);
-            return;
+          } catch (verifyError) {
+            logger.error('Error processing verification token:', verifyError);
+            setVerificationError('Failed to process verification token');
+            setDebugInfo(prev => ({ ...prev, verifyError }));
           }
         }
         
-        // If no tokens were processed, check if the email is verified
-        if (emailToUse) {
+        // Process access token from hash if present
+        if (accessToken && !verificationSuccess) {
+          logger.info('Found access token in hash, attempting to set session');
+          
+          try {
+            const refreshToken = hashParams.get('refresh_token') || '';
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              logger.error('Error setting session from hash:', error);
+              setDebugInfo(prev => ({ ...prev, sessionError: error }));
+            } else {
+              logger.info('Successfully set session from hash');
+              verificationSuccess = true;
+              
+              // Check auth status again after setting session
+              await initialize();
+              
+              // If successfully authenticated, we can return early
+              if (isAuthenticated()) {
+                logger.info('User is now authenticated after setting session from hash');
+                setIsVerifying(false);
+                setCheckedAuth(true);
+                setProcessingVerification(false);
+                return;
+              }
+            }
+          } catch (tokenError) {
+            logger.error('Error processing hash tokens:', tokenError);
+            setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
+          }
+        }
+        
+        // If email is present but verification wasn't successful with tokens,
+        // check if the email is already verified
+        if (emailToUse && !verificationSuccess) {
           try {
             // Check if the email is verified
             logger.info('Checking verification status for email:', emailToUse);
@@ -196,21 +173,49 @@ const EmailVerificationSuccess: React.FC = () => {
             setDebugInfo(prev => ({ ...prev, verificationCheck: verificationResult }));
             
             if (verificationResult.verified) {
-              logger.info('Email is verified, proceeding with password input flow');
+              logger.info('Email appears to be verified, showing password input');
               setShowPasswordInput(true);
+              verificationSuccess = true;
             } else {
-              logger.warn('Email not verified, attempting to force verify:', emailToUse);
-              
-              // Try to force-verify the email
-              const forceResult = await forceVerifyEmail(emailToUse);
-              setDebugInfo(prev => ({ ...prev, forceVerifyResult: forceResult }));
-              
-              if (forceResult.success) {
-                logger.info('Successfully initiated force verification');
-                setShowPasswordInput(true);
+              // If email verification check says not verified but we have tokens,
+              // it might be a timing issue - let's try one more direct verification attempt
+              if (token || accessToken) {
+                logger.warn('Email verification check says not verified despite tokens, retrying verification');
+                
+                // Wait a moment and try direct verification
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const retryResult = await checkEmailVerification(emailToUse);
+                
+                if (retryResult.verified) {
+                  logger.info('Email verified on retry check, showing password input');
+                  setShowPasswordInput(true);
+                  verificationSuccess = true;
+                } else {
+                  // Still not verified, attempt direct verification process
+                  logger.warn('Email still not verified on retry, attempting direct verification');
+                  await forceVerifyEmail(emailToUse);
+                  
+                  // Wait for verification process
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  
+                  // Final verification check
+                  const finalCheck = await checkEmailVerification(emailToUse);
+                  
+                  if (finalCheck.verified) {
+                    logger.info('Email verified after forced verification, showing password input');
+                    setShowPasswordInput(true);
+                    verificationSuccess = true;
+                  } else {
+                    logger.error('All verification attempts failed');
+                    setVerificationError('Verification could not be completed. Please check your email for a verification link or request a new one.');
+                    setNeedsReVerification(true);
+                  }
+                }
               } else {
-                logger.error('Failed to force verify email:', forceResult.error);
-                setVerificationError('Could not verify your email. Please try the verification link again.');
+                // No tokens and not verified - needs a new verification
+                logger.warn('Email not verified and no tokens present');
+                setVerificationError('Your email needs to be verified. Please check your email for a verification link or request a new one.');
+                setNeedsReVerification(true);
               }
             }
           } catch (error) {

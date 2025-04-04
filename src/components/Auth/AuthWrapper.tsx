@@ -229,217 +229,143 @@ export const signInDirectlyAfterVerification = async (email: string, password: s
       };
     }
     
-    // First try to directly handle any tokens in the URL
-    // This can help bypass verification issues
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get('token');
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    
-    let tokenHandlingResult = null;
-    
-    // If we have a token in the URL params, try to use it for verification
-    if (token) {
-      logger.info('Found token in URL, attempting to verify with it before sign-in');
-      try {
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'signup',
-          email
-        });
-        
-        if (!error) {
-          logger.info('Successfully verified email using token before sign-in');
-          tokenHandlingResult = { success: true, source: 'token' };
-        }
-      } catch (err) {
-        logger.error('Exception verifying with token before sign-in:', err);
-      }
-    }
-    
-    // If we have an access token in hash, try to set the session
-    if (accessToken && !tokenHandlingResult) {
-      logger.info('Found access token in hash, attempting to set session before sign-in');
-      try {
-        const refreshToken = hashParams.get('refresh_token') || '';
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-        
-        if (!error) {
-          logger.info('Successfully set session from hash parameters before sign-in');
-          tokenHandlingResult = { success: true, source: 'hash' };
-          
-          // If we successfully set the session, we might be logged in already
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) {
-            // Sync the auth store state
-            const authStore = useAuthStore.getState();
-            await authStore.initialize();
-            
-            return { 
-              success: true, 
-              user: userData.user,
-              message: 'Successfully authenticated using token from URL',
-              tokenAuth: true
-            };
-          }
-        }
-      } catch (err) {
-        logger.error('Exception setting session from hash before sign-in:', err);
-      }
-    }
-    
-    // Try direct verification first
-    await directVerifyEmail(email);
-    
-    // Check if the email is verified
-    const verificationCheck = await checkEmailVerification(email);
-    
-    if (!verificationCheck.verified) {
-      logger.warn('Email verification check failed. Attempting more verification approaches.');
-      
-      // Try other verification methods
-      
-      // 1. Sign out first to ensure clean session state
-      await supabase.auth.signOut();
-      
-      // 2. Try a special verification approach specific to Supabase
-      try {
-        // First do special verification by sending a magic link but not waiting for it
-        logger.info('Sending verification magic link as a background task');
-        
-        // This is just to trigger Supabase's verification system
-        supabase.auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: false
-          }
-        }).catch(err => {
-          // Ignore rate limiting errors
-          if (!err.message?.includes('security purposes') && !err.message?.includes('rate limit')) {
-            logger.error('Background magic link error:', err);
-          }
-        });
-        
-        // Brief delay to allow Supabase to process
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (verifyErr) {
-        // Ignore verification errors, we'll try signing in anyway
-        logger.debug('Ignoring verification error:', verifyErr);
-      }
-    }
-    
-    // Try to sign in with the provided credentials
-    const firstSignInAttempt = await supabase.auth.signInWithPassword({
+    // Simple approach: Try signing in directly first
+    logger.info('Attempting direct sign-in first');
+    const signInResult = await supabase.auth.signInWithPassword({
       email,
       password
     });
     
-    // If first attempt succeeds
-    if (!firstSignInAttempt.error) {
-      logger.info('Successfully signed in on first attempt after verification');
-      
-      // Update auth store
+    // If successful, great! Update auth store and return success
+    if (!signInResult.error) {
+      logger.info('Direct sign-in successful');
       const authStore = useAuthStore.getState();
       await authStore.initialize();
       
       return { 
         success: true, 
-        user: firstSignInAttempt.data.user, 
-        session: firstSignInAttempt.data.session
+        user: signInResult.data.user, 
+        session: signInResult.data.session
       };
     }
     
-    // If we get here, the first login attempt failed
-    
-    // If we get "Email not confirmed" specifically, try more advanced techniques
-    if (firstSignInAttempt.error.message.includes('Email not confirmed')) {
-      logger.warn('Email not confirmed error. Trying alternative approach...');
+    // If we get "Email not confirmed" error, we need to handle it differently
+    if (signInResult.error.message.includes('Email not confirmed')) {
+      logger.warn('Got "Email not confirmed" error. Trying to update verification status...');
       
-      // For "Email not confirmed" errors, we need a different approach:
-      
-      // 1. Try signing out first to clear existing state
+      // 1. Sign out to clear any existing sessions
       await supabase.auth.signOut();
       
-      // 2. Try direct verification
-      await directVerifyEmail(email);
+      // 2. Look for confirmation token in URL or hash
+      const url = new URL(window.location.href);
+      const token = url.searchParams.get('token');
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = url.searchParams.get('type') || hashParams.get('type');
       
-      // 3. If we're still here, try a special workaround by using an OTP
-      // This is a trick that sometimes works with Supabase
-      try {
-        logger.info('Trying special verification workaround via OTP');
-        const { error: otpError } = await supabase.auth.signInWithOtp({
-          email,
-          options: { 
-            shouldCreateUser: false,
+      // 3. Process confirmation token if present
+      if (token && (type === 'verification' || type === 'signup' || type === 'recovery')) {
+        logger.info('Found confirmation token in URL, attempting to confirm with it');
+        try {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'signup',
+            email
+          });
+          
+          if (verifyError) {
+            logger.error('Error verifying with token:', verifyError);
+          } else {
+            logger.info('Successfully verified email with token');
+            
+            // Try signing in again after successful verification
+            const retrySignIn = await supabase.auth.signInWithPassword({ email, password });
+            
+            if (!retrySignIn.error) {
+              logger.info('Sign-in successful after token verification');
+              const authStore = useAuthStore.getState();
+              await authStore.initialize();
+              
+              return {
+                success: true,
+                user: retrySignIn.data.user,
+                session: retrySignIn.data.session
+              };
+            } else {
+              logger.error('Still unable to sign in after token verification:', retrySignIn.error);
+            }
           }
-        });
-        
-        if (otpError) {
-          // Ignore rate limiting errors
-          if (!otpError.message.includes('security purposes') && !otpError.message.includes('rate limit')) {
-            logger.error('OTP verification error:', otpError);
-          }
-        } else {
-          logger.info('OTP verification process started, proceeding to try sign-in again');
+        } catch (err) {
+          logger.error('Exception verifying with token:', err);
         }
-        
-        // Short wait to allow Supabase to process
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (otpErr) {
-        // Ignore and continue
       }
       
-      // 4. Last resort - try manually creating a Supabase session
-      try {
-        // Try one more sign-in attempt after all our verification efforts
-        const finalAttempt = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (!finalAttempt.error) {
-          logger.info('Successfully signed in on final attempt after verification efforts');
+      // 4. Try with access token from hash if present
+      if (accessToken) {
+        logger.info('Found access token in hash, attempting to set session');
+        try {
+          const refreshToken = hashParams.get('refresh_token') || '';
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
           
-          // Update auth store
-          const authStore = useAuthStore.getState();
-          await authStore.initialize();
-          
-          return { 
-            success: true, 
-            user: finalAttempt.data.user, 
-            session: finalAttempt.data.session
-          };
-        } else {
-          // If we still get "Email not confirmed", we need to tell the user to click
-          // the verification link in their email again
-          if (finalAttempt.error.message.includes('Email not confirmed')) {
-            logger.error('Final sign-in attempt still results in Email not confirmed');
-            return { 
-              success: false, 
-              error: 'Your email is not verified. Please check your email and click the verification link.', 
-              needsVerification: true 
-            };
+          if (sessionError) {
+            logger.error('Error setting session from hash:', sessionError);
+          } else {
+            logger.info('Successfully set session from hash parameters');
+            
+            // Try signing in again after setting session
+            const retrySignIn = await supabase.auth.signInWithPassword({ email, password });
+            
+            if (!retrySignIn.error) {
+              logger.info('Sign-in successful after setting session from hash');
+              const authStore = useAuthStore.getState();
+              await authStore.initialize();
+              
+              return {
+                success: true,
+                user: retrySignIn.data.user,
+                session: retrySignIn.data.session
+              };
+            } else {
+              logger.error('Still unable to sign in after setting session:', retrySignIn.error);
+            }
           }
-          
-          // For other errors, return them directly
-          logger.error('Final sign-in attempt failed:', finalAttempt.error);
-          return { success: false, error: finalAttempt.error.message };
+        } catch (err) {
+          logger.error('Exception setting session from hash:', err);
         }
-      } catch (finalErr) {
-        logger.error('Exception during final sign-in attempt:', finalErr);
-        return { success: false, error: String(finalErr) };
       }
+      
+      // 5. Final approach: Use passwordless login to trigger verification
+      logger.info('Attempting passwordless login as last resort to trigger verification');
+      
+      // This is async, we don't need to await it
+      supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+        }
+      }).catch(error => {
+        if (!error.message?.includes('rate limit')) {
+          logger.error('Error sending passwordless login:', error);
+        }
+      });
+      
+      // Return verification needed status to inform the user
+      return {
+        success: false,
+        error: 'Your email is not verified. Please check your email for a verification link.',
+        needsVerification: true
+      };
     }
     
-    // For non-verification errors, just return them
-    logger.error('Sign-in error not related to verification:', firstSignInAttempt.error);
-    return { success: false, error: firstSignInAttempt.error.message };
+    // For other errors, return them directly
+    logger.error('Sign-in error:', signInResult.error);
+    return { success: false, error: signInResult.error.message };
     
   } catch (err) {
-    logger.error('Exception during direct sign-in after verification:', err);
+    logger.error('Exception during sign-in after verification:', err);
     return { success: false, error: String(err) };
   }
 };
