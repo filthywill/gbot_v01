@@ -5,12 +5,9 @@
   "installCommand": "npm install",
   "framework": "vite",
   "rewrites": [
+    { "source": "/auth/callback", "destination": "/index.html" },
+    { "source": "/verification-success", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "routes": [
-    { "src": "/auth/callback", "dest": "/index.html" },
-    { "src": "/verification-success", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
