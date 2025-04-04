@@ -40,35 +40,23 @@
       margin: 0 0 16px 0;
       text-align: center;
     }
-    .info-box {
-      background-color: #EFF6FF;
-      border: 1px solid #93C5FD;
-      color: #1E40AF;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 24px;
-      text-align: center;
-    }
-    .btn {
-      display: inline-block;
+    .verification-code {
+      display: block;
+      width: 200px;
+      margin: 24px auto;
       background: linear-gradient(to right, #4F46E5, #8B5CF6);
-      color: #FFFFFF !important; /* Force white text */
-      text-decoration: none;
-      padding: 12px 24px;
+      color: #FFFFFF;
+      padding: 16px 24px;
       border-radius: 8px;
+      font-size: 28px;
       font-weight: 600;
       text-align: center;
-      transition: all 0.2s ease-in-out;
-      cursor: pointer;
-      border: none;
-      font-size: 20px;
       letter-spacing: 4px;
       font-family: monospace;
-    }
-    .btn:hover {
-      transform: scale(1.01);
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
-      color: #FFFFFF !important; /* Keep white on hover too */
+      user-select: all;
+      -webkit-user-select: all;
+      -moz-user-select: all;
+      -ms-user-select: all;
     }
     .footer {
       text-align: center;
@@ -76,7 +64,7 @@
       font-size: 14px;
       color: #6B7280;
     }
-    .button-container {
+    .code-container {
       text-align: center;
       margin: 32px 0;
     }
@@ -84,14 +72,7 @@
       font-size: 14px;
       color: #6B7280;
       text-align: center;
-      margin-top: 8px;
-    }
-    .copied-message {
-      display: none;
-      color: #059669;
-      font-size: 14px;
-      margin-top: 8px;
-      text-align: center;
+      margin-top: 12px;
     }
   </style>
 </head>
@@ -103,15 +84,14 @@
       <h1>Your Account Is Ready</h1>
     </div>
 
-    <p>Thanks for signing up! Click the code below to copy it to your clipboard:</p>
+    <p>Thanks for signing up! Here's your verification code:</p>
 
-    <div class="button-container">
-      <button onclick="copyCode()" class="btn" id="verificationCode">{{ .Token }}</button>
-      <p class="copy-tip">Click the code to copy to clipboard</p>
-      <p class="copied-message" id="copiedMessage">✓ Copied to clipboard!</p>
+    <div class="code-container">
+      <div class="verification-code">{{ .Token }}</div>
+      <p class="copy-tip">Copy this code and paste it in the verification screen</p>
     </div>
     
-    <p style="text-align: center; margin-top: 16px;">Enter this code in the verification screen of our app to complete your signup.</p>
+    <p style="text-align: center; margin-top: 16px;">Enter this code in our app to complete your signup.</p>
 
     <p style="font-size: 12px; color: #6B7280; text-align: center;">If you didn't create an account, you can safely ignore this email.</p>
 
@@ -119,33 +99,5 @@
       <p>&copy; 2025 Stizack. All rights reserved.</p>
     </div>
   </div>
-
-  <script>
-    function copyCode() {
-      // Get the text from the button
-      var codeText = document.getElementById('verificationCode').innerText;
-      
-      // Create a temporary input element
-      var tempInput = document.createElement('input');
-      tempInput.value = codeText;
-      document.body.appendChild(tempInput);
-      
-      // Select and copy the text
-      tempInput.select();
-      document.execCommand('copy');
-      
-      // Remove the temporary element
-      document.body.removeChild(tempInput);
-      
-      // Show the copied message
-      var copiedMessage = document.getElementById('copiedMessage');
-      copiedMessage.style.display = 'block';
-      
-      // Hide the copied message after 3 seconds
-      setTimeout(function() {
-        copiedMessage.style.display = 'none';
-      }, 3000);
-    }
-  </script>
 </body>
 </html> 

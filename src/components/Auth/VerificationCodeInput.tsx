@@ -64,18 +64,39 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       setIsVerifying(false);
     }
   };
+
+  // Handle input change
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits and limit to 6 characters
+    const inputValue = e.target.value.replace(/\D/g, '').substring(0, 6);
+    setCode(inputValue);
+    
+    // Clear error when user is typing
+    if (error) {
+      setError(null);
+    }
+  };
+  
+  // Handle keydown to support Enter key
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && code.length === 6 && !isVerifying) {
+      handleVerify();
+    }
+  };
   
   // Function to handle clipboard paste
   const handlePaste = async () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
-      // Extract digits only (in case user copied the whole "Your code is: 123456")
+      // Extract digits only (in case user copied the whole message with other text)
       const digits = clipboardText.replace(/\D/g, '');
       // Use first 6 digits if available
       const verificationCode = digits.substring(0, 6);
       
       if (verificationCode && verificationCode.length > 0) {
         setCode(verificationCode);
+        setError(null);
+        
         // Auto-verify if we get a 6-digit code
         if (verificationCode.length === 6) {
           setTimeout(() => {
@@ -88,7 +109,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     }
   };
   
-  // Copy code from email (this just simulates the UI feature)
+  // Copy code from email (this is just a placeholder UI feature)
   const copyCodeFromEmail = () => {
     setCopiedToClipboard(true);
     setTimeout(() => setCopiedToClipboard(false), 3000);
@@ -122,13 +143,18 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
               ref={inputRef}
               id="verification-code"
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
+              onChange={handleCodeChange}
+              onKeyDown={handleKeyDown}
               placeholder="123456"
               className={getInputClasses()}
               maxLength={6}
             />
             <button
+              type="button"
               onClick={handlePaste}
               className="ml-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
               title="Paste from clipboard"
@@ -137,20 +163,6 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             </button>
           </div>
           <div className="flex justify-between mt-1">
-            <button
-              type="button"
-              onClick={copyCodeFromEmail}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
-            >
-              {copiedToClipboard ? (
-                <span className="flex items-center">
-                  <CheckCircle size={12} className="mr-1" />
-                  Copied to clipboard
-                </span>
-              ) : (
-                "Copy code from email"
-              )}
-            </button>
             <span className="text-xs text-gray-500">
               Check your inbox & spam folder
             </span>
