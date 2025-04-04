@@ -11,8 +11,9 @@ import logger from '../../lib/logger';
 const AuthCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [message, setMessage] = useState<string>('Processing authentication...');
   const { initialize } = useAuthStore();
-  const { setLastUsedEmail } = usePreferencesStore();
+  const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -26,6 +27,7 @@ const AuthCallback: React.FC = () => {
         
         if (accessToken && refreshToken) {
           logger.debug('Found access token in hash, setting session');
+          setMessage('Setting up your session...');
           
           // Set the session directly
           await supabase.auth.setSession({
@@ -47,6 +49,7 @@ const AuthCallback: React.FC = () => {
         
         if (code) {
           logger.debug('Found auth code in URL, exchanging for session');
+          setMessage('Authenticating your account...');
           
           // Exchange the code for a session
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -69,17 +72,46 @@ const AuthCallback: React.FC = () => {
         const type = url.searchParams.get('type');
         const email = url.searchParams.get('email');
         
-        if (token && type === 'signup') {
-          logger.debug('Found email verification token');
+        if (token && (type === 'signup' || type === 'verification')) {
+          logger.debug('Found email verification token, attempting verification');
+          setMessage('Verifying your email address...');
           
           if (email) {
             // Store the verified email for login form
             setLastUsedEmail(email);
+            setRememberMe(true); // Remember this user since they verified their email
           }
           
-          // Redirect to verification success page
-          window.location.replace('/verification-success');
-          return;
+          // Attempt to verify the token and authenticate the user
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'signup'
+          });
+          
+          if (error) {
+            logger.error('Error verifying email:', error);
+            // Even if verification failed, still redirect to verification success
+            // This handles cases where the user clicks the link twice
+            window.location.replace('/verification-success');
+            return;
+          }
+          
+          // If we got a session back, the user is now authenticated!
+          if (data?.session) {
+            logger.info('Email verified and user authenticated!');
+            
+            // Initialize auth state with new session
+            await initialize();
+            
+            // Redirect to verification success page
+            window.location.replace('/verification-success');
+            return;
+          } else {
+            // Token was valid but no session was created
+            logger.warn('Email verified but no session created');
+            window.location.replace('/verification-success');
+            return;
+          }
         }
         
         // If we reach here, no valid auth parameters were found
@@ -104,7 +136,7 @@ const AuthCallback: React.FC = () => {
     };
 
     handleAuthCallback();
-  }, [initialize, setLastUsedEmail]);
+  }, [initialize, setLastUsedEmail, setRememberMe]);
 
   if (error) {
     return (
@@ -124,7 +156,7 @@ const AuthCallback: React.FC = () => {
     <div className="p-4 flex items-center justify-center min-h-screen bg-zinc-900">
       <div className="flex flex-col items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        <p className="mt-4 text-white">Completing authentication...</p>
+        <p className="mt-4 text-white">{message}</p>
       </div>
     </div>
   );
