@@ -125,12 +125,14 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight mb-2">Verify Your Email</h2>
-        <p className="text-gray-500 text-sm">
-          We've sent a verification code to <strong>{email}</strong>
-        </p>
+    <div>
+      <div className="relative mb-6">
+        <div className="text-center w-full">
+          <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">Verify Your Email</h2>
+          <p className="mt-3 text-sm text-gray-500">
+            We've sent a verification code to <strong>{email}</strong>
+          </p>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -201,7 +203,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
         </div>
       </div>
 
-      <div className="text-center text-sm">
+      <div className="text-center text-sm mt-4 pt-4 border-t border-gray-200">
         <p className="text-gray-600">
           Didn't receive a code?{' '}
           <button
