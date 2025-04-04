@@ -131,8 +131,49 @@ export const signInDirectlyAfterVerification = async (email: string, password: s
     }
     
     if (data?.user) {
-      logger.info('Successfully signed in after verification:', email);
-      return { success: true, user: data.user };
+      // Explicitly update the auth store state to ensure it's synchronized
+      try {
+        // Get the auth store state and update it directly
+        const authStore = useAuthStore.getState();
+        
+        // Call the store's initialize method to refresh the auth state
+        await authStore.initialize();
+        
+        // Double-check that the user is now authenticated in the store
+        if (!authStore.isAuthenticated()) {
+          logger.warn('User authenticated with Supabase but not reflected in auth store. Manually updating store.');
+          
+          // Manually set the authenticated state to ensure it's updated
+          authStore.signInWithEmail(email, password)
+            .then(() => {
+              logger.info('Store manually updated with authenticated user');
+            })
+            .catch(err => {
+              logger.error('Failed to manually update store:', err);
+            });
+        }
+        
+        logger.info('Successfully signed in after verification:', email);
+        
+        // Return success regardless of store update to ensure the UI continues
+        return { 
+          success: true, 
+          user: data.user, 
+          session: data.session,
+          manualAuthUpdate: !authStore.isAuthenticated()
+        };
+      } catch (storeError) {
+        logger.error('Error updating auth store after successful sign-in:', storeError);
+        
+        // Return success even if the store update failed,
+        // as the Supabase authentication itself was successful
+        return { 
+          success: true, 
+          user: data.user,
+          session: data.session,
+          storeError: String(storeError)
+        };
+      }
     }
     
     return { success: false, error: 'Sign in successful but no user data returned' };

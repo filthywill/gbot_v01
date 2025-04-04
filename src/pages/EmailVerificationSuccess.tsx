@@ -185,19 +185,31 @@ const EmailVerificationSuccess: React.FC = () => {
       
       if (result.success) {
         logger.info('Auto-login successful after verification');
-        // Redirect to home page on success
-        window.location.href = '/';
+        
+        // Set user as authenticated in preferences
+        setLastUsedEmail(lastUsedEmail);
+        usePreferencesStore.getState().setRememberMe(true);
+        
+        // Reinitialize auth to make sure we have the latest state
+        await initialize();
+        
+        // Create a small delay to allow auth state to update
+        setTimeout(() => {
+          // Force reload the page to ensure auth state is fresh
+          window.location.href = '/';
+        }, 500);
       } else {
         logger.error('Auto-login failed:', result.error);
         setVerificationError(`Auto-login failed: ${result.error}`);
-        setShowPasswordInput(false);
-        setShowSignIn(true);
+        
+        // Do not automatically show the sign-in modal here
+        // Instead, keep the password input form visible with the error
+        setShowPasswordInput(true);
       }
     } catch (error) {
       logger.error('Auto-login error:', error);
       setVerificationError('Auto-login failed. Please try signing in manually.');
-      setShowPasswordInput(false);
-      setShowSignIn(true);
+      setShowPasswordInput(true); // Keep form visible with error
     } finally {
       setIsVerifying(false);
     }
@@ -207,19 +219,30 @@ const EmailVerificationSuccess: React.FC = () => {
   const userIsLoggedIn = isAuthenticated();
   
   // Auto-show the sign-in modal after a brief delay to allow the user to read the message
-  // But only if they're not already authenticated
+  // But only if they're not already authenticated and not showing the password input
   useEffect(() => {
-    if (checkedAuth && !userIsLoggedIn && !verificationError && !showPasswordInput && !isVerifying) {
+    // Only show sign-in modal if:
+    // 1. Auth check is complete
+    // 2. User is not logged in
+    // 3. No verification error is showing
+    // 4. Not showing the password input form
+    // 5. Not currently verifying
+    // 6. Sign-in modal is not already showing
+    if (checkedAuth && 
+        !userIsLoggedIn && 
+        !verificationError && 
+        !showPasswordInput && 
+        !isVerifying && 
+        !showSignIn) {
+      
       logger.info('User not authenticated, will show sign-in modal after delay');
       const timer = setTimeout(() => {
-        if (!showSignIn) {
-          handleSignIn();
-        }
+        handleSignIn();
       }, 5000); // Show sign-in modal after 5 seconds
       
       return () => clearTimeout(timer);
     }
-  }, [showSignIn, userIsLoggedIn, checkedAuth, verificationError, showPasswordInput, isVerifying]);
+  }, [checkedAuth, userIsLoggedIn, verificationError, showPasswordInput, isVerifying, showSignIn]);
   
   const handleSignIn = () => {
     setShowSignIn(true);
