@@ -14,11 +14,52 @@ import logger from '../lib/logger';
 
 const Router: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [hasError, setHasError] = useState(false);
+  const [errorInfo, setErrorInfo] = useState<any>(null);
+
+  // Log initial route - this is crucial for debugging
+  useEffect(() => {
+    console.log('ROUTER INITIAL LOAD', {
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      href: window.location.href,
+      timestamp: new Date().toISOString()
+    });
+    
+    logger.info('Router loaded at:', window.location.href);
+    
+    // Check for auth callback route immediately
+    if (isAuthCallback()) {
+      console.log('AUTH CALLBACK ROUTE DETECTED ON INITIAL LOAD');
+      logger.info('Auth callback route detected on initial load');
+    }
+    
+    // Global error handler
+    const handleError = (event: ErrorEvent) => {
+      logger.error('Unhandled error in Router:', event.error);
+      setHasError(true);
+      setErrorInfo({
+        message: event.error?.message || 'Unknown error',
+        stack: event.error?.stack,
+        timestamp: new Date().toISOString()
+      });
+    };
+    
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
 
   useEffect(() => {
     const handlePathChange = () => {
       setCurrentPath(window.location.pathname);
       logger.debug('Path changed to:', window.location.pathname);
+      
+      // Check for auth callback on path change
+      if (isAuthCallback()) {
+        console.log('AUTH CALLBACK ROUTE DETECTED AFTER NAVIGATION');
+        logger.info('Auth callback route detected after navigation');
+      }
     };
 
     window.addEventListener('popstate', handlePathChange);
@@ -35,7 +76,7 @@ const Router: React.FC = () => {
   };
 
   // Add navigate function to window for global access
-  React.useEffect(() => {
+  useEffect(() => {
     (window as any).navigateTo = navigate;
     
     // Override link clicks to use our router
@@ -57,23 +98,18 @@ const Router: React.FC = () => {
     };
   }, []);
 
-  // Log the current URL
-  useEffect(() => {
-    logger.info('Current location:', window.location.href);
-  }, [currentPath]);
-
   // Check if the path starts with a specific route
   const pathStartsWith = (route: string): boolean => {
     // Normalize the path by removing duplicate slashes
     const normalizedPath = currentPath.replace(/\/+/g, '/');
-    logger.debug('Checking path match:', { currentPath, normalizedPath, route, match: normalizedPath.startsWith(route) });
     return normalizedPath.startsWith(route);
   };
 
   // Improved function to check for auth callback
   const isAuthCallback = (): boolean => {
     const fullUrl = window.location.href;
-    const currentPathNormalized = currentPath.replace(/\/+/g, '/');
+    const pathname = window.location.pathname;
+    const currentPathNormalized = pathname.replace(/\/+/g, '/');
     
     // Check if path is /auth/callback
     const isPathCallback = currentPathNormalized.startsWith('/auth/callback');
@@ -93,6 +129,14 @@ const Router: React.FC = () => {
     const result = isPathCallback || hasAuthParams || hasAuthHash;
     
     if (result) {
+      console.log('AUTH CALLBACK DETECTED:', { 
+        path: isPathCallback, 
+        params: hasAuthParams, 
+        hash: hasAuthHash,
+        fullUrl,
+        pathname
+      });
+      
       logger.debug('Auth callback detected:', { 
         path: isPathCallback, 
         params: hasAuthParams, 
@@ -104,73 +148,6 @@ const Router: React.FC = () => {
     return result;
   };
 
-  // Debug logging for the current route
-  useEffect(() => {
-    if (isAuthCallback()) {
-      logger.info('Auth callback route detected');
-    }
-  }, [currentPath]);
-
-  // Render the appropriate component based on the current path
-  if (isAuthCallback()) {
-    logger.info('Rendering AuthCallback component');
-    return <AuthCallback />;
-  } else if (pathStartsWith('/privacy-policy')) {
-    return <PrivacyPolicy />;
-  } else if (pathStartsWith('/terms-of-service')) {
-    return <TermsOfService />;
-  } else if (pathStartsWith('/reset-password')) {
-    return <ResetPassword />;
-  } else if (pathStartsWith('/verification-success')) {
-    return (
-      <Suspense fallback={<div className="p-4 text-center">Loading verification success page...</div>}>
-        <EmailVerificationSuccess />
-      </Suspense>
-    );
-  } else if (pathStartsWith('/debug-verification')) {
-    return <VerificationDebug />;
-  } else {
-    return <App />;
-  }
-
-  useEffect(() => {
-    // Log the complete URL for debugging
-    const fullUrl = window.location.href;
-    const urlParts = new URL(fullUrl);
-    logger.info('Router loaded. Current URL:', fullUrl);
-    logger.info('Path parts:', {
-      pathname: urlParts.pathname,
-      search: urlParts.search,
-      hash: urlParts.hash
-    });
-    
-    // Check if we're on a verification link
-    if (urlParts.pathname.includes('/auth/callback') || 
-        (urlParts.searchParams.get('type') === 'verification' && urlParts.searchParams.get('token'))) {
-      logger.info('DETECTED VERIFICATION LINK - should render AuthCallback');
-    }
-  }, []);
-  
-  // Fallback error boundary for the router
-  const [hasError, setHasError] = useState(false);
-  const [errorInfo, setErrorInfo] = useState<any>(null);
-  
-  useEffect(() => {
-    // Global error handler
-    const handleError = (event: ErrorEvent) => {
-      logger.error('Unhandled error in Router:', event.error);
-      setHasError(true);
-      setErrorInfo({
-        message: event.error?.message || 'Unknown error',
-        stack: event.error?.stack,
-        timestamp: new Date().toISOString()
-      });
-    };
-    
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
-  
   // If we have an error, show a fallback UI
   if (hasError) {
     return (
@@ -189,6 +166,29 @@ const Router: React.FC = () => {
         </a>
       </div>
     );
+  }
+
+  // Render the appropriate component based on the current path
+  if (isAuthCallback()) {
+    console.log('RENDERING AUTH CALLBACK COMPONENT');
+    logger.info('Rendering AuthCallback component');
+    return <AuthCallback />;
+  } else if (pathStartsWith('/privacy-policy')) {
+    return <PrivacyPolicy />;
+  } else if (pathStartsWith('/terms-of-service')) {
+    return <TermsOfService />;
+  } else if (pathStartsWith('/reset-password')) {
+    return <ResetPassword />;
+  } else if (pathStartsWith('/verification-success')) {
+    return (
+      <Suspense fallback={<div className="p-4 text-center">Loading verification success page...</div>}>
+        <EmailVerificationSuccess />
+      </Suspense>
+    );
+  } else if (pathStartsWith('/debug-verification')) {
+    return <VerificationDebug />;
+  } else {
+    return <App />;
   }
 };
 
