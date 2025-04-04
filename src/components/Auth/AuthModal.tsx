@@ -149,7 +149,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           setHasPrefilledEmail(true); // Mark as prefilled to prevent overrides
           
           // If we just verified the email, we should remember this user
-          if (window.location.pathname === '/verification-success') {
+          if (window.location.pathname === '/verification-success' || 
+              window.location.href.includes('verif')) {
+            logger.debug('Setting rememberMe to true due to successful verification');
             setRememberMeChecked(true);
           }
         }

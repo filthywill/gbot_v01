@@ -4,7 +4,9 @@ import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
 import ResetPassword from '../pages/ResetPassword';
 // Use dynamic imports instead of static imports to avoid build failures
-const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSuccess'));
+const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSuccess').then(module => {
+  return { default: module.default };
+}));
 import AuthCallback from '../pages/AuthCallback';
 import logger from '../lib/logger';
 
@@ -69,8 +71,27 @@ const Router: React.FC = () => {
   // Check for auth callback directly from full URL
   const isAuthCallback = (): boolean => {
     const fullUrl = window.location.href;
-    // Only match true auth callback URLs, not verification tokens on main page
-    return fullUrl.includes('/auth/callback');
+    const urlHash = window.location.hash;
+    
+    // Check path-based auth callback
+    const isPathCallback = fullUrl.includes('/auth/callback');
+    
+    // Check hash-based auth callback (Supabase often uses this format)
+    const isHashCallback = urlHash.length > 0 && 
+                           (urlHash.includes('access_token=') || 
+                            urlHash.includes('refresh_token=') || 
+                            urlHash.includes('type=signup'));
+    
+    // Log what we're detecting
+    if (isPathCallback || isHashCallback) {
+      logger.debug('Auth callback detected:', { 
+        path: isPathCallback, 
+        hash: isHashCallback, 
+        hashContent: urlHash.length > 0 ? urlHash.substring(0, 20) + '...' : 'none' 
+      });
+    }
+    
+    return isPathCallback || isHashCallback;
   };
 
   // Render the appropriate component based on the current path

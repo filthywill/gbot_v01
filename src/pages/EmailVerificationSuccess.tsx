@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 import AuthModal from '../components/Auth/AuthModal';
 import usePreferencesStore from '../store/usePreferencesStore';
 import useAuthStore from '../store/useAuthStore';
@@ -8,49 +8,128 @@ import { supabase } from '../lib/supabase';
 
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
-  const { lastUsedEmail } = usePreferencesStore();
-  const { isAuthenticated, status, initialize } = useAuthStore();
+  const { lastUsedEmail, setLastUsedEmail } = usePreferencesStore();
+  const { isAuthenticated, status, initialize, user } = useAuthStore();
   const [checkedAuth, setCheckedAuth] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
   
   // Make sure we have the latest auth status
   useEffect(() => {
     const checkAuth = async () => {
       try {
         logger.info('Checking authentication status on verification success page');
+        setDebugInfo(prev => ({ ...prev, startTime: new Date().toISOString() }));
         
-        // Handle direct access with token in URL (fallback mechanism)
+        // Try to detect the email from the URL if available
         const url = new URL(window.location.href);
+        const email = url.searchParams.get('email');
         const token = url.searchParams.get('token');
         const type = url.searchParams.get('type');
         
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          urlParams: { 
+            email: email || 'none', 
+            token: token ? `${token.substring(0, 8)}...` : 'none', 
+            type: type || 'none'
+          } 
+        }));
+        
+        if (email) {
+          logger.info('Found email in URL:', email);
+          setLastUsedEmail(email);
+        }
+        
+        // Handle direct access with token in URL (fallback mechanism)
         if (token && (type === 'verification' || type === 'signup')) {
           logger.info('Found verification token in URL on success page, processing directly');
+          
           try {
-            const { error } = await supabase.auth.verifyOtp({
+            const { data, error } = await supabase.auth.verifyOtp({
               token_hash: token,
               type: 'signup'
             });
             
+            setDebugInfo(prev => ({ ...prev, verifyResult: { success: !error, hasData: !!data } }));
+            
             if (error) {
               logger.error('Error verifying email on success page:', error);
+              setVerificationError(`Verification error: ${error.message}`);
             } else {
               logger.info('Successfully verified email on success page');
             }
           } catch (verifyError) {
             logger.error('Error processing verification token on success page:', verifyError);
+            setVerificationError('Failed to process verification token');
+            setDebugInfo(prev => ({ ...prev, verifyError }));
           }
         }
         
+        // Check for hash fragments which might contain tokens
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const hashType = hashParams.get('type');
+        const hashEmail = hashParams.get('email');
+        
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          hashParams: { 
+            hasAccessToken: !!accessToken,
+            type: hashType || 'none',
+            email: hashEmail || 'none'
+          } 
+        }));
+        
+        if (hashEmail) {
+          logger.info('Found email in hash:', hashEmail);
+          setLastUsedEmail(hashEmail);
+        }
+        
+        if (accessToken && hashType === 'signup') {
+          logger.info('Found access token in hash, attempting to set session');
+          
+          try {
+            const refreshToken = hashParams.get('refresh_token') || '';
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              logger.error('Error setting session from hash:', error);
+              setDebugInfo(prev => ({ ...prev, sessionError: error }));
+            } else {
+              logger.info('Successfully set session from hash');
+            }
+          } catch (tokenError) {
+            logger.error('Error processing hash tokens:', tokenError);
+            setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
+          }
+        }
+        
+        // Initialize auth status to get the latest user state
         await initialize();
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          authStatus: { 
+            status, 
+            isAuthenticated: isAuthenticated(),
+            hasUser: !!user
+          } 
+        }));
+        
         setCheckedAuth(true);
       } catch (error) {
         logger.error('Error checking authentication status:', error);
+        setVerificationError('Failed to check authentication status');
+        setDebugInfo(prev => ({ ...prev, checkAuthError: error }));
         setCheckedAuth(true);
       }
     };
     
     checkAuth();
-  }, [initialize]);
+  }, [initialize, setLastUsedEmail, status, user, isAuthenticated]);
   
   // Check if user is already authenticated
   const userIsLoggedIn = isAuthenticated();
@@ -58,7 +137,7 @@ const EmailVerificationSuccess: React.FC = () => {
   // Auto-show the sign-in modal after a brief delay to allow the user to read the message
   // But only if they're not already authenticated
   useEffect(() => {
-    if (checkedAuth && !userIsLoggedIn) {
+    if (checkedAuth && !userIsLoggedIn && !verificationError) {
       logger.info('User not authenticated, will show sign-in modal after delay');
       const timer = setTimeout(() => {
         if (!showSignIn) {
@@ -68,7 +147,7 @@ const EmailVerificationSuccess: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [showSignIn, userIsLoggedIn, checkedAuth]);
+  }, [showSignIn, userIsLoggedIn, checkedAuth, verificationError]);
   
   const handleSignIn = () => {
     setShowSignIn(true);
@@ -98,23 +177,38 @@ const EmailVerificationSuccess: React.FC = () => {
       <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
-            <CheckCircle className="h-8 w-8 text-green-600" />
+            {verificationError ? (
+              <AlertCircle className="h-8 w-8 text-amber-600" />
+            ) : (
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Email Verified!</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {verificationError ? 'Verification Notice' : 'Email Verified!'}
+          </h1>
           <p className="mt-2 text-gray-600">
-            Your account has been successfully activated.
+            {verificationError 
+              ? 'Your email verification was already processed or has expired.' 
+              : 'Your account has been successfully activated.'}
           </p>
         </div>
         
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-          <p className="font-medium">Account successfully created</p>
-          {lastUsedEmail && (
-            <p className="mt-1">Your account <strong>{lastUsedEmail}</strong> is ready to use!</p>
-          )}
-          {userIsLoggedIn && (
-            <p className="mt-2 font-medium">You are now signed in!</p>
-          )}
-        </div>
+        {verificationError ? (
+          <div className="bg-amber-100 border border-amber-400 text-amber-700 px-4 py-3 rounded mb-6">
+            <p className="font-medium">Verification already processed</p>
+            <p className="mt-1">If you've already verified your email, you can sign in directly.</p>
+          </div>
+        ) : (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+            <p className="font-medium">Account successfully created</p>
+            {lastUsedEmail && (
+              <p className="mt-1">Your account <strong>{lastUsedEmail}</strong> is ready to use!</p>
+            )}
+            {userIsLoggedIn && (
+              <p className="mt-2 font-medium">You are now signed in!</p>
+            )}
+          </div>
+        )}
         
         {userIsLoggedIn ? (
           <button
@@ -147,6 +241,15 @@ const EmailVerificationSuccess: React.FC = () => {
         <p className="mt-4 text-center text-sm text-gray-500">
           Or return to the <a href="/" className="font-medium text-indigo-600 hover:text-indigo-500">home page</a>
         </p>
+        
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-8 border-t border-gray-200 pt-4">
+            <p className="text-xs font-medium text-gray-500">Debug Information:</p>
+            <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-64">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
       
       {showSignIn && !userIsLoggedIn && (

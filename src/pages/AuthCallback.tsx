@@ -19,12 +19,45 @@ const AuthCallback: React.FC = () => {
         const fullUrl = window.location.href;
         logger.info('AuthCallback Page: Processing authentication, URL:', fullUrl);
         
-        // Detect and log double slash issues
-        if (fullUrl.includes('//auth')) {
-          logger.warn('Detected double slash in URL that may cause routing issues');
-        }
+        // Store the full URL for debugging
+        setDebugInfo(prev => ({ ...prev, fullUrl }));
         
-        setDebugInfo({ ...debugInfo, fullUrl });
+        // IMPORTANT: Check for hash fragment (used by Supabase for many auth flows)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+        
+        if (accessToken) {
+          logger.debug('Found access_token in hash, processing authentication');
+          setMessage('Setting up your session...');
+          setDebugInfo(prev => ({ ...prev, flowType: 'hash-auth', tokenType: type }));
+          
+          try {
+            // Set the session directly using the tokens from the hash
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || ''
+            });
+            
+            if (error) {
+              logger.error('Error setting session from hash:', error);
+              throw error;
+            }
+            
+            // Initialize auth state
+            await initialize();
+            logger.info('Successfully authenticated via hash parameters');
+            
+            // Redirect to home
+            window.location.replace('/');
+            return;
+          } catch (tokenError) {
+            logger.error('Error processing hash tokens:', tokenError);
+            setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
+            // Continue to try other auth methods
+          }
+        }
         
         // Check for code parameter (OAuth and some email flows)
         const url = new URL(window.location.href);
@@ -35,20 +68,20 @@ const AuthCallback: React.FC = () => {
           queryParams[key] = value;
         });
         
-        setDebugInfo({ ...debugInfo, queryParams });
+        setDebugInfo(prev => ({ ...prev, queryParams }));
         logger.debug('URL query parameters:', queryParams);
         
         if (code) {
-          logger.debug('Found auth code in URL, exchanging for session:', code);
+          logger.debug('Found auth code in URL, exchanging for session');
           setMessage('Authenticating your account...');
-          setDebugInfo({ ...debugInfo, flowType: 'code-exchange' });
+          setDebugInfo(prev => ({ ...prev, flowType: 'code-exchange' }));
           
           // Exchange the code for a session
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           
           if (error) {
             logger.error('Error exchanging code for session:', error);
-            setDebugInfo({ ...debugInfo, exchangeError: error });
+            setDebugInfo(prev => ({ ...prev, exchangeError: error }));
             throw error;
           }
           
@@ -58,19 +91,19 @@ const AuthCallback: React.FC = () => {
           await initialize();
           
           // Redirect to home or success page
-          window.location.replace('/');
+          window.location.replace('/verification-success');
           return;
         }
         
         // Check for email verification tokens
         const token = url.searchParams.get('token');
-        const type = url.searchParams.get('type');
+        const urlType = url.searchParams.get('type');
         const email = url.searchParams.get('email');
         
         if (token) {
-          logger.debug('Found token in URL, type:', type || 'unknown');
+          logger.debug('Found token in URL, type:', urlType || 'unknown');
           setMessage('Processing your verification...');
-          setDebugInfo({ ...debugInfo, flowType: 'token-verification', tokenType: type });
+          setDebugInfo(prev => ({ ...prev, flowType: 'token-verification', tokenType: urlType }));
           
           if (email) {
             // Store the verified email for login form
@@ -80,30 +113,34 @@ const AuthCallback: React.FC = () => {
           }
           
           // For Supabase email verification
-          if (type === 'signup' || type === 'verification') {
+          if (urlType === 'signup' || urlType === 'verification') {
             logger.debug('Attempting email verification with token');
             
-            // Attempt to verify the token and authenticate the user
-            const { data, error } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'signup'
-            });
-            
-            setDebugInfo({ ...debugInfo, verifyResult: { data, error } });
-            
-            if (error) {
-              logger.error('Error verifying email:', error);
-            } else {
-              logger.info('Email verified successfully!');
-              // Initialize auth state with new session
-              await initialize();
+            try {
+              // Attempt to verify the token and authenticate the user
+              const { data, error } = await supabase.auth.verifyOtp({
+                token_hash: token,
+                type: 'signup'
+              });
+              
+              setDebugInfo(prev => ({ ...prev, verifyResult: { data, error } }));
+              
+              if (error) {
+                logger.error('Error verifying email:', error);
+              } else {
+                logger.info('Email verified successfully!');
+                // Initialize auth state with new session
+                await initialize();
+              }
+              
+              // Redirect to verification success page regardless of result
+              window.location.replace('/verification-success');
+              return;
+            } catch (verifyError) {
+              logger.error('Error in verification process:', verifyError);
+              setDebugInfo(prev => ({ ...prev, verifyError }));
+              // Continue to fallback approach
             }
-            
-            // Only redirect to verification success if we're not already on the main app
-            if (window.location.pathname === '/auth/callback') {
-              window.location.replace('/');
-            }
-            return;
           }
           
           // If we're still here, try a fallback approach
@@ -111,7 +148,7 @@ const AuthCallback: React.FC = () => {
             // Try plain token exchange
             const { error } = await supabase.auth.verifyOtp({
               token_hash: token,
-              type: type === 'recovery' ? 'recovery' : 'signup'
+              type: urlType === 'recovery' ? 'recovery' : 'signup'
             });
             
             if (error) {
@@ -121,16 +158,12 @@ const AuthCallback: React.FC = () => {
               await initialize();
             }
             
-            // Only redirect if we're not already on the main app
-            if (window.location.pathname === '/auth/callback') {
-              window.location.replace('/');
-            }
+            // Redirect to verification success page
+            window.location.replace('/verification-success');
             return;
           } catch (verifyError) {
             logger.error('Error in fallback verification:', verifyError);
-            if (window.location.pathname === '/auth/callback') {
-              window.location.replace('/');
-            }
+            window.location.replace('/verification-success');
             return;
           }
         }
@@ -158,7 +191,7 @@ const AuthCallback: React.FC = () => {
     };
 
     handleAuthCallback();
-  }, [initialize, setLastUsedEmail, setRememberMe, debugInfo]);
+  }, [initialize, setLastUsedEmail, setRememberMe]);
 
   if (error) {
     return (
