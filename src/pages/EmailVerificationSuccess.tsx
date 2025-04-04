@@ -8,15 +8,33 @@ import logger from '../lib/logger';
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
   const { lastUsedEmail } = usePreferencesStore();
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated, status, initialize } = useAuthStore();
+  const [checkedAuth, setCheckedAuth] = useState(false);
   
-  // Check if user is already authenticated (via the callback verification)
-  const isAlreadyLoggedIn = isAuthenticated();
+  // Make sure we have the latest auth status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        logger.info('Checking authentication status on verification success page');
+        await initialize();
+        setCheckedAuth(true);
+      } catch (error) {
+        logger.error('Error checking authentication status:', error);
+        setCheckedAuth(true);
+      }
+    };
+    
+    checkAuth();
+  }, [initialize]);
+  
+  // Check if user is already authenticated
+  const userIsLoggedIn = isAuthenticated();
   
   // Auto-show the sign-in modal after a brief delay to allow the user to read the message
   // But only if they're not already authenticated
   useEffect(() => {
-    if (!isAlreadyLoggedIn) {
+    if (checkedAuth && !userIsLoggedIn) {
+      logger.info('User not authenticated, will show sign-in modal after delay');
       const timer = setTimeout(() => {
         if (!showSignIn) {
           handleSignIn();
@@ -25,7 +43,7 @@ const EmailVerificationSuccess: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [showSignIn, isAlreadyLoggedIn]);
+  }, [showSignIn, userIsLoggedIn, checkedAuth]);
   
   const handleSignIn = () => {
     setShowSignIn(true);
@@ -39,6 +57,16 @@ const EmailVerificationSuccess: React.FC = () => {
   const handleContinue = () => {
     window.location.href = '/';
   };
+  
+  // Show a loading state while checking auth
+  if (!checkedAuth) {
+    return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <p className="ml-3 text-white">Checking verification status...</p>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-zinc-900 flex items-center justify-center px-4">
@@ -58,12 +86,12 @@ const EmailVerificationSuccess: React.FC = () => {
           {lastUsedEmail && (
             <p className="mt-1">Your account <strong>{lastUsedEmail}</strong> is ready to use!</p>
           )}
-          {isAlreadyLoggedIn && (
+          {userIsLoggedIn && (
             <p className="mt-2 font-medium">You are now signed in!</p>
           )}
         </div>
         
-        {isAlreadyLoggedIn ? (
+        {userIsLoggedIn ? (
           <button
             onClick={handleContinue}
             className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
@@ -96,7 +124,7 @@ const EmailVerificationSuccess: React.FC = () => {
         </p>
       </div>
       
-      {showSignIn && !isAlreadyLoggedIn && (
+      {showSignIn && !userIsLoggedIn && (
         <AuthModal 
           isOpen={showSignIn} 
           onClose={handleCloseModal}

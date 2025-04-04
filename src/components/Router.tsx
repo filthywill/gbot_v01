@@ -13,6 +13,7 @@ const Router: React.FC = () => {
   useEffect(() => {
     const handlePathChange = () => {
       setCurrentPath(window.location.pathname);
+      logger.debug('Path changed to:', window.location.pathname);
     };
 
     window.addEventListener('popstate', handlePathChange);
@@ -51,20 +52,31 @@ const Router: React.FC = () => {
     };
   }, []);
 
+  // Log the current URL
+  useEffect(() => {
+    logger.info('Current location:', window.location.href);
+  }, []);
+
+  // Check if the path starts with a specific route
+  const pathStartsWith = (route: string): boolean => {
+    return currentPath.startsWith(route);
+  };
+
   // Render the appropriate component based on the current path
-  switch (currentPath) {
-    case '/privacy-policy':
-      return <PrivacyPolicy />;
-    case '/terms-of-service':
-      return <TermsOfService />;
-    case '/reset-password':
-      return <ResetPassword />;
-    case '/verification-success':
-      return <EmailVerificationSuccess />;
-    case '/auth/callback':
-      return <AuthCallback />;
-    default:
-      return <App />;
+  // Using startsWith to match routes even with query parameters
+  if (pathStartsWith('/privacy-policy')) {
+    return <PrivacyPolicy />;
+  } else if (pathStartsWith('/terms-of-service')) {
+    return <TermsOfService />;
+  } else if (pathStartsWith('/reset-password')) {
+    return <ResetPassword />;
+  } else if (pathStartsWith('/verification-success')) {
+    return <EmailVerificationSuccess />;
+  } else if (pathStartsWith('/auth/callback')) {
+    logger.info('Rendering AuthCallback for path:', currentPath);
+    return <AuthCallback />;
+  } else {
+    return <App />;
   }
 };
 
