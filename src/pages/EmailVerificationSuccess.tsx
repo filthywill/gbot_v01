@@ -9,7 +9,7 @@ import { checkEmailVerification, forceVerifyEmail, signInDirectlyAfterVerificati
 
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
-  const { lastUsedEmail, setLastUsedEmail } = usePreferencesStore();
+  const { lastUsedEmail, setLastUsedEmail, setRememberMe } = usePreferencesStore();
   const { isAuthenticated, status, initialize, user, signInWithEmail } = useAuthStore();
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -17,10 +17,14 @@ const EmailVerificationSuccess: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(true);
   const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [processingVerification, setProcessingVerification] = useState(true);
   
   // Make sure we have the latest auth status
   useEffect(() => {
+    let mounted = true;
     const checkAuth = async () => {
+      if (!mounted) return;
+      
       try {
         logger.info('Checking authentication status on verification success page');
         setDebugInfo(prev => ({ ...prev, startTime: new Date().toISOString() }));
@@ -31,45 +35,6 @@ const EmailVerificationSuccess: React.FC = () => {
         const token = url.searchParams.get('token');
         const type = url.searchParams.get('type');
         
-        setDebugInfo(prev => ({ 
-          ...prev, 
-          urlParams: { 
-            email: email || 'none', 
-            token: token ? `${token.substring(0, 8)}...` : 'none', 
-            type: type || 'none'
-          } 
-        }));
-        
-        if (email) {
-          logger.info('Found email in URL:', email);
-          setLastUsedEmail(email);
-        }
-        
-        // Handle direct access with token in URL (fallback mechanism)
-        if (token && (type === 'verification' || type === 'signup')) {
-          logger.info('Found verification token in URL on success page, processing directly');
-          
-          try {
-            const { data, error } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'signup'
-            });
-            
-            setDebugInfo(prev => ({ ...prev, verifyResult: { success: !error, hasData: !!data } }));
-            
-            if (error) {
-              logger.error('Error verifying email on success page:', error);
-              setVerificationError(`Verification error: ${error.message}`);
-            } else {
-              logger.info('Successfully verified email on success page');
-            }
-          } catch (verifyError) {
-            logger.error('Error processing verification token on success page:', verifyError);
-            setVerificationError('Failed to process verification token');
-            setDebugInfo(prev => ({ ...prev, verifyError }));
-          }
-        }
-        
         // Check for hash fragments which might contain tokens
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
@@ -78,51 +43,157 @@ const EmailVerificationSuccess: React.FC = () => {
         
         setDebugInfo(prev => ({ 
           ...prev, 
+          urlParams: { 
+            email: email || 'none', 
+            token: token ? `${token.substring(0, 8)}...` : 'none', 
+            type: type || 'none'
+          },
           hashParams: { 
             hasAccessToken: !!accessToken,
             type: hashType || 'none',
             email: hashEmail || 'none'
+          }
+        }));
+        
+        const emailToUse = email || hashEmail || lastUsedEmail;
+        if (emailToUse) {
+          logger.info('Found email in URL or hash:', emailToUse);
+          setLastUsedEmail(emailToUse);
+        }
+        
+        // Check if user is already authenticated
+        await initialize();
+        const isAuth = isAuthenticated();
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          initialAuthCheck: {
+            status,
+            isAuthenticated: isAuth,
+            hasUser: !!user
           } 
         }));
         
-        if (hashEmail) {
-          logger.info('Found email in hash:', hashEmail);
-          setLastUsedEmail(hashEmail);
+        if (isAuth && user) {
+          logger.info('User is already authenticated:', user.email);
+          setIsVerifying(false);
+          setCheckedAuth(true);
+          setProcessingVerification(false);
+          return;
         }
         
-        if (accessToken && hashType === 'signup') {
-          logger.info('Found access token in hash, attempting to set session');
+        // Process verification tokens
+        if (token || accessToken) {
+          let verificationSuccess = false;
           
-          try {
-            const refreshToken = hashParams.get('refresh_token') || '';
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            });
+          // Handle direct access with token in URL
+          if (token && (type === 'verification' || type === 'signup')) {
+            logger.info('Found verification token in URL, processing directly');
             
-            if (error) {
-              logger.error('Error setting session from hash:', error);
-              setDebugInfo(prev => ({ ...prev, sessionError: error }));
-            } else {
-              logger.info('Successfully set session from hash');
+            try {
+              const { data, error } = await supabase.auth.verifyOtp({
+                token_hash: token,
+                type: 'signup'
+              });
+              
+              setDebugInfo(prev => ({ ...prev, verifyResult: { success: !error, hasData: !!data } }));
+              
+              if (error) {
+                logger.error('Error verifying email on success page:', error);
+                
+                // If we get an error during verification, let's check if the email is already verified
+                if (emailToUse) {
+                  const verificationStatus = await checkEmailVerification(emailToUse);
+                  if (verificationStatus.verified) {
+                    verificationSuccess = true;
+                    logger.info('Email was already verified, proceeding with login flow');
+                  } else {
+                    setVerificationError(`Verification failed: ${error.message}`);
+                  }
+                } else {
+                  setVerificationError(`Verification error: ${error.message}`);
+                }
+              } else {
+                logger.info('Successfully verified email on success page');
+                verificationSuccess = true;
+              }
+            } catch (verifyError) {
+              logger.error('Error processing verification token on success page:', verifyError);
+              setVerificationError('Failed to process verification token');
+              setDebugInfo(prev => ({ ...prev, verifyError }));
             }
-          } catch (tokenError) {
-            logger.error('Error processing hash tokens:', tokenError);
-            setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
+          }
+          
+          // Process access token from hash
+          if (accessToken && hashType === 'signup') {
+            logger.info('Found access token in hash, attempting to set session');
+            
+            try {
+              const refreshToken = hashParams.get('refresh_token') || '';
+              const { error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+              
+              if (error) {
+                logger.error('Error setting session from hash:', error);
+                setDebugInfo(prev => ({ ...prev, sessionError: error }));
+              } else {
+                logger.info('Successfully set session from hash');
+                verificationSuccess = true;
+                
+                // Check auth status again after setting session
+                await initialize();
+                
+                // If successfully authenticated, we can return early
+                if (isAuthenticated()) {
+                  logger.info('User is now authenticated after setting session from hash');
+                  setIsVerifying(false);
+                  setCheckedAuth(true);
+                  setProcessingVerification(false);
+                  return;
+                }
+              }
+            } catch (tokenError) {
+              logger.error('Error processing hash tokens:', tokenError);
+              setDebugInfo(prev => ({ ...prev, hashTokenError: tokenError }));
+            }
+          }
+          
+          // Delay a bit to allow Supabase to process the verification
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Initialize auth again to check if token processing resulted in authentication
+          await initialize();
+          if (isAuthenticated()) {
+            logger.info('User is now authenticated after processing tokens');
+            setIsVerifying(false);
+            setCheckedAuth(true);
+            setProcessingVerification(false);
+            return;
+          }
+          
+          // If verification was successful but user is not yet authenticated,
+          // we'll show the password input for them to complete login
+          if (verificationSuccess && emailToUse) {
+            logger.info('Verification successful, but user not yet authenticated. Showing password input.');
+            setShowPasswordInput(true);
+            setIsVerifying(false);
+            setCheckedAuth(true);
+            setProcessingVerification(false);
+            return;
           }
         }
         
-        // Try to auto-login the user if we have their email
-        const emailToUse = email || hashEmail || lastUsedEmail;
+        // If no tokens were processed, check if the email is verified
         if (emailToUse) {
           try {
-            // Check if the email is verified using our direct verification check
+            // Check if the email is verified
             logger.info('Checking verification status for email:', emailToUse);
             const verificationResult = await checkEmailVerification(emailToUse);
             setDebugInfo(prev => ({ ...prev, verificationCheck: verificationResult }));
             
             if (verificationResult.verified) {
-              logger.info('Email is verified, proceeding with auto-login flow');
+              logger.info('Email is verified, proceeding with password input flow');
               setShowPasswordInput(true);
             } else {
               logger.warn('Email not verified, attempting to force verify:', emailToUse);
@@ -132,25 +203,25 @@ const EmailVerificationSuccess: React.FC = () => {
               setDebugInfo(prev => ({ ...prev, forceVerifyResult: forceResult }));
               
               if (forceResult.success) {
-                logger.info('Successfully initiated force verification, now user can sign in');
-                // Even if forcing verification succeeded, we'll show the password input
-                // since they still need to sign in
+                logger.info('Successfully initiated force verification');
                 setShowPasswordInput(true);
               } else {
                 logger.error('Failed to force verify email:', forceResult.error);
+                setVerificationError('Could not verify your email. Please try the verification link again.');
               }
             }
           } catch (error) {
             logger.error('Error during verification check:', error);
             setDebugInfo(prev => ({ ...prev, verificationCheckError: error }));
+            setVerificationError('Failed to check email verification status. Please try signing in directly.');
           }
         }
         
-        // Initialize auth status to get the latest user state
+        // Final auth check
         await initialize();
         setDebugInfo(prev => ({ 
           ...prev, 
-          authStatus: { 
+          finalAuthStatus: { 
             status, 
             isAuthenticated: isAuthenticated(),
             hasUser: !!user
@@ -159,17 +230,22 @@ const EmailVerificationSuccess: React.FC = () => {
         
         setIsVerifying(false);
         setCheckedAuth(true);
+        setProcessingVerification(false);
       } catch (error) {
+        if (!mounted) return;
+        
         logger.error('Error checking authentication status:', error);
         setVerificationError('Failed to check authentication status');
         setDebugInfo(prev => ({ ...prev, checkAuthError: error }));
         setIsVerifying(false);
         setCheckedAuth(true);
+        setProcessingVerification(false);
       }
     };
     
     checkAuth();
-  }, [initialize, setLastUsedEmail, status, user, isAuthenticated, lastUsedEmail]);
+    return () => { mounted = false; };
+  }, [initialize, setLastUsedEmail, isAuthenticated, status, user, lastUsedEmail]);
   
   // Handle auto-login with password
   const handleAutoLogin = async (e: React.FormEvent) => {
@@ -180,6 +256,9 @@ const EmailVerificationSuccess: React.FC = () => {
     try {
       logger.info('Attempting auto-login with verified email');
       
+      // Set remember me to true so the user stays logged in
+      setRememberMe(true);
+      
       // Use the direct sign-in function that checks verification first
       const result = await signInDirectlyAfterVerification(lastUsedEmail, password);
       
@@ -188,22 +267,20 @@ const EmailVerificationSuccess: React.FC = () => {
         
         // Set user as authenticated in preferences
         setLastUsedEmail(lastUsedEmail);
-        usePreferencesStore.getState().setRememberMe(true);
         
         // Reinitialize auth to make sure we have the latest state
         await initialize();
         
         // Create a small delay to allow auth state to update
         setTimeout(() => {
-          // Force reload the page to ensure auth state is fresh
+          // Force reload the page to ensure auth state is fresh and redirect to home
           window.location.href = '/';
-        }, 500);
+        }, 1000);
       } else {
         logger.error('Auto-login failed:', result.error);
         setVerificationError(`Auto-login failed: ${result.error}`);
         
-        // Do not automatically show the sign-in modal here
-        // Instead, keep the password input form visible with the error
+        // Keep the password input form visible with the error
         setShowPasswordInput(true);
       }
     } catch (error) {
@@ -215,9 +292,6 @@ const EmailVerificationSuccess: React.FC = () => {
     }
   };
   
-  // Check if user is already authenticated
-  const userIsLoggedIn = isAuthenticated();
-  
   // Auto-show the sign-in modal after a brief delay to allow the user to read the message
   // But only if they're not already authenticated and not showing the password input
   useEffect(() => {
@@ -228,12 +302,14 @@ const EmailVerificationSuccess: React.FC = () => {
     // 4. Not showing the password input form
     // 5. Not currently verifying
     // 6. Sign-in modal is not already showing
+    // 7. Not still processing verification
     if (checkedAuth && 
-        !userIsLoggedIn && 
+        !isAuthenticated() && 
         !verificationError && 
         !showPasswordInput && 
         !isVerifying && 
-        !showSignIn) {
+        !showSignIn &&
+        !processingVerification) {
       
       logger.info('User not authenticated, will show sign-in modal after delay');
       const timer = setTimeout(() => {
@@ -242,7 +318,7 @@ const EmailVerificationSuccess: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [checkedAuth, userIsLoggedIn, verificationError, showPasswordInput, isVerifying, showSignIn]);
+  }, [checkedAuth, isAuthenticated, verificationError, showPasswordInput, isVerifying, showSignIn, processingVerification]);
   
   const handleSignIn = () => {
     setShowSignIn(true);
@@ -258,7 +334,7 @@ const EmailVerificationSuccess: React.FC = () => {
   };
   
   // Show a loading state while checking auth
-  if (isVerifying) {
+  if (isVerifying || processingVerification) {
     return (
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -283,15 +359,16 @@ const EmailVerificationSuccess: React.FC = () => {
           </h1>
           <p className="mt-2 text-gray-600">
             {verificationError 
-              ? 'Your email verification was already processed or has expired.' 
+              ? 'There was an issue with your email verification.' 
               : 'Your account has been successfully activated.'}
           </p>
         </div>
         
         {verificationError ? (
           <div className="bg-amber-100 border border-amber-400 text-amber-700 px-4 py-3 rounded mb-6">
-            <p className="font-medium">Verification already processed</p>
-            <p className="mt-1">If you've already verified your email, you can sign in directly.</p>
+            <p className="font-medium">Verification issue</p>
+            <p className="mt-1">{verificationError}</p>
+            <p className="mt-1">If you've already verified your email, you can try signing in directly.</p>
           </div>
         ) : (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
@@ -299,13 +376,13 @@ const EmailVerificationSuccess: React.FC = () => {
             {lastUsedEmail && (
               <p className="mt-1">Your account <strong>{lastUsedEmail}</strong> is ready to use!</p>
             )}
-            {userIsLoggedIn && (
+            {isAuthenticated() && (
               <p className="mt-2 font-medium">You are now signed in!</p>
             )}
           </div>
         )}
         
-        {userIsLoggedIn ? (
+        {isAuthenticated() ? (
           <button
             onClick={handleContinue}
             className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
@@ -396,11 +473,12 @@ const EmailVerificationSuccess: React.FC = () => {
         )}
       </div>
       
-      {showSignIn && !userIsLoggedIn && (
+      {showSignIn && !isAuthenticated() && (
         <AuthModal 
           isOpen={showSignIn} 
           onClose={handleCloseModal}
           initialMode="signin"
+          prefillEmail={lastUsedEmail}
         />
       )}
     </div>

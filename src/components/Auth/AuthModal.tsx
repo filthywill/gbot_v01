@@ -27,11 +27,12 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: AuthMode;
+  prefillEmail?: string | null;
 }
 
 type AuthMode = 'signin' | 'signup' | 'forgot-password' | 'reset-confirmation' | 'signup-confirmation' | 'update-password';
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin' }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin', prefillEmail }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -142,10 +143,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
         const { rememberMe, lastUsedEmail } = usePreferencesStore.getState();
         setRememberMeChecked(rememberMe);
         
+        // Use prefillEmail if provided, otherwise use lastUsedEmail
+        const emailToUse = prefillEmail || lastUsedEmail;
+        
         // Only set the email field once on initial open
-        if (lastUsedEmail) {
-          setEmail(lastUsedEmail);
-          validateEmail(lastUsedEmail, true); // Validate immediately
+        if (emailToUse) {
+          setEmail(emailToUse);
+          validateEmail(emailToUse, true); // Validate immediately
           setHasPrefilledEmail(true); // Mark as prefilled to prevent overrides
           
           // If we just verified the email, we should remember this user
@@ -164,7 +168,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
       // Reset the flag when modal closes
       setHasPrefilledEmail(false);
     }
-  }, [isOpen, mode, validateEmail, hasPrefilledEmail]);
+  }, [isOpen, mode, validateEmail, hasPrefilledEmail, prefillEmail]);
   
   // When the modal opens, ensure Google SDK is initialized
   useEffect(() => {
