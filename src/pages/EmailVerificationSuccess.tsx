@@ -4,6 +4,7 @@ import AuthModal from '../components/Auth/AuthModal';
 import usePreferencesStore from '../store/usePreferencesStore';
 import useAuthStore from '../store/useAuthStore';
 import logger from '../lib/logger';
+import { supabase } from '../lib/supabase';
 
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
@@ -16,6 +17,30 @@ const EmailVerificationSuccess: React.FC = () => {
     const checkAuth = async () => {
       try {
         logger.info('Checking authentication status on verification success page');
+        
+        // Handle direct access with token in URL (fallback mechanism)
+        const url = new URL(window.location.href);
+        const token = url.searchParams.get('token');
+        const type = url.searchParams.get('type');
+        
+        if (token && (type === 'verification' || type === 'signup')) {
+          logger.info('Found verification token in URL on success page, processing directly');
+          try {
+            const { error } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'signup'
+            });
+            
+            if (error) {
+              logger.error('Error verifying email on success page:', error);
+            } else {
+              logger.info('Successfully verified email on success page');
+            }
+          } catch (verifyError) {
+            logger.error('Error processing verification token on success page:', verifyError);
+          }
+        }
+        
         await initialize();
         setCheckedAuth(true);
       } catch (error) {

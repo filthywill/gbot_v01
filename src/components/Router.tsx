@@ -4,7 +4,7 @@ import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
 import ResetPassword from '../pages/ResetPassword';
 import EmailVerificationSuccess from '../pages/EmailVerificationSuccess';
-import { AuthCallback } from '../components/Auth';
+import AuthCallback from '../pages/AuthCallback';
 import logger from '../lib/logger';
 
 const Router: React.FC = () => {
@@ -59,12 +59,25 @@ const Router: React.FC = () => {
 
   // Check if the path starts with a specific route
   const pathStartsWith = (route: string): boolean => {
-    return currentPath.startsWith(route);
+    // Normalize the path by removing duplicate slashes
+    const normalizedPath = currentPath.replace(/\/+/g, '/');
+    logger.debug('Checking path match:', { currentPath, normalizedPath, route, match: normalizedPath.startsWith(route) });
+    return normalizedPath.startsWith(route);
+  };
+
+  // Check for auth callback directly from full URL
+  const isAuthCallback = (): boolean => {
+    const fullUrl = window.location.href;
+    return fullUrl.includes('/auth/callback') || 
+           (fullUrl.includes('token=') && fullUrl.includes('type=verification'));
   };
 
   // Render the appropriate component based on the current path
   // Using startsWith to match routes even with query parameters
-  if (pathStartsWith('/privacy-policy')) {
+  if (isAuthCallback()) {
+    logger.info('Detected auth callback URL, rendering AuthCallback');
+    return <AuthCallback />;
+  } else if (pathStartsWith('/privacy-policy')) {
     return <PrivacyPolicy />;
   } else if (pathStartsWith('/terms-of-service')) {
     return <TermsOfService />;
@@ -72,9 +85,6 @@ const Router: React.FC = () => {
     return <ResetPassword />;
   } else if (pathStartsWith('/verification-success')) {
     return <EmailVerificationSuccess />;
-  } else if (pathStartsWith('/auth/callback')) {
-    logger.info('Rendering AuthCallback for path:', currentPath);
-    return <AuthCallback />;
   } else {
     return <App />;
   }
