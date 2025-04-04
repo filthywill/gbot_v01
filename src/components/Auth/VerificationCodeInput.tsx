@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle, Copy, AlertCircle } from 'lucide-react';
+import { CheckCircle, Copy, AlertCircle, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import useAuthStore from '../../store/useAuthStore';
 import logger from '../../lib/logger';
@@ -19,7 +19,6 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Get verifyOtp method from auth store
@@ -38,6 +37,13 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       return;
     }
 
+    // Ensure we only have digits
+    const cleanCode = code.replace(/\D/g, '');
+    if (cleanCode.length !== 6) {
+      setError('Please enter a valid 6-digit verification code');
+      return;
+    }
+
     setIsVerifying(true);
     setError(null);
 
@@ -45,7 +51,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       logger.info('Verifying OTP code', { email });
       
       // Use the auth store method instead of direct Supabase call
-      const result = await verifyOtp(email, code);
+      const result = await verifyOtp(email, cleanCode);
 
       if (!result) {
         throw new Error('Verification failed');
@@ -59,7 +65,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       logger.error('Verification error:', err);
-      setError(`Failed to verify code: ${errorMessage}`);
+      setError(`Failed to verify: ${errorMessage}`);
     } finally {
       setIsVerifying(false);
     }
@@ -90,29 +96,28 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       const clipboardText = await navigator.clipboard.readText();
       // Extract digits only (in case user copied the whole message with other text)
       const digits = clipboardText.replace(/\D/g, '');
-      // Use first 6 digits if available
-      const verificationCode = digits.substring(0, 6);
       
-      if (verificationCode && verificationCode.length > 0) {
+      if (digits.length > 0) {
+        // Use first 6 digits if available
+        const verificationCode = digits.substring(0, 6);
         setCode(verificationCode);
         setError(null);
+        
+        logger.debug('Pasted verification code', { codeLength: verificationCode.length });
         
         // Auto-verify if we get a 6-digit code
         if (verificationCode.length === 6) {
           setTimeout(() => {
             handleVerify();
-          }, 100);
+          }, 200);
         }
+      } else {
+        logger.debug('No digits found in clipboard content');
       }
     } catch (err) {
       logger.error('Failed to read clipboard:', err);
+      setError('Could not read from clipboard. Please enter the code manually.');
     }
-  };
-  
-  // Copy code from email (this is just a placeholder UI feature)
-  const copyCodeFromEmail = () => {
-    setCopiedToClipboard(true);
-    setTimeout(() => setCopiedToClipboard(false), 3000);
   };
 
   // Input class matching AuthModal styles
@@ -133,6 +138,15 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             We've sent a verification code to <strong>{email}</strong>
           </p>
         </div>
+        
+        <button 
+          type="button"
+          onClick={onCancel} 
+          className="absolute -top-2 -right-2 text-gray-400 hover:text-indigo-500 transition-colors p-1 hover:bg-gray-100 rounded-full"
+          aria-label="Close"
+        >
+          <X className="h-6 w-6" />
+        </button>
       </div>
 
       <div className="space-y-4">
@@ -158,10 +172,11 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
             <button
               type="button"
               onClick={handlePaste}
-              className="ml-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+              className="ml-2 px-3 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md flex items-center"
               title="Paste from clipboard"
             >
-              <Copy size={18} />
+              <Copy size={18} className="mr-1" />
+              <span className="text-sm">Paste</span>
             </button>
           </div>
           <div className="flex justify-between mt-1">

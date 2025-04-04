@@ -449,26 +449,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
   if (verificationEmail) {
     return (
       <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
         onMouseDown={handleBackdropMouseDown}
         onMouseUp={handleBackdropMouseUp}
       >
         <div 
           ref={modalRef}
-          className="w-full max-w-md bg-white rounded-lg p-6 shadow-lg"
+          className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Email Verification</h2>
-            <button 
-              onClick={onClose} 
-              className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
-                hover:bg-gray-100 transition-colors duration-150 text-xl"
-              aria-label="Close"
-            >
-              <span className="text-2xl leading-none">&times;</span>
-            </button>
-          </div>
-          
           <VerificationCodeInput 
             email={verificationEmail}
             onSuccess={() => {
@@ -486,24 +474,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
     );
   }
   
-{/*
-
-className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
-      onMouseDown={handleBackdropMouseDown}
-      onMouseUp={handleBackdropMouseUp}
-    >
-      <div 
-        ref={modalRef}
-        className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
-      >
-        <div className="relative mb-6">
-          <div className="text-center w-full">
-            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">
-{!signupComplete && mode === 'signin' && 'Sign In'}
-
-  */}
-
-
   // Show signup confirmation screen
   if (mode === 'signup-confirmation') {
     return (
