@@ -110,14 +110,19 @@ const Router: React.FC = () => {
     const fullUrl = window.location.href;
     const pathname = window.location.pathname;
     const currentPathNormalized = pathname.replace(/\/+/g, '/');
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    // Check for our special flag from the static HTML redirect
+    const hasAuthCallbackFlag = searchParams.get('auth_callback') === 'true';
     
     // Check if path is /auth/callback
     const isPathCallback = currentPathNormalized.startsWith('/auth/callback');
     
     // Check URL for authentication query parameters
-    const hasAuthParams = window.location.search.includes('token=') || 
-                         window.location.search.includes('code=') || 
-                         window.location.search.includes('type=signup');
+    const hasToken = searchParams.has('token');
+    const hasType = searchParams.has('type') && ['signup', 'recovery', 'invite'].includes(searchParams.get('type') || '');
+    const hasCode = searchParams.has('code');
+    const hasAuthParams = hasToken || hasType || hasCode;
                          
     // Check hash for authentication data
     const urlHash = window.location.hash;
@@ -126,21 +131,25 @@ const Router: React.FC = () => {
                          urlHash.includes('refresh_token=') || 
                          urlHash.includes('type=signup'));
     
-    const result = isPathCallback || hasAuthParams || hasAuthHash;
+    const result = hasAuthCallbackFlag || isPathCallback || hasAuthParams || hasAuthHash;
     
     if (result) {
       console.log('AUTH CALLBACK DETECTED:', { 
+        hasAuthCallbackFlag,
         path: isPathCallback, 
-        params: hasAuthParams, 
-        hash: hasAuthHash,
+        hasToken,
+        hasType,
+        hasCode,
+        hasHash: hasAuthHash,
         fullUrl,
         pathname
       });
       
       logger.debug('Auth callback detected:', { 
+        hasAuthCallbackFlag,
         path: isPathCallback, 
-        params: hasAuthParams, 
-        hash: hasAuthHash,
+        hasAuthParams, 
+        hasHash: hasAuthHash,
         fullUrl
       });
     }

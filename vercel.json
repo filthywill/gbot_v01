@@ -5,8 +5,8 @@
   "installCommand": "npm install",
   "framework": "vite",
   "rewrites": [
-    { "source": "/auth/callback", "destination": "/index.html" },
-    { "source": "/auth/callback/:path*", "destination": "/index.html" },
+    { "source": "/auth/callback", "destination": "/auth/callback/index.html" },
+    { "source": "/auth/callback/:path*", "destination": "/auth/callback/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
