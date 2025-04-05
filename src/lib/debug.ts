@@ -16,12 +16,22 @@ const DEBUG_CONFIG: DebugConfig = {
 
 // Initialize debug settings based on environment
 const initializeDebugConfig = () => {
+  // Force production mode when PROD flag is true
+  if (import.meta.env.PROD === true) {
+    Object.assign(DEBUG_CONFIG, {
+      enableConsoleLogging: false,
+      enableDebugPanels: false,
+      enableValueOverlays: false,
+    });
+    return; // Skip development settings
+  }
+  
   if (isDevelopment()) {
     // Only enable debug features in development
     Object.assign(DEBUG_CONFIG, {
       enableConsoleLogging: true,
       enableDebugPanels: true,
-      enableValueOverlays: false, // Default to false, can be toggled by UI
+      enableValueOverlays: false,
     });
   }
 };
