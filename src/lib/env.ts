@@ -1,7 +1,7 @@
 // Environment configuration utility
 const ENV = {
-  isDevelopment: import.meta.env.DEV || process.env.NODE_ENV === 'development',
-  isProduction: import.meta.env.PROD || process.env.NODE_ENV === 'production',
+  isDevelopment: import.meta.env.PROD === false,
+  isProduction: import.meta.env.PROD === true,
   // Add other environment variables here
 } as const;
 
