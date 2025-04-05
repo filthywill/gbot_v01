@@ -1,7 +1,7 @@
 // Environment configuration utility
 const ENV = {
-  isDevelopment: import.meta.env.DEV || process.env.NODE_ENV === 'development',
-  isProduction: import.meta.env.PROD || process.env.NODE_ENV === 'production',
+  isDevelopment: import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production',
+  isProduction: import.meta.env.PROD || import.meta.env.VITE_APP_ENV === 'production',
   // Add other environment variables here
 } as const;
 
@@ -9,7 +9,7 @@ const ENV = {
 const validateEnv = () => {
   // Ensure we have a valid environment
   if (!ENV.isDevelopment && !ENV.isProduction) {
-    throw new Error('Invalid environment configuration: NODE_ENV must be either "development" or "production"');
+    throw new Error('Invalid environment configuration: VITE_APP_ENV must be either not set or "production"');
   }
   
   // Ensure we don't have conflicting states

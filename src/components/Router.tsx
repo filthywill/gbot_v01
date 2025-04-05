@@ -164,7 +164,7 @@ const Router: React.FC = () => {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
           <p className="font-bold">Something went wrong</p>
           <p>{errorInfo?.message}</p>
-          {process.env.NODE_ENV === 'development' && (
+          {import.meta.env.VITE_APP_ENV !== 'production' && (
             <pre className="mt-4 overflow-auto text-xs bg-gray-100 p-2 rounded">
               {JSON.stringify(errorInfo, null, 2)}
             </pre>

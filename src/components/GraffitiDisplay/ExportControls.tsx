@@ -21,7 +21,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
   showAllButtons = false
 }) => {
   // Check if we're in development mode
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
   
   return (
     <div className="absolute top-2 left-2 z-50 flex space-x-1">

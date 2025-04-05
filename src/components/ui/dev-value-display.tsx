@@ -10,7 +10,7 @@ export const DevValueDisplay: React.FC<DevValueDisplayProps> = ({
   value, 
   displayValue 
 }) => {
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
   const { showValueOverlays } = useDevStore();
   
   if (!isDev || !showValueOverlays) return null;

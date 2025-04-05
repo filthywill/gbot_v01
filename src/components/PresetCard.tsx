@@ -54,7 +54,7 @@ const PresetCard: React.FC<PresetCardProps> = memo(({
   }, [preset.id]);
   
   // Check if in dev mode
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
 
   // Memoize checkerboard pattern style
   const checkerboardStyle = useMemo(() => ({
@@ -259,7 +259,7 @@ export const PresetGrid: React.FC<{
   areDeletable?: boolean;
 }> = memo(({ presets, activePresetId, onPresetSelect, onPresetDelete, areDeletable = false }) => {
   // Check if we're in development mode
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
 
   return (
     <div className="p-0.5 grid gap-1.5 auto-rows-max justify-center" 

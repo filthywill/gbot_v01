@@ -561,7 +561,7 @@ const EmailVerificationSuccess: React.FC = () => {
           Or return to the <a href="/" className="font-medium text-indigo-600 hover:text-indigo-500">home page</a>
         </p>
         
-        {process.env.NODE_ENV === 'development' && (
+        {import.meta.env.VITE_APP_ENV !== 'production' && (
           <div className="mt-8 border-t border-gray-200 pt-4">
             <p className="text-xs font-medium text-gray-500">Debug Information:</p>
             <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-64">

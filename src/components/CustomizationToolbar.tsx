@@ -65,7 +65,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
   const { updateWithoutHistory, updateWithHistory } = useHistoryTracking();
   
   // Check if we're in development mode
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
   
   // Load user presets from localStorage on component mount
   useEffect(() => {
