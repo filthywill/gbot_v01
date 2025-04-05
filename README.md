@@ -196,52 +196,122 @@ Enable debug mode by setting `NODE_ENV=development` in your environment.
 
 Copyright © STIZAK. All rights reserved.
 
-# OTP Verification Flow
+# GraffitiSOFT OTP Verification Implementation
 
-This repository has been updated to use a code-based verification flow for user sign-ups. This approach offers several advantages:
+This document outlines the implementation of an OTP-based email verification system for GraffitiSOFT.
 
-- **No Browser Redirects**: Users stay in your app during the entire verification process
-- **More Reliable**: Eliminates issues with SPA routing and redirect handling
-- **Better User Experience**: Familiar to users (similar to two-factor authentication)
-- **Simpler Implementation**: No need for complex callback routes or URL parameter handling
+## 📋 Overview
 
-## Testing the Implementation
+We've implemented a code-based (OTP) verification system that replaces the link-based verification approach. This enhances user experience by keeping users within the application during the verification process.
 
-1. Run the application locally
-2. Sign up with a valid email address
-3. You'll be presented with a code entry screen
-4. Check your email for the verification code
-5. Enter the code on the verification screen
-6. You should be automatically logged in after successful verification
+## 🆕 New Components and Features
 
-## Configuration
+### 1. OTP-Based Verification Flow
 
-Before testing, make sure to update your Supabase email template:
+- **Verification Code Input Component** (`src/components/Auth/VerificationCodeInput.tsx`):
+  - Collects and validates a 6-digit OTP code
+  - Includes paste functionality for easier code entry
+  - Provides clear error messages and loading states
+  - Auto-verification when pasting a valid code
 
-1. Go to your [Supabase Dashboard](https://app.supabase.com/)
-2. Navigate to **Authentication** → **Email Templates**
-3. Select the **Confirm signup** template
-4. Replace the HTML code with the template from `docs/VERIFICATION_EMAIL_TEMPLATE.html`
-5. Save the changes
+- **Verification Banner** (`src/components/Auth/VerificationBanner.tsx`):
+  - Persistent notification for pending verifications
+  - Displays a countdown timer for verification expiration
+  - Allows resuming the verification process
+  - Automatically hides when user is authenticated
 
-For more detailed instructions, see [docs/OTP_VERIFICATION_SETUP.md](docs/OTP_VERIFICATION_SETUP.md).
+### 2. Verification State Management
 
-## Key Components
+- **localStorage Persistence**:
+  - Verification state stored in `localStorage` for persistence
+  - State includes email, timestamp, and attempt status
+  - 30-minute expiration for security
+  - Automatically cleared upon successful verification
 
-- `VerificationCodeInput.tsx`: Handles OTP code entry and verification
-- `useAuthStore.ts`: Includes a new `verifyOtp` method for handling verification
-- `AuthModal.tsx`: Updated to handle the OTP verification flow
+- **Auth Store Integration**:
+  - New `verifyOtp` method for code validation
+  - Integration with existing auth state management
+  - Proper error handling and user feedback
 
-## Advantages
+### 3. Email Template
 
-This implementation provides a better user experience by:
+- **Custom Email Template**:
+  - Clear, easily copyable verification code
+  - Modern design with visual hierarchy
+  - Mobile-responsive layout
+  - Matches application branding
 
-1. Keeping users in the application during verification
-2. Providing instant feedback on verification status
-3. Supporting copy/paste for verification codes
-4. Eliminating cross-origin redirect issues
-5. Working consistently across all environments (local, staging, production)
+## 🚀 Implementation Details
 
-## Feedback
+### Authentication Flow
 
-If you encounter any issues or have suggestions for improvement, please open an issue on GitHub.
+1. **Sign Up**:
+   - User enters email and password
+   - Supabase API called with `emailRedirectTo: undefined` to disable link redirection
+   - Verification state saved to localStorage
+   - User presented with verification code input screen
+
+2. **Verification**:
+   - User receives email with 6-digit code
+   - Code entered in the verification screen
+   - Supabase API verifies the code
+   - User automatically signed in upon success
+
+3. **Persistence**:
+   - If user closes modal/browser before verifying
+   - Banner appears on next visit
+   - User can resume verification process
+   - State expires after 30 minutes
+
+## 📄 Documentation
+
+New documentation has been added to support this implementation:
+
+1. **`docs/AUTHENTICATION.md`**: Updated with OTP verification details
+2. **`docs/OTP_VERIFICATION_SETUP.md`**: Setup guide for Supabase
+3. **`docs/VERIFICATION_EMAIL_TEMPLATE.html`**: Email template for OTP delivery
+
+## 🧪 Testing the OTP Flow
+
+To test the new verification flow:
+
+1. **Local Testing**:
+   - Sign up with a valid email
+   - Check your email for the verification code
+   - Enter the code in the verification modal
+   - You should be automatically logged in upon success
+
+2. **Testing Banner Persistence**:
+   - Sign up with a valid email
+   - Close the verification modal without verifying
+   - Refresh the page
+   - Banner should appear at the top of the page
+   - Click "Resume Verification" to continue
+
+3. **Testing Code Entry**:
+   - Verify that only digits are accepted in the code field
+   - Test paste functionality
+   - Test auto-verification when pasting a valid code
+   - Verify that error messages are clear and helpful
+
+## 🛠️ Supabase Setup
+
+To configure your Supabase project:
+
+1. Update the email template in Supabase dashboard
+   - Go to Authentication → Email Templates
+   - Replace "Confirm signup" template with our custom HTML
+
+2. Ensure proper URL configuration
+   - Set site URL to your production domain
+   - Add localhost to redirect URLs for local development
+
+See `docs/OTP_VERIFICATION_SETUP.md` for detailed instructions.
+
+## 🔧 Technical Challenges Solved
+
+1. **Persistent Verification State**: Implemented localStorage-based state persistence
+2. **Banner Visibility Logic**: Created reliable banner display/hide logic
+3. **Clipboard Integration**: Added secure paste functionality
+4. **Auto-verification**: Implemented auto-verify on valid paste
+5. **Seamless User Experience**: Maintained user context throughout verification
