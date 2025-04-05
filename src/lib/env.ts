@@ -1,23 +1,25 @@
 // Environment configuration utility
-const ENV = {
+let ENV = {
   isDevelopment: import.meta.env.PROD === false,
   isProduction: import.meta.env.PROD === true,
   // Add other environment variables here
-} as const;
+};
 
-// Debug logs for environment detection
-console.log('Environment detection:', {
+// Debug logs for environment detection - more detailed for troubleshooting
+console.log('ENV detection details:', {
   'import.meta.env.PROD': import.meta.env.PROD,
   'import.meta.env.DEV': import.meta.env.DEV,
+  'import.meta.env.MODE': import.meta.env.MODE,
   'process.env.NODE_ENV': process.env.NODE_ENV,
-  'ENV.isDevelopment': ENV.isDevelopment,
-  'ENV.isProduction': ENV.isProduction
+  'Result - isDevelopment': ENV.isDevelopment,
+  'Result - isProduction': ENV.isProduction
 });
 
 // Force production mode when deployed to Vercel
 if (import.meta.env.MODE === 'production' || 
     process.env.VERCEL_ENV === 'production' || 
     process.env.NODE_ENV === 'production') {
+  console.log('Forcing production mode based on environment variables');
   ENV.isDevelopment = false;
   ENV.isProduction = true;
 }
@@ -38,8 +40,9 @@ const validateEnv = () => {
 // Run validation immediately
 validateEnv();
 
-// Freeze the environment object to prevent modifications
-Object.freeze(ENV);
+// Freeze the environment object to prevent modifications after initialization
+const FROZEN_ENV = Object.freeze({...ENV} as const);
+ENV = FROZEN_ENV as any; // Replace the mutable reference with the frozen one
 
 // Type-safe environment getter
 export const getEnv = () => ENV;
