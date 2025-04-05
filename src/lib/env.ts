@@ -5,6 +5,16 @@ const ENV = {
   // Add other environment variables here
 } as const;
 
+// Debug logs for environment detection - more detailed for troubleshooting
+console.log('ENV detection details:', {
+  'import.meta.env.PROD': import.meta.env.PROD,
+  'import.meta.env.DEV': import.meta.env.DEV,
+  'import.meta.env.MODE': import.meta.env.MODE,
+  'process.env.NODE_ENV': process.env.NODE_ENV,
+  'Result - isDevelopment': ENV.isDevelopment,
+  'Result - isProduction': ENV.isProduction
+});
+
 // Validate environment configuration
 const validateEnv = () => {
   // Ensure we have a valid environment

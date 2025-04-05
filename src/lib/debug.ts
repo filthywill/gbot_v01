@@ -16,8 +16,16 @@ const DEBUG_CONFIG: DebugConfig = {
 
 // Initialize debug settings based on environment
 const initializeDebugConfig = () => {
+  // Debug logs for initialization
+  console.log('Debug initialization:', {
+    'import.meta.env.PROD': import.meta.env.PROD,
+    'isDevelopment()': isDevelopment(),
+    'current DEBUG_CONFIG': { ...DEBUG_CONFIG }
+  });
+
   // Force production mode when PROD flag is true
   if (import.meta.env.PROD === true) {
+    console.log('Forcing production mode (PROD === true)');
     Object.assign(DEBUG_CONFIG, {
       enableConsoleLogging: false,
       enableDebugPanels: false,
@@ -27,13 +35,17 @@ const initializeDebugConfig = () => {
   }
   
   if (isDevelopment()) {
+    console.log('Enabling development debug features');
     // Only enable debug features in development
     Object.assign(DEBUG_CONFIG, {
       enableConsoleLogging: true,
       enableDebugPanels: true,
-      enableValueOverlays: false,
+      enableValueOverlays: false, // Default to false, can be toggled by UI
     });
   }
+
+  // Log final debug configuration
+  console.log('Final DEBUG_CONFIG:', { ...DEBUG_CONFIG });
 };
 
 // Run initialization

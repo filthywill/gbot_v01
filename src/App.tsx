@@ -20,11 +20,26 @@ import { supabase } from './lib/supabase';
 import { AuthModal } from './components/Auth';
 import { showSuccess, showError, showInfo } from './lib/toast';
 
+// Direct check of Vite environment variables - logged only once during initial load
+console.log('Vite environment in App.tsx:', {
+  'import.meta.env.PROD': import.meta.env.PROD,
+  'import.meta.env.DEV': import.meta.env.DEV,
+  'import.meta.env.MODE': import.meta.env.MODE,
+  'process.env.NODE_ENV': process.env.NODE_ENV
+});
+
 function App() {
   const { showValueOverlays, toggleValueOverlays } = useDevStore();
   const isDev = isDevelopment();
   const { status, initialize, user } = useAuthStore();
   const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
+  
+  // Debug logs for environment detection
+  console.log('App.tsx environment:', {
+    isDev,
+    isDebugPanelEnabled: isDebugPanelEnabled(),
+    showValueOverlays
+  });
   
   // Modal state for verification success
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -318,6 +333,9 @@ function App() {
       logger.info('User authenticated, cleared verification email state');
     }
   }, [user]);
+
+  // For debug panel and Dev Mode
+  const { showValueOverlays, toggleValueOverlays } = useDevStore();
 
   return (
     <AuthProvider>

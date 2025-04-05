@@ -14,6 +14,14 @@ export const DevValueDisplay: React.FC<DevValueDisplayProps> = ({
   const isDev = isDevelopment();
   const { showValueOverlays } = useDevStore();
   
+  // Add debug logging
+  console.log('DevValueDisplay check:', { 
+    isDev, 
+    showValueOverlays, 
+    shouldRender: isDev && showValueOverlays,
+    value
+  });
+  
   if (!isDev || !showValueOverlays) return null;
   
   return (
