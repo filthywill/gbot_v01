@@ -4,10 +4,6 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
-  "buildEnvironment": {
-    "NODE_ENV": "production",
-    "VITE_ENV": "production"
-  },
   "rewrites": [
     { "source": "/auth/callback", "destination": "/auth/callback/index.html" },
     { "source": "/auth/callback/:path*", "destination": "/auth/callback/index.html" },

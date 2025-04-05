@@ -4,7 +4,6 @@ import logger from '../../lib/logger';
 import { AlertCircle } from 'lucide-react';
 import useAuthStore from '../../store/useAuthStore';
 import usePreferencesStore from '../../store/usePreferencesStore';
-import { isDevelopment } from '../../lib/env';
 
 // This component handles all Supabase auth callbacks
 const AuthCallback: React.FC = () => {
@@ -369,7 +368,7 @@ const AuthCallback: React.FC = () => {
           Return to Home
         </a>
         
-        {isDevelopment() && (
+        {process.env.NODE_ENV === 'development' && (
           <div className="mt-8 max-w-md w-full bg-gray-800 p-4 rounded">
             <p className="text-gray-300 mb-2 text-sm">Debug Information:</p>
             <pre className="text-xs bg-gray-900 p-2 rounded text-gray-300 overflow-auto max-h-96">
@@ -388,7 +387,7 @@ const AuthCallback: React.FC = () => {
       <p className="mb-4">{message}</p>
       <p className="text-sm text-gray-400">You'll be redirected automatically when complete.</p>
       
-      {isDevelopment() && (
+      {process.env.NODE_ENV === 'development' && (
         <div className="mt-8 max-w-md w-full bg-gray-800 p-4 rounded">
           <p className="text-gray-300 mb-2 text-sm">Debug Information:</p>
           <pre className="text-xs bg-gray-900 p-2 rounded text-gray-300 overflow-auto max-h-96">

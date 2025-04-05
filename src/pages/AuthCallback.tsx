@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import useAuthStore from '../store/useAuthStore';
 import usePreferencesStore from '../store/usePreferencesStore';
 import logger from '../lib/logger';
-import { isDevelopment } from '../lib/env';
 
 const AuthCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +199,7 @@ const AuthCallback: React.FC = () => {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
           <p className="font-bold">Authentication Error</p>
           <p>{error}</p>
-          {isDevelopment() && (
+          {process.env.NODE_ENV === 'development' && (
             <pre className="mt-4 overflow-auto text-xs bg-gray-100 p-2 rounded">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
@@ -218,7 +217,7 @@ const AuthCallback: React.FC = () => {
       <div className="flex flex-col items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
         <p className="mt-4 text-white">{message}</p>
-        {isDevelopment() && (
+        {process.env.NODE_ENV === 'development' && (
           <div className="mt-8 max-w-md w-full">
             <p className="text-white text-xs mb-2">Debug Information:</p>
             <pre className="overflow-auto text-xs bg-gray-100 p-2 rounded text-gray-800">

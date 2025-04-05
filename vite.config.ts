@@ -6,14 +6,6 @@ import path from 'path';
 // Determine if HTTPS should be enabled
 const useHttps = process.env.VITE_USE_HTTPS !== 'false';
 
-// Debug log for environment variables
-console.log('Vite config environment:', {
-  NODE_ENV: process.env.NODE_ENV,
-  VITE_USE_HTTPS: process.env.VITE_USE_HTTPS,
-  DEV: process.env.DEV,
-  PROD: process.env.PROD
-});
-
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [

@@ -4,7 +4,6 @@ import useAuthStore from '../../store/useAuthStore';
 import useGoogleAuthStore from '../../store/useGoogleAuthStore';
 import usePreferencesStore from '../../store/usePreferencesStore';
 import logger from '../../lib/logger';
-import { isDevelopment } from '../../lib/env';
 
 declare global {
   interface Window {
@@ -61,13 +60,13 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const isMountedRef = useRef<boolean>(true);
   
   // For development mode
-  const isDev = isDevelopment();
+  const isDevelopment = import.meta.env.DEV;
   const isSecureContext = window.isSecureContext;
   const protocol = window.location.protocol;
   const isHttps = protocol === 'https:';
   const canUseRealGoogleButton = isSecureContext;
 
-  logger.debug(`GoogleSignInButton rendering - isSDKLoaded: ${isSDKLoaded}, isSDKLoading: ${isSDKLoading}, canUseRealGoogleButton: ${canUseRealGoogleButton}, clientID exists: ${!!import.meta.env.VITE_GOOGLE_CLIENT_ID}, isDevelopment: ${isDev}, isSecureContext: ${isSecureContext}, protocol: ${protocol}`);
+  logger.debug(`GoogleSignInButton rendering - isSDKLoaded: ${isSDKLoaded}, isSDKLoading: ${isSDKLoading}, canUseRealGoogleButton: ${canUseRealGoogleButton}, clientID exists: ${!!import.meta.env.VITE_GOOGLE_CLIENT_ID}, isDevelopment: ${isDevelopment}, isSecureContext: ${isSecureContext}, protocol: ${protocol}`);
   
   // Cleanup function for unmounting
   useEffect(() => {
@@ -291,7 +290,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         </>
       )}
       
-      {isDev && !canUseRealGoogleButton && !error && (
+      {import.meta.env.DEV && !canUseRealGoogleButton && !error && (
         <div className="mt-2 text-xs text-amber-700 text-center p-1 bg-amber-50 border border-amber-200 rounded">
           <strong>Development Mode:</strong> HTTPS required for real Google Sign-In
         </div>

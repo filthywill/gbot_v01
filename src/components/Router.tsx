@@ -11,7 +11,6 @@ const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSu
 // Import the auth callback from the correct location
 import AuthCallback from '../pages/auth/callback';
 import logger from '../lib/logger';
-import { isDevelopment } from '../lib/env';
 
 const Router: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -165,7 +164,7 @@ const Router: React.FC = () => {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
           <p className="font-bold">Something went wrong</p>
           <p>{errorInfo?.message}</p>
-          {isDevelopment() && (
+          {process.env.NODE_ENV === 'development' && (
             <pre className="mt-4 overflow-auto text-xs bg-gray-100 p-2 rounded">
               {JSON.stringify(errorInfo, null, 2)}
             </pre>

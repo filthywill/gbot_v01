@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from './ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { CustomizationOptions } from '../types';
-import { isDevelopment } from '../lib/env';
 
 interface StylePresetsPanelProps {
   options: CustomizationOptions;
@@ -29,7 +28,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
   const [newPresetName, setNewPresetName] = useState('');
   
   // Check if we're in development mode
-  const isDev = isDevelopment();
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
   
   // Load user presets from localStorage on component mount
   useEffect(() => {

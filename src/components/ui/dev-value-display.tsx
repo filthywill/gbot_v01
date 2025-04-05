@@ -1,6 +1,5 @@
 import React from 'react';
 import { useDevStore } from '../../store/useDevStore';
-import { isDevelopment } from '../../lib/env';
 
 interface DevValueDisplayProps {
   value: number;
@@ -11,16 +10,8 @@ export const DevValueDisplay: React.FC<DevValueDisplayProps> = ({
   value, 
   displayValue 
 }) => {
-  const isDev = isDevelopment();
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
   const { showValueOverlays } = useDevStore();
-  
-  // Add debug logging
-  console.log('DevValueDisplay check:', { 
-    isDev, 
-    showValueOverlays, 
-    shouldRender: isDev && showValueOverlays,
-    value
-  });
   
   if (!isDev || !showValueOverlays) return null;
   

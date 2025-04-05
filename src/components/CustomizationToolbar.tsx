@@ -37,7 +37,6 @@ import { FillControl } from './controls/FillControl';
 import { ShieldControl } from './controls/ShieldControl';
 import { DevValueDisplay } from './ui/dev-value-display';
 import { useHistoryTracking } from '../hooks/useHistoryTracking';
-import { isDevelopment } from '../lib/env';
 
 interface CustomizationToolbarProps {
   options: CustomizationOptions;
@@ -66,7 +65,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
   const { updateWithoutHistory, updateWithHistory } = useHistoryTracking();
   
   // Check if we're in development mode
-  const isDev = isDevelopment();
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
   
   // Load user presets from localStorage on component mount
   useEffect(() => {

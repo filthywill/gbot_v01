@@ -16,32 +16,8 @@ const DEBUG_CONFIG: DebugConfig = {
 
 // Initialize debug settings based on environment
 const initializeDebugConfig = () => {
-  // Debug logs for initialization
-  console.log('Debug initialization:', {
-    'import.meta.env.PROD': import.meta.env.PROD,
-    'import.meta.env.MODE': import.meta.env.MODE,
-    'process.env.NODE_ENV': process.env.NODE_ENV,
-    'process.env.VERCEL_ENV': process.env.VERCEL_ENV,
-    'isDevelopment()': isDevelopment(),
-    'current DEBUG_CONFIG': { ...DEBUG_CONFIG }
-  });
-
-  // Failsafe for production environments - check multiple sources
-  if (import.meta.env.MODE === 'production' || 
-      process.env.VERCEL_ENV === 'production' || 
-      process.env.NODE_ENV === 'production') {
-    console.log('Forcing production mode based on environment variables');
-    Object.assign(DEBUG_CONFIG, {
-      enableConsoleLogging: false,
-      enableDebugPanels: false,
-      enableValueOverlays: false,
-    });
-    return; // Skip other settings
-  }
-
   // Force production mode when PROD flag is true
   if (import.meta.env.PROD === true) {
-    console.log('Forcing production mode (PROD === true)');
     Object.assign(DEBUG_CONFIG, {
       enableConsoleLogging: false,
       enableDebugPanels: false,
@@ -51,17 +27,13 @@ const initializeDebugConfig = () => {
   }
   
   if (isDevelopment()) {
-    console.log('Enabling development debug features');
     // Only enable debug features in development
     Object.assign(DEBUG_CONFIG, {
       enableConsoleLogging: true,
       enableDebugPanels: true,
-      enableValueOverlays: false, // Default to false, can be toggled by UI
+      enableValueOverlays: false,
     });
   }
-
-  // Log final debug configuration
-  console.log('Final DEBUG_CONFIG:', { ...DEBUG_CONFIG });
 };
 
 // Run initialization
