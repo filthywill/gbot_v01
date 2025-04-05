@@ -13,7 +13,7 @@ import { useDevStore } from './store/useDevStore';
 import { isDevelopment } from './lib/env';
 import { debugLog, isDebugPanelEnabled } from './lib/debug';
 import logger from './lib/logger';
-import { AuthProvider, AuthHeader } from './components/Auth';
+import { AuthProvider, AuthHeader, VerificationBanner } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
 import usePreferencesStore from './store/usePreferencesStore';
 import { supabase } from './lib/supabase';
@@ -34,7 +34,10 @@ function App() {
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot-password' | 'verification-code'>('signin');
+  
+  // State for resuming verification
+  const [pendingVerification, setPendingVerification] = useState(false);
 
   // Get all state and actions from our Zustand-powered hook
   const {
@@ -238,11 +241,97 @@ function App() {
     }
   }, []);
 
+  // Handle resuming verification from banner
+  const handleResumeVerification = () => {
+    try {
+      const storedState = localStorage.getItem('verificationState');
+      if (storedState) {
+        const parsedState = JSON.parse(storedState);
+        if (parsedState.email) {
+          logger.info('Resuming verification process for email:', parsedState.email);
+          
+          // Set verification email directly instead of trying to show signup modal
+          setVerificationEmail(parsedState.email);
+          
+          // Set pendingVerification to true to ensure banner shows
+          setPendingVerification(true);
+          
+          // No need to set AuthModalMode since having verificationEmail set will
+          // automatically render the verification component in the modal
+          setShowAuthModal(true);
+          
+          // Update the state to show it's been resumed
+          const updatedState = {
+            ...parsedState,
+            resumed: true,
+            resumeTime: Date.now()
+          };
+          localStorage.setItem('verificationState', JSON.stringify(updatedState));
+          
+          // Debug log to check state
+          logger.debug('Updated verification state in localStorage', updatedState);
+        }
+      }
+    } catch (error) {
+      logger.error('Error resuming verification:', error);
+    }
+  };
+
+  // Check for pending verification on component mount
+  useEffect(() => {
+    try {
+      const storedState = localStorage.getItem('verificationState');
+      if (storedState) {
+        const parsedState = JSON.parse(storedState);
+        const currentTime = Date.now();
+        const expirationTime = parsedState.startTime + (30 * 60 * 1000); // 30 minutes
+        
+        if (currentTime < expirationTime) {
+          setPendingVerification(true);
+        } else {
+          // Clear expired state
+          localStorage.removeItem('verificationState');
+          setPendingVerification(false);
+        }
+      }
+    } catch (error) {
+      logger.error('Error checking pending verification:', error);
+    }
+  }, []);
+
+  // Add an effect to show the banner whenever the verificationEmail is set
+  useEffect(() => {
+    if (verificationEmail) {
+      setPendingVerification(true);
+    } else {
+      // Clear the pending verification state when email is null
+      setPendingVerification(false);
+    }
+  }, [verificationEmail]);
+
+  // Add this effect to clear verificationEmail when user becomes authenticated
+  useEffect(() => {
+    if (user) {
+      // User is authenticated, clear verification email state
+      setVerificationEmail(null);
+      setPendingVerification(false);
+      logger.info('User authenticated, cleared verification email state');
+    }
+  }, [user]);
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-zinc-900 text-white">
+        {/* Verification Banner */}
+        <VerificationBanner 
+          onResumeVerification={handleResumeVerification} 
+          forceShow={!!verificationEmail} 
+          email={verificationEmail || undefined}
+          isAuthenticated={!!user} 
+        />
+        
         {/* Main App Content */}
-        <div className="min-h-screen">
+        <div className={cn("min-h-screen", (!!verificationEmail || pendingVerification) && "pt-14")}>
           {/* Header Section */}
           <header>
             {/* Auth Section */}

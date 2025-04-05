@@ -161,16 +161,55 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
             setRememberMeChecked(true);
           }
         }
+        
+        // Check for stored verification state
+        try {
+          const storedVerificationState = localStorage.getItem('verificationState');
+          if (storedVerificationState) {
+            const verificationState = JSON.parse(storedVerificationState);
+            
+            // Check if verification state is still valid (less than 30 minutes old)
+            const isValid = verificationState.startTime && 
+              (Date.now() - verificationState.startTime < 30 * 60 * 1000);
+            
+            if (isValid && verificationState.email) {
+              logger.debug('Resuming verification from stored state', { email: verificationState.email });
+              
+              // Restore the verification email
+              setVerificationEmail(verificationState.email);
+              
+              // Update the verification timestamp
+              const updatedState = {
+                ...verificationState,
+                resumed: true,
+                resumeTime: Date.now()
+              };
+              localStorage.setItem('verificationState', JSON.stringify(updatedState));
+            } else {
+              // Verification state is too old or invalid, clear it
+              logger.debug('Clearing expired verification state');
+              localStorage.removeItem('verificationState');
+            }
+          }
+        } catch (error) {
+          logger.error('Error processing stored verification state:', error);
+          localStorage.removeItem('verificationState');
+        }
       } 
       else if (mode === 'forgot-password' && email) {
         // For forgot password, validate any existing email immediately
         validateEmail(email, true);
       }
+      
+      // Initialize Google SDK
+      if (window.isSecureContext) {
+        initializeSDK();
+      }
     } else {
       // Reset the flag when modal closes
       setHasPrefilledEmail(false);
     }
-  }, [isOpen, mode, validateEmail, hasPrefilledEmail, prefillEmail]);
+  }, [isOpen, mode, validateEmail, hasPrefilledEmail, prefillEmail, initializeSDK]);
   
   // When the modal opens, ensure Google SDK is initialized
   useEffect(() => {
@@ -220,11 +259,48 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
   const handleBackdropMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only close if both mouse down and mouse up happened on the backdrop
     if (mouseDownOnBackdrop.current && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      // For verification modal, don't allow closing by clicking outside
+      if (verificationEmail) {
+        // Prevent closing - do nothing
+        return;
+      }
+      
       onClose();
     }
     
     // Reset the flag
     mouseDownOnBackdrop.current = false;
+  };
+  
+  // Add a function to handle verification modal close attempts
+  const handleVerificationClose = () => {
+    // Store verification state in localStorage before closing
+    if (verificationEmail) {
+      const verificationState = {
+        email: verificationEmail,
+        startTime: Date.now(),
+        attempted: true
+      };
+      
+      localStorage.setItem('verificationState', JSON.stringify(verificationState));
+      logger.info('Saved verification state', { email: verificationEmail, state: verificationState });
+    } else {
+      logger.warn('Attempting to save verification state but verificationEmail is null');
+    }
+    
+    // Close the modal
+    onClose();
+  };
+  
+  // Handle main close button click 
+  const handleCloseButtonClick = () => {
+    // For verification flow, just save state and close - no confirmation
+    if (verificationEmail) {
+      handleVerificationClose();
+    } else {
+      // Normal close for other modes
+      onClose();
+    }
   };
   
   // Password validation
@@ -460,14 +536,31 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           <VerificationCodeInput 
             email={verificationEmail}
             onSuccess={() => {
+              // Clear any saved verification state
+              localStorage.removeItem('verificationState');
+              
+              // Clear verification email to hide the modal and banner
+              setVerificationEmail(null);
+              
               // Handle successful verification
               logger.info('Verification completed successfully');
               onClose();
             }}
             onCancel={() => {
-              // Go back to sign-up form
-              setVerificationEmail(null);
+              // Show confirmation dialog before canceling
+              const confirmed = window.confirm(
+                'Are you sure you want to cancel verification? You will need to restart the signup process.'
+              );
+              
+              if (confirmed) {
+                // Clear verification state
+                localStorage.removeItem('verificationState');
+                
+                // Go back to sign-up form
+                setVerificationEmail(null);
+              }
             }}
+            onClose={handleVerificationClose}
           />
         </div>
       </div>

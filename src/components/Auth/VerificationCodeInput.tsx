@@ -9,12 +9,14 @@ interface VerificationCodeInputProps {
   email: string;
   onSuccess: () => void;
   onCancel: () => void;
+  onClose?: () => void;
 }
 
 const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({ 
   email, 
   onSuccess,
-  onCancel 
+  onCancel,
+  onClose 
 }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -187,7 +189,13 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
         
         <button 
           type="button"
-          onClick={onCancel} 
+          onClick={() => {
+            if (onClose) {
+              onClose();
+            } else {
+              onCancel();
+            }
+          }}
           className="absolute -top-2 -right-2 text-gray-400 hover:text-indigo-500 transition-colors p-1 hover:bg-gray-100 rounded-full"
           aria-label="Close"
         >
