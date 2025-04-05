@@ -5,15 +5,22 @@ const ENV = {
   // Add other environment variables here
 } as const;
 
-// Debug logs for environment detection - more detailed for troubleshooting
-console.log('ENV detection details:', {
+// Debug logs for environment detection
+console.log('Environment detection:', {
   'import.meta.env.PROD': import.meta.env.PROD,
   'import.meta.env.DEV': import.meta.env.DEV,
-  'import.meta.env.MODE': import.meta.env.MODE,
   'process.env.NODE_ENV': process.env.NODE_ENV,
-  'Result - isDevelopment': ENV.isDevelopment,
-  'Result - isProduction': ENV.isProduction
+  'ENV.isDevelopment': ENV.isDevelopment,
+  'ENV.isProduction': ENV.isProduction
 });
+
+// Force production mode when deployed to Vercel
+if (import.meta.env.MODE === 'production' || 
+    process.env.VERCEL_ENV === 'production' || 
+    process.env.NODE_ENV === 'production') {
+  ENV.isDevelopment = false;
+  ENV.isProduction = true;
+}
 
 // Validate environment configuration
 const validateEnv = () => {
