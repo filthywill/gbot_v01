@@ -170,27 +170,34 @@ See `SUPABASE_SETUP.md` for detailed instructions on setting up Supabase, includ
 
 ### Development Mode
 
-The application includes a development mode with debugging tools:
+The application includes helpful debug features in development mode:
 
-- **Debug Panel**: Visualize SVG processing details
-- **Value Overlays**: Display internal values for debugging
-- **Console Logging**: Detailed logging through the structured logger
+- debug panel with dynamic data visualization
+- value overlays for quick verification 
+- development mode is automatically enabled for local development
 
-Enable debug mode by setting `NODE_ENV=development` in your environment.
+### Environment Configuration
 
-### Code Conventions
-
-- **Component Structure**: Functional components with TypeScript interfaces
-- **State Management**: Zustand stores with clear actions and state
-- **Memoization**: React.memo, useMemo, and useCallback for performance optimization
-- **Error Handling**: Structured error logging and user-friendly messages
-- **Testing**: Component and utility tests using Vitest
+For details on environment configuration and how development/production modes work, see [Environment Documentation](./docs/ENVIRONMENT.md).
 
 ## Deployment
 
+### Vercel Deployment (Recommended)
+
+1. Push your code to GitHub
+2. Import your repository in Vercel dashboard
+3. Set the following environment variables in Vercel:
+   - `VITE_APP_ENV=production` (Ensures debug overlays are disabled)
+   - `VITE_SUPABASE_URL` (Your Supabase URL)
+   - `VITE_SUPABASE_ANON_KEY` (Your Supabase anonymous key)
+   - `VITE_GOOGLE_CLIENT_ID` (If using Google authentication)
+4. Deploy using the default Vite framework preset
+
+### Manual Deployment
+
 1. Build the application with `npm run build`
-2. Deploy the `dist` directory to your hosting provider
-3. Configure environment variables on your hosting platform
+2. Set environment variables in your hosting platform
+3. Deploy the `dist` directory to your hosting provider
 
 ## License
 

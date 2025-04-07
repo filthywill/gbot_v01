@@ -107,23 +107,28 @@ const VerificationBanner: React.FC<VerificationBannerProps> = ({
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 shadow-md flex items-center justify-between">
-      <div className="flex items-center">
-        <Mail className="h-5 w-5 mr-2" />
-        <span className="mr-2">
-          Verification pending for <strong>{displayEmail}</strong>
-        </span>
+    <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between">
+      <div className="flex items-center mb-2 sm:mb-0 w-full sm:w-auto">
+        <Mail className="hidden sm:block h-5 w-5 mr-2 flex-shrink-0" />
+        <div className="flex flex-wrap sm:flex-row sm:items-center">
+          <span className="text-sm sm:text-base whitespace-nowrap">
+            Verification pending for 
+          </span>
+          <span className="text-sm sm:text-base font-medium ml-1">
+            <span className="truncate max-w-[150px] sm:max-w-none inline-block align-bottom">{displayEmail}</span>
+          </span>
+        </div>
         {timeLeft > 0 && (
-          <span className="flex items-center text-xs bg-white bg-opacity-20 px-2 py-1 rounded">
+          <span className="flex items-center text-xs bg-white bg-opacity-20 px-2 py-1 rounded ml-2 flex-shrink-0">
             <Clock className="h-3 w-3 mr-1" /> {formatTimeLeft()}
           </span>
         )}
       </div>
       
-      <div className="flex items-center">
+      <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end">
         <button
           onClick={onResumeVerification}
-          className="bg-white text-indigo-600 px-3 py-1 rounded-md text-sm font-medium mr-3 hover:bg-opacity-90 transition-colors"
+          className="bg-white text-indigo-600 px-3 py-1 rounded-md text-sm font-medium mr-3 hover:bg-opacity-90 transition-colors whitespace-nowrap"
         >
           Resume Verification
         </button>
