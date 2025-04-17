@@ -53,7 +53,7 @@ export const EffectControlItem: React.FC<EffectControlItemProps> = ({
     <div className="space-y-1 mt-1">
       {/* First Slider */}
       <div className="flex items-center">
-        <span className="text-xs text-zinc-400 w-[100px] pl-[35px]">{firstSliderLabel}</span>
+        <span className="text-xs text-control-secondary w-[100px] pl-[35px]">{firstSliderLabel}</span>
         <div className="flex-1 overflow-visible relative pt-[6px]">
           <DevValueDisplay 
             value={firstSliderValue} 
@@ -69,14 +69,14 @@ export const EffectControlItem: React.FC<EffectControlItemProps> = ({
               onFirstSliderChange(actualValue);
             }}
             onValueCommit={onSliderComplete}
-            className="data-[state=checked]:bg-purple-600"
+            className="slider-control-active"
           />
         </div>
       </div>
 
       {/* Second Slider */}
       <div className="flex items-center">
-        <span className="text-xs text-zinc-400 w-[100px] pl-[35px]">{secondSliderLabel}</span>
+        <span className="text-xs text-control-secondary w-[100px] pl-[35px]">{secondSliderLabel}</span>
         <div className="flex-1 overflow-visible relative pt-[6px]">
           <DevValueDisplay 
             value={secondSliderValue} 
@@ -92,7 +92,7 @@ export const EffectControlItem: React.FC<EffectControlItemProps> = ({
               onSecondSliderChange(actualValue);
             }}
             onValueCommit={onSliderComplete}
-            className="data-[state=checked]:bg-purple-600"
+            className="slider-control-active"
           />
         </div>
       </div>

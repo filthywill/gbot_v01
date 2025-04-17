@@ -30,7 +30,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
         <button
           onClick={onShare}
           disabled={isExporting}
-          className="bg-purple-600 hover:bg-purple-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+          className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Share"
           style={{ width: '32px', height: '32px' }}
         >
@@ -55,7 +55,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
       <button
         onClick={onCopyToPngClipboard}
         disabled={isExporting}
-        className="bg-purple-600 hover:bg-purple-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+        className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
         title="Copy to Clipboard"
         style={{ width: '32px', height: '32px' }}
       >
@@ -80,7 +80,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
         <button
           onClick={onSaveAsPng}
           disabled={isExporting}
-          className="bg-purple-600 hover:bg-purple-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+          className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Save as PNG"
           style={{ width: '32px', height: '32px' }}
         >
@@ -106,7 +106,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
         <button
           onClick={onSaveAsSvg}
           disabled={isExporting}
-          className="bg-purple-600 hover:bg-purple-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
+          className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
           title="Save as SVG"
           style={{ width: '32px', height: '32px' }}
         >

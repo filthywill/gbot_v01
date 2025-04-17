@@ -12,7 +12,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500 disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary-500 disabled:pointer-events-none disabled:opacity-50",
           // Size variants
           {
             "h-9 px-4 py-2 text-sm": size === "default",
@@ -22,12 +22,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           },
           // Style variants
           {
-            "bg-purple-500 text-white hover:bg-purple-600": variant === "default",
+            "bg-brand-primary-500 text-white hover:bg-brand-primary-600": variant === "default",
             "bg-red-500 text-white hover:bg-red-600": variant === "destructive",
             "border border-gray-300 bg-white hover:bg-gray-100 text-gray-900": variant === "outline",
             "bg-gray-200 text-gray-900 hover:bg-gray-300": variant === "secondary",
             "hover:bg-gray-100 hover:text-gray-900": variant === "ghost",
-            "text-purple-500 underline-offset-4 hover:underline": variant === "link",
+            "text-brand-primary-500 underline-offset-4 hover:underline": variant === "link",
           },
           className
         )}

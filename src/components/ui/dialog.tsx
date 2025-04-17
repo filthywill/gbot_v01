@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
+import { X } from "lucide-react";
 
 interface DialogProps {
   open?: boolean;
@@ -10,6 +11,8 @@ interface DialogProps {
 interface DialogContentProps {
   className?: string;
   children?: React.ReactNode;
+  onClose?: () => void;
+  showCloseButton?: boolean;
 }
 
 interface DialogHeaderProps {
@@ -32,8 +35,9 @@ export const Dialog: React.FC<DialogProps> = ({
   onOpenChange, 
   children 
 }) => {
-  const handleBackdropClick = () => {
-    if (onOpenChange) {
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only trigger if the click was directly on the backdrop element
+    if (e.target === e.currentTarget && onOpenChange) {
       onOpenChange(false);
     }
   };
@@ -47,9 +51,11 @@ export const Dialog: React.FC<DialogProps> = ({
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
         onClick={handleBackdropClick}
       />
-      {/* Dialog container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        {children}
+      {/* Dialog container - don't close when clicking this container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <div className="pointer-events-auto">
+          {children}
+        </div>
       </div>
     </>
   );
@@ -57,21 +63,27 @@ export const Dialog: React.FC<DialogProps> = ({
 
 export const DialogContent: React.FC<DialogContentProps> = ({ 
   className, 
-  children 
+  children,
+  onClose,
+  showCloseButton = true
 }) => {
-  // Prevent click propagation to the backdrop
-  const handleContentClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   return (
     <div 
       className={cn(
-        "bg-white rounded-lg shadow-lg max-w-md w-full p-4 mx-4 animate-in fade-in duration-200",
+        "bg-white rounded-lg shadow-lg max-w-md w-full p-4 mx-4 animate-in fade-in duration-200 relative",
         className
       )}
-      onClick={handleContentClick}
     >
+      {showCloseButton && onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-brand-neutral-500 hover:text-brand-neutral-700 transition-colors"
+          aria-label="Close dialog"
+          type="button"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      )}
       {children}
     </div>
   );

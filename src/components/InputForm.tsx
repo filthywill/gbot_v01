@@ -91,7 +91,7 @@ export const InputForm: React.FC<InputFormProps> = ({
             placeholder="Write your word (a-z, 0-9, spaces allowed)..."
             className={`w-full px-3 py-2 text-base rounded-md border-[1px] ${
               validationError ? 'border-red-500' : 'border-zinc-700'
-            } bg-zinc-700 ring-offset-0 focus:ring-1 focus:ring-purple-400 focus:border-transparent outline-none transition-colors text-white placeholder-zinc-400`}
+            } bg-control ring-offset-0 focus:ring-1 focus:ring-brand-primary-400 focus:border-transparent outline-none transition-colors text-control placeholder-zinc-400`}
             style={{ fontSize: '16px' }}
             maxLength={18}
             disabled={isGenerating}
@@ -99,7 +99,7 @@ export const InputForm: React.FC<InputFormProps> = ({
           {inputText && (
             <>
               <div 
-                className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-zinc-400 sm:mt-[-2px] mt-" 
+                className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-control-secondary sm:mt-[-2px] mt-" 
                 style={{ lineHeight: '16px', height: '16px' }}
               >
                 {inputText.length}/18
@@ -110,7 +110,7 @@ export const InputForm: React.FC<InputFormProps> = ({
                   setValidationError(null);
                   setIsDirty(false);
                 }}
-                className="absolute right-2 top-[50%] -translate-y-[50%] text-zinc-400 hover:text-zinc-200 transition-colors sm:mt-[-1px] mt-15"
+                className="absolute right-2 top-[50%] -translate-y-[50%] text-control-secondary hover:text-control transition-colors sm:mt-[-1px] mt-15"
                 style={{ lineHeight: '16px', height: '16px' }}
                 type="button"
                 title="Clear text"
@@ -128,10 +128,10 @@ export const InputForm: React.FC<InputFormProps> = ({
         <button
           type="submit"
           disabled={isGenerating || !!validationError}
-          className={`px-2 py-1 rounded-md font-medium text-white transition-all flex items-center justify-center ${
+          className={`px-2 py-1 rounded-md font-medium text-control transition-all flex items-center justify-center ${
             isGenerating || !!validationError
               ? 'bg-zinc-600 cursor-not-allowed'
-              : 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800'
+              : 'bg-brand-primary-600 hover:brightness-110'
           }`}
           title="Generate"
         >

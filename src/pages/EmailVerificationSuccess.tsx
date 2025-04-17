@@ -403,15 +403,15 @@ const EmailVerificationSuccess: React.FC = () => {
   // Show a loading state while checking auth
   if (isVerifying || processingVerification) {
     return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        <p className="ml-3 text-white">Verifying your account...</p>
+      <div className="min-h-screen bg-app flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-500"></div>
+        <p className="ml-3 text-primary">Verifying your account...</p>
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen bg-zinc-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-app flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
@@ -421,10 +421,10 @@ const EmailVerificationSuccess: React.FC = () => {
               <CheckCircle className="h-8 w-8 text-green-600" />
             )}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-brand-neutral-900">
             {verificationError ? 'Verification Notice' : 'Email Verified!'}
           </h1>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-brand-neutral-600">
             {verificationError 
               ? 'There was an issue with your email verification.' 
               : 'Your account has been successfully activated.'}
@@ -432,14 +432,14 @@ const EmailVerificationSuccess: React.FC = () => {
         </div>
         
         {resendSuccess && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+          <div className="bg-status-success-light border border-status-success-border text-status-success px-4 py-3 rounded mb-6">
             <p className="font-medium">Verification email sent!</p>
             <p className="mt-1">Please check your inbox and click the verification link.</p>
           </div>
         )}
         
         {verificationError ? (
-          <div className="bg-amber-100 border border-amber-400 text-amber-700 px-4 py-3 rounded mb-6">
+          <div className="bg-status-warning-light border border-status-warning-border text-status-warning px-4 py-3 rounded mb-6">
             <p className="font-medium">Verification issue</p>
             <p className="mt-1">{verificationError}</p>
             <p className="mt-1">If you've already verified your email, you can try signing in directly.</p>
@@ -449,8 +449,8 @@ const EmailVerificationSuccess: React.FC = () => {
                 onClick={handleResendVerification}
                 disabled={resendingVerification}
                 className="mt-3 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm 
-                  font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none 
-                  focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
+                  font-medium text-white bg-status-warning hover:bg-status-warning focus:outline-none 
+                  focus:ring-2 focus:ring-offset-2 focus:ring-status-warning disabled:opacity-50"
               >
                 {resendingVerification ? (
                   <span className="flex items-center justify-center">
@@ -463,7 +463,7 @@ const EmailVerificationSuccess: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+          <div className="bg-status-success-light border border-status-success-border text-status-success px-4 py-3 rounded mb-6">
             <p className="font-medium">Account successfully created</p>
             {lastUsedEmail && (
               <p className="mt-1">Your account <strong>{lastUsedEmail}</strong> is ready to use!</p>
@@ -478,8 +478,8 @@ const EmailVerificationSuccess: React.FC = () => {
           <button
             onClick={handleContinue}
             className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
-              text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 
-              hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+              text-white bg-brand-gradient
+              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500
               transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
           >
             Continue to App
@@ -487,7 +487,7 @@ const EmailVerificationSuccess: React.FC = () => {
         ) : showPasswordInput ? (
           <form onSubmit={handleAutoLogin} className="space-y-4">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-brand-neutral-700">
                 Enter your password to continue
               </label>
               <input
@@ -495,8 +495,9 @@ const EmailVerificationSuccess: React.FC = () => {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                  focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm 
+                  focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500
+                  text-brand-neutral-900 placeholder-brand-neutral-400"
                 placeholder="Enter your password"
                 required
               />
@@ -505,8 +506,8 @@ const EmailVerificationSuccess: React.FC = () => {
               type="submit"
               disabled={!password || isVerifying}
               className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
-                text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 
-                hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                text-white bg-brand-gradient
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500
                 transition-all duration-200 ease-in-out transform hover:scale-[1.01] disabled:opacity-50"
             >
               {isVerifying ? (
@@ -524,7 +525,7 @@ const EmailVerificationSuccess: React.FC = () => {
                   setShowPasswordInput(false);
                   handleSignIn();
                 }}
-                className="text-sm text-indigo-600 hover:text-indigo-800"
+                className="text-sm text-brand-primary-600 hover:text-brand-primary-800"
               >
                 Use a different account
               </button>
@@ -535,21 +536,21 @@ const EmailVerificationSuccess: React.FC = () => {
             <button
               onClick={handleSignIn}
               className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium 
-                text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 
-                hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                text-white bg-brand-gradient
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500
                 transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
             >
               Sign In Now
             </button>
             
-            <div className="mt-4 text-center text-xs text-gray-400">
+            <div className="mt-4 text-center text-xs text-brand-neutral-400">
               <p>The sign-in form will open automatically in a few seconds...</p>
             </div>
 
             <div className="mt-4 text-center">
               <a 
                 href="/debug-verification" 
-                className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline"
+                className="text-sm text-brand-primary-600 hover:text-brand-primary-800 hover:underline"
               >
                 Debug Verification
               </a>
@@ -557,14 +558,14 @@ const EmailVerificationSuccess: React.FC = () => {
           </>
         )}
         
-        <p className="mt-4 text-center text-sm text-gray-500">
-          Or return to the <a href="/" className="font-medium text-indigo-600 hover:text-indigo-500">home page</a>
+        <p className="mt-4 text-center text-sm text-brand-neutral-500">
+          Or return to the <a href="/" className="font-medium text-brand-primary-600 hover:text-brand-primary-500">home page</a>
         </p>
         
         {import.meta.env.VITE_APP_ENV !== 'production' && (
-          <div className="mt-8 border-t border-gray-200 pt-4">
-            <p className="text-xs font-medium text-gray-500">Debug Information:</p>
-            <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-64">
+          <div className="mt-8 border-t border-brand-neutral-200 pt-4">
+            <p className="text-xs font-medium text-brand-neutral-500">Debug Information:</p>
+            <pre className="mt-2 text-xs bg-brand-neutral-100 p-2 rounded overflow-auto max-h-64">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
           </div>
