@@ -90,7 +90,7 @@ const AuthCallback: React.FC = () => {
               
               try {
                 // First, verify the token is valid before redirecting
-                const { error: verifyError } = await supabase.auth.verifyOtp({
+                const { data, error: verifyError } = await supabase.auth.verifyOtp({
                   token_hash: token,
                   type: 'recovery'
                 });
@@ -102,6 +102,16 @@ const AuthCallback: React.FC = () => {
                     window.location.replace('/?reset=error');
                   }, 2000);
                   return;
+                }
+                
+                // Store the recovery session state in localStorage so reset-password page can use it
+                if (data?.session) {
+                  localStorage.setItem('recovery_session', JSON.stringify({
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token,
+                    timestamp: Date.now()
+                  }));
+                  logger.info('Stored recovery session for password reset');
                 }
                 
                 // Token is valid, redirect to the reset password page with hash fragment
