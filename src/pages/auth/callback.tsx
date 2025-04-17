@@ -104,8 +104,9 @@ const AuthCallback: React.FC = () => {
                   return;
                 }
                 
-                // Token is valid, redirect to the reset password page with token and type
-                window.location.replace(`/reset-password?token=${encodeURIComponent(token)}&type=recovery`);
+                // Token is valid, redirect to the reset password page with hash fragment
+                // This should maintain the auth session for the reset password page
+                window.location.replace('/reset-password#recovery');
               } catch (err) {
                 logger.error('Error processing password reset:', err);
                 setError('Failed to process password reset link. Please try again.');
