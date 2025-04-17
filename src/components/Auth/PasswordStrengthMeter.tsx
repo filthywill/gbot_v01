@@ -25,7 +25,7 @@ const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
       case 2: return 'bg-yellow-500';
       case 3: return 'bg-lime-500';
       case 4: return 'bg-green-500';
-      default: return 'bg-gray-300';
+      default: return 'bg-panel-light';
     }
   };
   
@@ -49,14 +49,14 @@ const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
       case 2: return 'text-yellow-700';
       case 3: 
       case 4: return 'text-green-700';
-      default: return 'text-gray-700';
+      default: return 'text-primary';
     }
   };
   
   return (
     <div className={cn("mt-1 w-full", className)}>
       {/* Strength meter visualization */}
-      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden transition-all duration-300">
+      <div className="h-1.5 w-full bg-panel-light rounded-full overflow-hidden transition-all duration-300">
         <div 
           className={cn("h-full transition-all duration-300", getStrengthColor())}
           style={{ width: `${(score + 1) * 20}%` }}
@@ -73,7 +73,7 @@ const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
         {feedback.length > 0 && (
           <button 
             type="button"
-            className="text-xs text-gray-500 hover:text-gray-700 hover:underline focus:outline-none"
+            className="text-xs text-secondary hover:text-primary hover:underline focus:outline-none"
             title="View password tips"
             aria-label="View password strength tips"
             onClick={(e) => {
@@ -92,7 +92,7 @@ const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
       {/* Feedback suggestions (hidden by default) */}
       {feedback.length > 0 && (
         <div className="mt-2 hidden">
-          <ul className="text-xs text-gray-600 space-y-1 pl-4 list-disc">
+          <ul className="text-xs text-secondary space-y-1 pl-4 list-disc">
             {feedback.map((tip, index) => (
               <li key={index}>{tip}</li>
             ))}

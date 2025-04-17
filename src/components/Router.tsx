@@ -2,10 +2,10 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
-import ResetPassword from '../pages/ResetPassword';
+import ResetPassword from '../pages/auth/reset-password';
 import VerificationDebug from '../pages/VerificationDebug';
 // Use dynamic imports instead of static imports to avoid build failures
-const EmailVerificationSuccess = lazy(() => import('../pages/EmailVerificationSuccess').then(module => {
+const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
 }));
 // Import the auth callback from the correct location

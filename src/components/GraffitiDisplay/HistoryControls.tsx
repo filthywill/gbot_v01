@@ -66,8 +66,8 @@ const HistoryControls: React.FC<HistoryControlsProps> = ({
       <button
         onClick={() => handleUndoRedoClick('undo')}
         disabled={currentHistoryIndex <= 0}
-        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-md shadow-sm history-control-button ${
-          currentHistoryIndex <= 0 ? 'opacity-25 cursor-not-allowed' : 'opacity-70 hover:from-purple-600 hover:to-purple-800'
+        className={`bg-brand-primary-600 p-2 rounded-md shadow-sm history-control-button ${
+          currentHistoryIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-70 hover:from-brand-primary-600 hover:to-brand-primary-800'
         }`}
         title={undoTooltip}
         aria-label={undoTooltip}
@@ -77,8 +77,8 @@ const HistoryControls: React.FC<HistoryControlsProps> = ({
       <button
         onClick={() => handleUndoRedoClick('redo')}
         disabled={currentHistoryIndex >= historyLength - 1}
-        className={`bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-md shadow-sm history-control-button ${
-          currentHistoryIndex >= historyLength - 1 ? 'opacity-25 cursor-not-allowed' : 'opacity-70 hover:from-purple-600 hover:to-purple-800'
+        className={`bg-brand-primary-600 p-2 rounded-md shadow-sm history-control-button ${
+          currentHistoryIndex >= historyLength - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-70 hover:from-brand-primary-600 hover:to-brand-primary-800'
         }`}
         title={redoTooltip}
         aria-label={redoTooltip}

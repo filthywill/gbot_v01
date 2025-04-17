@@ -133,7 +133,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
   };
 
   // Shared header style for section headers
-  const sectionHeaderClass = "flex items-center justify-between w-full py-1.5 px-1.5 rounded-md transition-colors";
+  const sectionHeaderClass = "flex items-center justify-between w-full py-0.5 px-1.5 rounded-md transition-colors";
 
   return (
     <>
@@ -142,19 +142,19 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
         onOpenChange={setIsPresetsOpen}
         className="animate-none"
       >
-        <CollapsibleTrigger className={`${sectionHeaderClass} bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700`}>
+        <CollapsibleTrigger className={`${sectionHeaderClass} bg-brand-gradient`}>
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-extrabold text-purple-100">STYLE PRESETS</h3>
+          <h3 className="ui-heading ui-heading-panel text-control">STYLE PRESETS</h3>
           </div>
           {isPresetsOpen ? 
-            <ChevronUp className="w-3 h-3 text-purple-200" /> : 
-            <ChevronDown className="w-3 h-3 text-purple-200" />
+            <ChevronUp className="w-3 h-3 text-control" /> : 
+            <ChevronDown className="w-3 h-3 text-control" />
           }
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-1.5 pb-0.5">
           {/* Built-in Presets */}
-          <div className="mb-2 p-2 bg-zinc-700/80 rounded-lg">
-            <h4 className="text-xs font-medium text-zinc-300 mb-1.5 px-1">FEATURED STYLES</h4>
+          <div className="mb-2 p-0.5 bg-control rounded-lg">
+            <h4 className="text-xs font-medium text-control mb-1 px-1"></h4>
             <PresetGrid
               presets={STYLE_PRESETS}
               activePresetId={options.__presetId}
@@ -164,8 +164,8 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
           
           {/* User Presets (Dev Mode Only) */}
           {isDev && userPresets.length > 0 && (
-            <div className="mt-2 mb-2 p-2 bg-zinc-700/80 rounded-lg">
-              <h4 className="text-xs font-medium text-zinc-300 mb-1.5 px-1">CUSTOM STYLES</h4>
+            <div className="mt-2 mb-2 p-2 bg-control rounded-lg">
+              <h4 className="text-xs font-medium text-control mb-1.5 px-1">CUSTOM STYLES</h4>
               <PresetGrid
                 presets={userPresets}
                 activePresetId={options.__presetId}
@@ -182,7 +182,7 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="text-xs flex items-center gap-1.5 border-purple-700 hover:bg-purple-900 text-purple-300"
+                className="text-xs flex items-center gap-1.5 border-brand-primary-700 hover:bg-brand-primary-900 text-brand-primary-300"
                 onClick={() => setSavePresetDialogOpen(true)}
               >
                 <Save className="w-3 h-3" />
@@ -195,32 +195,32 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
 
       {/* Save Preset Dialog */}
       <Dialog open={isSavePresetDialogOpen} onOpenChange={setSavePresetDialogOpen}>
-        <DialogContent className="bg-zinc-800 border border-zinc-700 text-white">
+        <DialogContent className="bg-control border border-control-hover text-control">
           <DialogHeader>
-            <DialogTitle className="text-purple-300">Save Custom Style Preset</DialogTitle>
+            <DialogTitle className="text-brand-primary-300">Save Custom Style Preset</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
+            <label className="block text-sm font-medium text-control mb-2">
               Preset Name
             </label>
             <Input
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
               placeholder="Enter a name for your preset"
-              className="bg-zinc-700 border-zinc-600 text-white placeholder:text-zinc-400"
+              className="bg-control border-control-hover text-control placeholder:text-control-secondary"
             />
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setSavePresetDialogOpen(false)}
-              className="bg-transparent border-zinc-600 text-zinc-300 hover:bg-zinc-700"
+              className="bg-transparent border-control-hover text-control hover:bg-control"
             >
               Cancel
             </Button>
             <Button
               onClick={savePreset}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-brand-primary-600 hover:bg-brand-primary-700 text-control"
             >
               Save
             </Button>

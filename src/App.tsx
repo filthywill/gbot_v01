@@ -19,9 +19,12 @@ import usePreferencesStore from './store/usePreferencesStore';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/Auth';
 import { showSuccess, showError, showInfo } from './lib/toast';
+import { DevColorPanel } from './components/ui/dev-color-panel';
+import { AUTH_VIEWS } from './lib/auth/constants';
+import { clearAllVerificationState } from './lib/auth/utils';
 
 function App() {
-  const { showValueOverlays, toggleValueOverlays } = useDevStore();
+  const { showValueOverlays, toggleValueOverlays, showColorPanel, toggleColorPanel } = useDevStore();
   const isDev = isDevelopment();
   const { status, initialize, user } = useAuthStore();
   const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
@@ -34,7 +37,7 @@ function App() {
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot-password' | 'verification-code'>('signin');
+  const [authModalMode, setAuthModalMode] = useState<typeof AUTH_VIEWS[keyof typeof AUTH_VIEWS]>(AUTH_VIEWS.SIGN_IN);
   
   // State for resuming verification
   const [pendingVerification, setPendingVerification] = useState(false);
@@ -94,6 +97,11 @@ function App() {
           const { user, status } = useAuthStore.getState();
           logger.info('Auth state after handling Supabase redirect:', { status, hasUser: !!user });
           
+          // Clear verification state
+          setVerificationEmail(null);
+          setPendingVerification(false);
+          clearAllVerificationState();
+          
           // Show success modal and clean up the URL
           setShowVerificationModal(true);
           window.history.replaceState({}, document.title, '/');
@@ -147,6 +155,11 @@ function App() {
             // Check if the user is authenticated after initialization
             const { user, status } = useAuthStore.getState();
             logger.info('Auth state after verification:', { status, hasUser: !!user });
+            
+            // Clear verification state now that user is verified
+            setVerificationEmail(null);
+            setPendingVerification(false);
+            clearAllVerificationState();
             
             // Show success modal - don't show sign-in modal
             setShowVerificationModal(true);
@@ -220,7 +233,7 @@ function App() {
         showSuccess('Your email has been verified. Please sign in to continue.');
         
         // Open the auth modal in sign-in mode
-        setAuthModalMode('signin');
+        setAuthModalMode(AUTH_VIEWS.SIGN_IN);
         setShowAuthModal(true);
       } else {
         // Email verified and user already signed in
@@ -242,39 +255,25 @@ function App() {
   }, []);
 
   // Handle resuming verification from banner
-  const handleResumeVerification = () => {
-    try {
-      const storedState = localStorage.getItem('verificationState');
-      if (storedState) {
-        const parsedState = JSON.parse(storedState);
-        if (parsedState.email) {
-          logger.info('Resuming verification process for email:', parsedState.email);
-          
-          // Set verification email directly instead of trying to show signup modal
-          setVerificationEmail(parsedState.email);
-          
-          // Set pendingVerification to true to ensure banner shows
-          setPendingVerification(true);
-          
-          // No need to set AuthModalMode since having verificationEmail set will
-          // automatically render the verification component in the modal
-          setShowAuthModal(true);
-          
-          // Update the state to show it's been resumed
-          const updatedState = {
-            ...parsedState,
-            resumed: true,
-            resumeTime: Date.now()
-          };
-          localStorage.setItem('verificationState', JSON.stringify(updatedState));
-          
-          // Debug log to check state
-          logger.debug('Updated verification state in localStorage', updatedState);
-        }
-      }
-    } catch (error) {
-      logger.error('Error resuming verification:', error);
-    }
+  const handleResumeVerification = (verificationEmail: string) => {
+    console.log('Resuming verification for email:', verificationEmail);
+    
+    // Save the verification state in localStorage
+    const verificationState = {
+      email: verificationEmail,
+      startTime: Date.now(),
+      resumed: true,
+      resumeTime: Date.now()
+    };
+    
+    // Store both in localStorage to ensure consistency
+    localStorage.setItem('verificationState', JSON.stringify(verificationState));
+    localStorage.setItem('verificationEmail', verificationEmail);
+    
+    // Then set the state and open the modal
+    setVerificationEmail(verificationEmail);
+    setAuthModalMode(AUTH_VIEWS.VERIFICATION);
+    setShowAuthModal(true);
   };
 
   // Check for pending verification on component mount
@@ -315,13 +314,25 @@ function App() {
       // User is authenticated, clear verification email state
       setVerificationEmail(null);
       setPendingVerification(false);
+      clearAllVerificationState();
       logger.info('User authenticated, cleared verification email state');
     }
   }, [user]);
 
+  // Also ensure verification state is cleared when the modal is shown
+  useEffect(() => {
+    if (showVerificationModal) {
+      // Clear all verification state when the success modal is shown
+      setVerificationEmail(null);
+      setPendingVerification(false);
+      clearAllVerificationState();
+      logger.info('Cleared all verification state when success modal was shown');
+    }
+  }, [showVerificationModal]);
+
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-zinc-900 text-white">
+      <div className="min-h-screen bg-app text-primary">
         {/* Verification Banner */}
         <VerificationBanner 
           onResumeVerification={handleResumeVerification} 
@@ -335,7 +346,7 @@ function App() {
           {/* Header Section */}
           <header>
             {/* Auth Section */}
-            <div className="w-full bg-zinc-900">
+            <div className="w-full bg-app">
               <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
                 <div className="flex justify-end">
                   <AuthHeader />
@@ -344,9 +355,9 @@ function App() {
             </div>
             
             {/* Logo Section */}
-            <div className="bg-zinc-900">
+            <div className="bg-app">
               <div className="max-w-[800px] mx-auto py-0 px-2 sm:px-3">
-                <div className="bg-zinc-800 shadow-md rounded-md p-1">
+                <div className="bg-container shadow-md rounded-md p-1">
                   <div className="flex justify-center">
                     <img 
                       src={stizakLogo} 
@@ -363,7 +374,7 @@ function App() {
             <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
               <div className="space-y-2">
                 {/* Top section: Input and Style Selection */}
-                <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
+                <div className="bg-container shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
                   <InputForm 
                     inputText={displayInputText}
                     setInputText={handleInputTextChange}
@@ -388,9 +399,9 @@ function App() {
                 </div>
                 
                 {/* Preview Section */}
-                <div className="bg-zinc-800 shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
+                <div className="bg-container shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
                   {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
-                  <div className="w-full relative bg-zinc-700 rounded-md overflow-hidden">
+                  <div className="w-full relative bg-panel rounded-md overflow-hidden">
                     <div className="w-full pb-[56.25%] relative">
                       <div className="absolute inset-0 flex items-center justify-center">
                         {processedSvgs.length > 0 ? (
@@ -408,12 +419,12 @@ function App() {
                             inputText={displayInputText}
                           />
                         ) : (
-                          <div className="text-zinc-400 text-center p-3">
+                          <div className="text-tertiary text-center p-3">
                             {hasInitialGeneration.current ? (
                               <p className="text-sm">No text to display. Enter some text and click Create.</p>
                             ) : (
                               <div className="space-y-1">
-                                <p className="text-zinc-400 text-sm">Enter text above and click Create to generate your graffiti</p>
+                                <p className="text-tertiary text-sm">Enter text above and click Create to generate your graffiti</p>
                               </div>
                             )}
                           </div>
@@ -424,7 +435,7 @@ function App() {
                 </div>
                 
                 {/* Customization Section */}
-                <div className="bg-zinc-800 shadow-md rounded-md p-0.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                <div className="bg-container shadow-md rounded-md p-0.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
                   <CustomizationToolbar 
                     options={customizationOptions}
                     onChange={handleCustomizationChange}
@@ -436,16 +447,19 @@ function App() {
           
           <footer className="shadow-inner mt-2">
             <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-              <p className="text-center text-zinc-400 text-xs">
+              <p className="text-center text-tertiary text-xs">
                 STIZAK &copy;{new Date().getFullYear()} | 
-                <a href="/privacy-policy" className="ml-2 text-zinc-400 hover:text-zinc-300">Privacy Policy</a> | 
-                <a href="/terms-of-service" className="ml-2 text-zinc-400 hover:text-zinc-300">Terms of Service</a>
+                <a href="/privacy-policy" className="ml-2 text-tertiary hover:text-secondary">Privacy Policy</a> | 
+                <a href="/terms-of-service" className="ml-2 text-tertiary hover:text-secondary">Terms of Service</a>
               </p>
             </div>
           </footer>
           
           {/* Add the debug panel - only when debug panels are enabled */}
           {isDev && isDebugPanelEnabled() && <OverlapDebugPanel />}
+          
+          {/* Add the color panel - only in development mode */}
+          {isDev && showColorPanel && <DevColorPanel />}
         </div>
 
         {/* Dev Mode Buttons - only visible when debug panels are enabled */}
@@ -457,10 +471,21 @@ function App() {
                 "px-2 py-1 text-xs rounded border",
                 showValueOverlays
                   ? "bg-pink-700 border-pink-500 text-white"
-                  : "bg-zinc-700 border-zinc-500 text-zinc-300"
+                  : "bg-panel border-app text-secondary"
               )}
             >
               {showValueOverlays ? 'Hide Values' : 'Show Values'}
+            </button>
+            <button
+              onClick={toggleColorPanel}
+              className={cn(
+                "px-2 py-1 text-xs rounded border",
+                showColorPanel
+                  ? "bg-pink-700 border-pink-500 text-white"
+                  : "bg-panel border-app text-secondary"
+              )}
+            >
+              {showColorPanel ? 'Hide Colors' : 'Edit Colors'}
             </button>
           </div>
         )}
@@ -490,10 +515,17 @@ function App() {
               </div>
               
               <button
-                onClick={() => setShowVerificationModal(false)}
+                onClick={() => {
+                  // Clear all verification state when the success modal is closed
+                  setShowVerificationModal(false);
+                  setVerificationEmail(null);
+                  setPendingVerification(false);
+                  clearAllVerificationState();
+                  logger.info('Cleared all verification state after success');
+                }}
                 className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white
-                  bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                  bg-brand-gradient
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500
                   transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
               >
                 Continue to App
@@ -506,13 +538,13 @@ function App() {
         {verificationError && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-              <h2 className="text-xl font-bold text-red-600 mb-4">Verification Failed</h2>
-              <p className="text-gray-700 mb-4">{verificationError}</p>
-              <p className="text-gray-700 mb-4">Please try signing in directly or contact support for assistance.</p>
+              <h2 className="text-xl font-bold text-status-error mb-4">Verification Failed</h2>
+              <p className="text-brand-neutral-700 mb-4">{verificationError}</p>
+              <p className="text-brand-neutral-700 mb-4">Please try signing in directly or contact support for assistance.</p>
               <div className="flex justify-end">
                 <button 
                   onClick={() => setVerificationError(null)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  className="px-4 py-2 bg-brand-primary-600 text-white rounded hover:bg-brand-primary-700"
                 >
                   Close
                 </button>
@@ -525,9 +557,9 @@ function App() {
         {isVerifying && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
-              <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Verifying Your Email</h2>
-              <p className="text-gray-600">Please wait while we verify your email address...</p>
+              <div className="animate-spin h-10 w-10 border-4 border-brand-primary-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold text-brand-neutral-800 mb-2">Verifying Your Email</h2>
+              <p className="text-brand-neutral-600">Please wait while we verify your email address...</p>
             </div>
           </div>
         )}
@@ -537,7 +569,8 @@ function App() {
           <AuthModal
             isOpen={showAuthModal}
             onClose={() => setShowAuthModal(false)}
-            initialMode={authModalMode}
+            initialView={authModalMode}
+            verificationEmail={verificationEmail}
           />
         )}
       </div>

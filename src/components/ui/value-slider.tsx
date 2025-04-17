@@ -118,7 +118,7 @@ const ValueSlider = React.forwardRef<
     <SliderPrimitive.Root
       ref={ref}
       className={cn(
-        "relative flex w-full touch-none select-none items-center",
+        "relative flex w-full touch-none select-none items-center rounded-full",
         className
       )}
       onPointerDown={handleDragStart}
@@ -127,15 +127,15 @@ const ValueSlider = React.forwardRef<
       {...props}
     >
       <SliderPrimitive.Track
-        className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-purple-400/20 translate-z-0"
+        className="relative h-1.5 w-full grow overflow-hidden rounded-full translate-z-0 slider-control-track"
       >
-        <SliderPrimitive.Range className="absolute h-full bg-purple-400" />
+        <SliderPrimitive.Range className="absolute h-full rounded-full slider-control-active" />
       </SliderPrimitive.Track>
       {props.value?.map((value, index) => (
         <SliderPrimitive.Thumb
           key={index}
           className={cn(
-            "relative block h-[16px] w-[32px] rounded-t-full bg-purple-400",
+            "relative block h-[16px] w-[32px] rounded-t-full slider-control-thumb",
             "transition-transform duration-100 ease-out will-change-transform",
             "outline-none border-0 ring-0",
             "focus:outline-none focus:ring-0 focus:border-0",
@@ -150,7 +150,7 @@ const ValueSlider = React.forwardRef<
           }}
         >
           <span className={cn(
-            "ui-value absolute inset-0 flex items-center justify-center text-[11px] text-white/90 mt-[2px] select-none",
+            "ui-value absolute inset-0 flex items-center justify-center text-[11px] slider-control-text mt-[2px] select-none",
             "transition-transform duration-75 ease-out will-change-transform",
             "translate-z-0 backface-visibility-hidden",
             dragDirection && "scale-[0.98]"
