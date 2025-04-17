@@ -27,14 +27,51 @@ const ResetPassword: React.FC = () => {
         if (sessionError) {
           throw sessionError;
         }
-        
-        if (!session) {
-          setError('Invalid or expired reset link. Please request a new password reset.');
-          setIsTokenValid(false);
+
+        // Check if we have a valid session from a password recovery flow
+        if (session) {
+          logger.info('Valid session found for password reset');
+          setIsTokenValid(true);
           return;
         }
         
-        setIsTokenValid(true);
+        // If no session yet, check URL for recovery token
+        const url = new URL(window.location.href);
+        const token = url.searchParams.get('token');
+        const type = url.searchParams.get('type');
+        
+        if (token && type === 'recovery') {
+          logger.info('Recovery token found in URL, attempting to verify');
+          
+          try {
+            // Verify the recovery token
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'recovery'
+            });
+            
+            if (verifyError) {
+              logger.error('Error verifying recovery token:', verifyError);
+              setError('Invalid or expired reset link. Please request a new password reset.');
+              setIsTokenValid(false);
+              return;
+            }
+            
+            // Token verified successfully
+            logger.info('Recovery token verified successfully');
+            setIsTokenValid(true);
+            return;
+          } catch (verifyErr) {
+            logger.error('Exception verifying recovery token:', verifyErr);
+            setError('Error processing reset link. Please try again or request a new password reset.');
+            setIsTokenValid(false);
+            return;
+          }
+        }
+        
+        // No session and no valid token in URL
+        setError('Invalid or expired reset link. Please request a new password reset.');
+        setIsTokenValid(false);
       } catch (err) {
         logger.error('Error checking reset token:', err);
         setError('Unable to verify reset token. Please try again.');

@@ -82,6 +82,17 @@ const AuthCallback: React.FC = () => {
           try {
             setMessage('Verifying your email...');
             
+            // Check if this is a password reset link
+            if (type === 'recovery') {
+              logger.info('Password reset link detected, redirecting to reset password page');
+              console.log('PASSWORD RESET FLOW DETECTED', { type: 'recovery' });
+              setMessage('Password reset link verified. Redirecting to password reset page...');
+              
+              // Redirect to the reset password page instead of auto-signing in
+              window.location.replace('/reset-password');
+              return;
+            }
+            
             // First, try to sign out to ensure a clean verification
             await supabase.auth.signOut();
             console.log('SIGNED OUT BEFORE VERIFICATION');
