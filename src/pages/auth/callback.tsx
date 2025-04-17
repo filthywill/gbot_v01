@@ -85,11 +85,34 @@ const AuthCallback: React.FC = () => {
             // Check if this is a password reset link
             if (type === 'recovery') {
               logger.info('Password reset link detected, redirecting to reset password page');
-              console.log('PASSWORD RESET FLOW DETECTED', { type: 'recovery' });
+              console.log('PASSWORD RESET FLOW DETECTED', { type: 'recovery', token: token ? `${token.substring(0, 8)}...` : 'missing' });
               setMessage('Password reset link verified. Redirecting to password reset page...');
               
-              // Redirect to the reset password page instead of auto-signing in
-              window.location.replace('/reset-password');
+              try {
+                // First, verify the token is valid before redirecting
+                const { error: verifyError } = await supabase.auth.verifyOtp({
+                  token_hash: token,
+                  type: 'recovery'
+                });
+                
+                if (verifyError) {
+                  logger.error('Invalid recovery token:', verifyError);
+                  setError(`Password reset failed: ${verifyError.message}`);
+                  setTimeout(() => {
+                    window.location.replace('/?reset=error');
+                  }, 2000);
+                  return;
+                }
+                
+                // Token is valid, redirect to the reset password page with token and type
+                window.location.replace(`/reset-password?token=${encodeURIComponent(token)}&type=recovery`);
+              } catch (err) {
+                logger.error('Error processing password reset:', err);
+                setError('Failed to process password reset link. Please try again.');
+                setTimeout(() => {
+                  window.location.replace('/?reset=error');
+                }, 2000);
+              }
               return;
             }
             

@@ -16,6 +16,7 @@ const ResetPassword: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
+  const [isCheckingToken, setIsCheckingToken] = useState(true);
 
   // Check for reset token on mount
   useEffect(() => {
@@ -32,6 +33,7 @@ const ResetPassword: React.FC = () => {
         if (session) {
           logger.info('Valid session found for password reset');
           setIsTokenValid(true);
+          setIsCheckingToken(false);
           return;
         }
         
@@ -39,6 +41,8 @@ const ResetPassword: React.FC = () => {
         const url = new URL(window.location.href);
         const token = url.searchParams.get('token');
         const type = url.searchParams.get('type');
+        
+        logger.info('Checking reset parameters:', { hasToken: !!token, type });
         
         if (token && type === 'recovery') {
           logger.info('Recovery token found in URL, attempting to verify');
@@ -54,28 +58,34 @@ const ResetPassword: React.FC = () => {
               logger.error('Error verifying recovery token:', verifyError);
               setError('Invalid or expired reset link. Please request a new password reset.');
               setIsTokenValid(false);
+              setIsCheckingToken(false);
               return;
             }
             
             // Token verified successfully
             logger.info('Recovery token verified successfully');
             setIsTokenValid(true);
+            setIsCheckingToken(false);
             return;
           } catch (verifyErr) {
             logger.error('Exception verifying recovery token:', verifyErr);
             setError('Error processing reset link. Please try again or request a new password reset.');
             setIsTokenValid(false);
+            setIsCheckingToken(false);
             return;
           }
         }
         
         // No session and no valid token in URL
+        logger.warn('No valid reset parameters found');
         setError('Invalid or expired reset link. Please request a new password reset.');
         setIsTokenValid(false);
+        setIsCheckingToken(false);
       } catch (err) {
         logger.error('Error checking reset token:', err);
         setError('Unable to verify reset token. Please try again.');
         setIsTokenValid(false);
+        setIsCheckingToken(false);
       }
     };
     
@@ -140,6 +150,18 @@ const ResetPassword: React.FC = () => {
   const handleRequestNewReset = () => {
     window.location.href = '/?reset=true';
   };
+
+  if (isCheckingToken) {
+    return (
+      <div className="min-h-screen bg-app flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-brand-neutral-900 mb-2">Verifying Reset Link</h2>
+          <p className="text-brand-neutral-600">Please wait while we verify your password reset link...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isTokenValid === false) {
     return (
