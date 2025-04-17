@@ -17,10 +17,11 @@ const ResetPassword: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
 
   // Check for reset token on mount
   useEffect(() => {
-    const checkSession = async () => {
+    const checkRecoveryToken = async () => {
       try {
         setIsCheckingToken(true);
         logger.info('Checking for recovery hash fragment in URL:', window.location.hash);
@@ -29,43 +30,34 @@ const ResetPassword: React.FC = () => {
         const isRecoveryFlow = window.location.hash === '#recovery';
         
         if (isRecoveryFlow) {
-          logger.info('Recovery hash fragment found, validating session');
+          logger.info('Recovery hash fragment found, checking for token in URL');
           
-          // Check for stored recovery session first
-          const storedRecoverySession = localStorage.getItem('recovery_session');
+          // Get token from URL
+          const url = new URL(window.location.href);
+          const urlToken = url.searchParams.get('token');
           
-          if (storedRecoverySession) {
-            try {
-              const recoverySession = JSON.parse(storedRecoverySession);
-              // Check if the session is still valid (less than 10 minutes old)
-              const isStillValid = Date.now() - recoverySession.timestamp < 10 * 60 * 1000;
-              
-              if (isStillValid) {
-                // Set the session from the stored recovery session
-                const { error: sessionError } = await supabase.auth.setSession({
-                  access_token: recoverySession.access_token,
-                  refresh_token: recoverySession.refresh_token
-                });
-                
-                if (sessionError) {
-                  throw sessionError;
-                }
-                
-                setIsTokenValid(true);
-                logger.info('Recovery session restored from localStorage');
-                // Clear the recovery session from localStorage
-                return;
-              } else {
-                logger.warn('Stored recovery session is expired');
-                localStorage.removeItem('recovery_session');
-              }
-            } catch (e) {
-              logger.error('Error parsing stored recovery session:', e);
-              localStorage.removeItem('recovery_session');
+          if (urlToken) {
+            setToken(urlToken);
+            
+            // Verify the token directly
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: urlToken,
+              type: 'recovery'
+            });
+            
+            if (verifyError) {
+              logger.error('Invalid recovery token:', verifyError);
+              setError(`Password reset failed: ${verifyError.message}`);
+              setIsTokenValid(false);
+              return;
             }
+            
+            setIsTokenValid(true);
+            logger.info('Token verified successfully, ready for password reset');
+            return;
           }
           
-          // Fall back to checking the current session
+          // If no token in URL, check for active session
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
@@ -104,7 +96,7 @@ const ResetPassword: React.FC = () => {
       }
     };
     
-    checkSession();
+    checkRecoveryToken();
   }, []);
 
   useEffect(() => {
@@ -113,13 +105,12 @@ const ResetPassword: React.FC = () => {
     }
   }, [newPassword]);
 
-  // Clean up recovery session when component unmounts
+  // Clean up on component unmount
   useEffect(() => {
     return () => {
-      // Only remove if password was successfully reset
-      if (isSuccess) {
-        localStorage.removeItem('recovery_session');
-        logger.info('Cleanup: Removed recovery session from localStorage');
+      // Clear hash fragment when component unmounts after success
+      if (isSuccess && window.history && window.history.replaceState) {
+        window.history.replaceState(null, document.title, window.location.pathname);
       }
     };
   }, [isSuccess]);
@@ -157,9 +148,6 @@ const ResetPassword: React.FC = () => {
       });
       
       if (error) throw error;
-      
-      // Clear any recovery session data
-      localStorage.removeItem('recovery_session');
       
       // Show success state
       setIsSuccess(true);

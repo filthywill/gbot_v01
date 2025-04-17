@@ -86,44 +86,9 @@ const AuthCallback: React.FC = () => {
             if (type === 'recovery') {
               logger.info('Password reset link detected, redirecting to reset password page');
               console.log('PASSWORD RESET FLOW DETECTED', { type: 'recovery', token: token ? `${token.substring(0, 8)}...` : 'missing' });
-              setMessage('Password reset link verified. Redirecting to password reset page...');
               
-              try {
-                // First, verify the token is valid before redirecting
-                const { data, error: verifyError } = await supabase.auth.verifyOtp({
-                  token_hash: token,
-                  type: 'recovery'
-                });
-                
-                if (verifyError) {
-                  logger.error('Invalid recovery token:', verifyError);
-                  setError(`Password reset failed: ${verifyError.message}`);
-                  setTimeout(() => {
-                    window.location.replace('/?reset=error');
-                  }, 2000);
-                  return;
-                }
-                
-                // Store the recovery session state in localStorage so reset-password page can use it
-                if (data?.session) {
-                  localStorage.setItem('recovery_session', JSON.stringify({
-                    access_token: data.session.access_token,
-                    refresh_token: data.session.refresh_token,
-                    timestamp: Date.now()
-                  }));
-                  logger.info('Stored recovery session for password reset');
-                }
-                
-                // Token is valid, redirect to the reset password page with hash fragment
-                // This should maintain the auth session for the reset password page
-                window.location.replace('/reset-password#recovery');
-              } catch (err) {
-                logger.error('Error processing password reset:', err);
-                setError('Failed to process password reset link. Please try again.');
-                setTimeout(() => {
-                  window.location.replace('/?reset=error');
-                }, 2000);
-              }
+              // Skip the loading animation and immediately redirect with the token
+              window.location.replace(`/reset-password?token=${encodeURIComponent(token)}#recovery`);
               return;
             }
             

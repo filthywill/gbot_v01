@@ -35,6 +35,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'gbot_supabase_auth',
+    // Define flow types for smoother user experience
+    flowType: 'pkce',
+    // Custom URL handling is implemented in the callback pages
     storage: {
       // Use a custom storage implementation that respects the remember me preference
       async getItem(key: string) {

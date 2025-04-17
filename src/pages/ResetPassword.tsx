@@ -144,7 +144,8 @@ const ResetPassword: React.FC = () => {
   };
 
   const handleSignIn = () => {
-    window.location.href = '/';
+    // Redirect to the home page with a success parameter
+    window.location.href = '/?passwordReset=success';
   };
 
   const handleRequestNewReset = () => {
