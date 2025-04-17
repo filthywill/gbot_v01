@@ -330,6 +330,29 @@ function App() {
     }
   }, [showVerificationModal]);
 
+  useEffect(() => {
+    const checkForQueryParams = () => {
+      // Check for URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Check for reset=true to trigger reset password flow
+      if (urlParams.has('reset')) {
+        setAuthModalMode(AUTH_VIEWS.FORGOT_PASSWORD);
+        setShowAuthModal(true);
+      }
+      
+      // Check for successful password reset
+      if (urlParams.has('passwordReset') && urlParams.get('passwordReset') === 'success') {
+        showSuccess("Password updated successfully! You can now sign in with your new password.", 5000);
+        
+        // Clean up URL parameters
+        window.history.replaceState({}, document.title, '/');
+      }
+    };
+    
+    checkForQueryParams();
+  }, []);
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-app text-primary">

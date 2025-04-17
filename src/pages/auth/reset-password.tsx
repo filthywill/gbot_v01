@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import { checkPasswordStrength, validatePassword } from '../../utils/passwordUtils';
 import logger from '../../lib/logger';
+import useAuthStore from '../../store/useAuthStore';
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -18,6 +19,9 @@ const ResetPassword: React.FC = () => {
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  
+  // Get the signOut function from auth store
+  const { signOut } = useAuthStore();
 
   // Check for reset token on mount
   useEffect(() => {
@@ -38,40 +42,43 @@ const ResetPassword: React.FC = () => {
           
           if (urlToken) {
             setToken(urlToken);
+            setIsTokenValid(true); // Assume token is valid to show form immediately
             
-            // Verify the token directly
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            // Verify the token in background
+            supabase.auth.verifyOtp({
               token_hash: urlToken,
               type: 'recovery'
+            }).then(({ data, error: verifyError }) => {
+              if (verifyError) {
+                logger.error('Invalid recovery token:', verifyError);
+                setError(`Password reset failed: ${verifyError.message}`);
+                setIsTokenValid(false);
+              } else {
+                logger.info('Token verified successfully, ready for password reset');
+              }
+            }).catch(err => {
+              logger.error('Error verifying token:', err);
+              setError('Error verifying reset token');
+              setIsTokenValid(false);
+            }).finally(() => {
+              setIsCheckingToken(false);
             });
             
-            if (verifyError) {
-              logger.error('Invalid recovery token:', verifyError);
-              setError(`Password reset failed: ${verifyError.message}`);
-              setIsTokenValid(false);
-              return;
-            }
-            
-            setIsTokenValid(true);
-            logger.info('Token verified successfully, ready for password reset');
+            // Don't wait for verification to complete, show the form immediately
+            setIsCheckingToken(false);
             return;
           }
           
           // If no token in URL, check for active session
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
           
-          if (sessionError) {
-            throw sessionError;
-          }
-          
-          if (!session) {
+          if (session) {
+            setIsTokenValid(true);
+            logger.info('Session is valid for password reset');
+          } else {
             setError('Invalid or expired reset link. Please request a new password reset.');
             setIsTokenValid(false);
-            return;
           }
-          
-          setIsTokenValid(true);
-          logger.info('Session is valid for password reset');
         } else {
           // No recovery hash found, user might have navigated here directly
           logger.info('No recovery hash fragment found, user may have navigated directly');
@@ -149,6 +156,24 @@ const ResetPassword: React.FC = () => {
       
       if (error) throw error;
       
+      // Comprehensive sign out to clear the temporary auth session
+      try {
+        // Sign out from Supabase
+        await supabase.auth.signOut();
+        
+        // Also clear the session from auth store
+        signOut();
+        
+        // Clear any localStorage items related to auth
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('gbot_supabase_auth');
+        
+        logger.info('Successfully signed out after password reset');
+      } catch (signOutError) {
+        logger.error('Error signing out after password reset:', signOutError);
+        // Continue to success state even if sign out has issues
+      }
+      
       // Show success state
       setIsSuccess(true);
       logger.info('Password updated successfully');
@@ -161,7 +186,8 @@ const ResetPassword: React.FC = () => {
   };
 
   const handleSignIn = () => {
-    window.location.href = '/';
+    // Redirect to the home page with a success parameter
+    window.location.href = '/?passwordReset=success';
   };
 
   const handleRequestNewReset = () => {

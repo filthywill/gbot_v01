@@ -84,10 +84,11 @@ const AuthCallback: React.FC = () => {
             
             // Check if this is a password reset link
             if (type === 'recovery') {
-              logger.info('Password reset link detected, redirecting to reset password page');
+              logger.info('Password reset link detected, immediately redirecting to reset password page');
               console.log('PASSWORD RESET FLOW DETECTED', { type: 'recovery', token: token ? `${token.substring(0, 8)}...` : 'missing' });
               
-              // Skip the loading animation and immediately redirect with the token
+              // Immediately redirect to reset password page without any verification
+              // This allows the reset-password page to handle the token directly
               window.location.replace(`/reset-password?token=${encodeURIComponent(token)}#recovery`);
               return;
             }
