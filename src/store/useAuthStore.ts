@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser } from '../lib/supabase';
 import usePreferencesStore from './usePreferencesStore';
 import logger from '../lib/logger';
+import { clearAllVerificationState } from '../lib/auth/utils';
 
 // Auth states that represent the full lifecycle of authentication
 export type AuthStatus = 
@@ -25,6 +26,7 @@ type AuthState = {
   signUpWithEmail: (email: string, password: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   signOut: () => Promise<void>;
   resetError: () => void;
+  setError: (error: string) => void;
   resetPassword: (email: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   
@@ -147,6 +149,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
       
       logger.info('Email sign-in successful', { userId: data.user?.id });
       
+      // Clear verification state
+      clearAllVerificationState();
+      
       return data;
     } catch (error) {
       logger.error('Email sign-in error:', error);
@@ -163,12 +168,71 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
+      // First, use our direct check method
+      const userExists = await checkUserExists(email);
+      if (userExists) {
+        logger.warn('Attempted to sign up with existing email:', email);
+        throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
+      }
+      
+      // Additional checks for thoroughness
+      // Method 1: Check if we can sign in with OTP
+      const { data: existingUserData, error: existingUserError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+        }
+      });
+      
+      // Method 2: Try to check email verification status
+      const { verified, error: verificationError } = await checkEmailVerificationStatus(email);
+      
+      // Log detailed information for debugging
+      logger.debug('Email existence check results:', { 
+        directCheck: userExists,
+        otpCheck: { 
+          hasUser: !!existingUserData?.user,
+          error: existingUserError?.message
+        },
+        verificationCheck: {
+          verified,
+          error: verificationError
+        }
+      });
+      
+      // Comprehensive check for existing email
+      const emailExists = 
+        userExists ||
+        !!existingUserData?.user || 
+        verified !== null || 
+        (verificationError && verificationError.includes('Invalid login credentials')) ||
+        (existingUserError && existingUserError.message.toLowerCase().includes('already registered'));
+        
+      if (emailExists) {
+        logger.warn('Attempted to sign up with existing email:', email);
+        throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
+      }
+      
+      // Now attempt to sign up the user
+      logger.info('Email appears to be new, attempting signup');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: undefined, // Disable link-based verification to ensure OTP is used
+        }
       });
       
-      if (error) throw error;
+      if (error) {
+        // Double-check for duplicate email errors from the signup API
+        if (error.message.toLowerCase().includes('email already registered') || 
+            error.message.toLowerCase().includes('already exists') ||
+            error.message.toLowerCase().includes('already in use')) {
+          logger.warn('Duplicate email detected during signup:', email);
+          throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
+        }
+        throw error;
+      }
       
       // For email confirmation flow, user won't be authenticated immediately
       set({ 
@@ -217,6 +281,12 @@ const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   resetError: () => set({ error: null }),
+
+  setError: (error: string) => set({ 
+    error,
+    status: 'ERROR',
+    lastError: new Error(error)
+  }),
 
   resetPassword: async (email: string) => {
     try {
@@ -286,6 +356,10 @@ const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       logger.info('OTP verification successful', { userId: data.user?.id });
+      
+      // Clear verification state
+      clearAllVerificationState();
+      
       return data;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to verify code';
@@ -484,6 +558,48 @@ export const checkEmailVerificationStatus = async (email: string) => {
   } catch (error) {
     logger.error('Exception checking verification status:', error);
     return { verified: false, error: String(error) };
+  }
+};
+
+// Add a function to directly check if a user exists by email
+export const checkUserExists = async (email: string): Promise<boolean> => {
+  try {
+    logger.debug('Checking if user exists:', email);
+    
+    // Method 1: Try to sign in with a fake password
+    // This will tell us if the user exists but not give away the password
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: 'ThisIsAFakePasswordToCheckIfUserExists12345!',
+    });
+    
+    // If we get "Invalid login credentials", the user likely exists
+    // If we get "Email not confirmed", the user definitely exists
+    if (error) {
+      if (error.message.includes('Invalid login credentials') || 
+          error.message.includes('Email not confirmed')) {
+        logger.debug('User exists check: User exists based on auth error');
+        return true;
+      }
+    }
+    
+    // Method 2: Try OTP which is less reliable but provides another signal
+    const { data: otpData, error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false }
+    });
+    
+    if (otpData?.user) {
+      logger.debug('User exists check: User exists based on OTP response');
+      return true;
+    }
+    
+    // If we get here, the user probably doesn't exist
+    logger.debug('User exists check: User likely does not exist');
+    return false;
+  } catch (error) {
+    logger.error('Error checking if user exists:', error);
+    return false; // Assume user doesn't exist if there's an error
   }
 };
 

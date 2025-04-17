@@ -68,7 +68,7 @@ export const ControlItem: React.FC<ControlItemProps> = ({
   const sliderContent = hasSlider ? (
     <div className="mt-0.5">
       <div className="flex items-center">
-        <span className="text-xs text-zinc-400 w-[65px] pl-[35px]">{sliderLabel}</span>
+        <span className="text-xs text-control-secondary w-[65px] pl-[35px]">{sliderLabel}</span>
         <div className="flex-1 overflow-visible relative pr-[28px]">
           {valueConfig && <DevValueDisplay value={value} displayValue={displayValue} />}
           <ValueSlider
@@ -83,7 +83,7 @@ export const ControlItem: React.FC<ControlItemProps> = ({
               }
             }}
             onValueCommit={onSliderComplete}
-            className="data-[state=checked]:bg-purple-600"
+            className="slider-control-active"
           />
         </div>
       </div>

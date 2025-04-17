@@ -227,20 +227,20 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
   };
 
   // Shared style classes
-  const sectionHeaderClass = "flex items-center justify-between w-full py-1.5 px-1.5 rounded-md transition-colors";
-  const sectionContainerClass = "p-1 rounded-md";
+  const sectionHeaderClass = "flex items-center justify-between w-full py-0.5 px-1.5 rounded-md transition-colors";
+  const sectionContainerClass = "p-0.5 rounded-md";
 
   return (
     <div className="flex flex-col min-[600px]:flex-row min-[640px]:space-x-2 space-y-0 min-[600px]:space-y-0">
       <div className={`${sectionContainerClass} flex-1`}>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger className={`${sectionHeaderClass} bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700`}>
+          <CollapsibleTrigger className={`${sectionHeaderClass} bg-brand-gradient`}>
             <div className="flex items-center gap-2">
-              <h3 className="text-xs font-extrabold text-purple-100">STYLE CUSTOMIZATION</h3>
+            <div className="ui-heading ui-heading-panel text-control">STYLE CUSTOMIZATION</div>
             </div>
             {isOpen ? 
-              <ChevronUp className="w-3 h-3 text-purple-200" /> : 
-              <ChevronDown className="w-3 h-3 text-purple-200" />
+              <ChevronUp className="w-3 h-3 text-control" /> : 
+              <ChevronDown className="w-3 h-3 text-control" />
             }
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-1 pt-1.5 pb-0.5">

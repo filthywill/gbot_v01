@@ -16,7 +16,7 @@ export const DevValueDisplay: React.FC<DevValueDisplayProps> = ({
   if (!isDev || !showValueOverlays) return null;
   
   return (
-    <div className="absolute right-0 top-0 bg-black/70 text-xs text-white/70 px-1 rounded pointer-events-none translate-y-[-50%]">
+    <div className="absolute right-0 top-0 bg-black/70 text-xs text-white/70 px-1 rounded pointer-events-none translate-y-[-50%] z-[9999]">
       {displayValue !== undefined ? `${displayValue} (${value})` : value}
     </div>
   );

@@ -60,20 +60,20 @@ export const ControlContainer: React.FC<ControlContainerProps> = ({
 
   return (
     <div className={cn(
-      "bg-zinc-500/25 rounded-lg relative",
+      "bg-control rounded-lg relative",
       children ? "pt-1 px-1.5" : "py-1 px-1.5",
       isContentVisible && children ? "pb-1" : "pb-0.5 pt-0.5",
       className
     )}>
       {/* Header row with label and toggle */}
-      <div className="flex items-center justify-between gap-1.5 min-h-[28px]">
+      <div className="flex items-center justify-between">
         <div className="flex items-center">
           {hasToggle ? (
             <div className="w-9 h-6 flex items-center justify-start">
               <Switch
                 checked={enabled}
                 onCheckedChange={onToggle}
-                className="data-[state=checked]:bg-purple-600"
+                className="switch-control-active"
               />
             </div>
           ) : (
@@ -81,18 +81,18 @@ export const ControlContainer: React.FC<ControlContainerProps> = ({
           )}
           
           <div className="flex items-center gap-0.5">
-            <span className="text-sm text-zinc-200 leading-none">
+            <span className="text-sm text-control leading-none">
               {label}
             </span>
             {isCollapsible && children && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center justify-center w-4 h-4 hover:bg-zinc-600/30 rounded"
+                className="flex items-center justify-center w-4 h-4 bg-control-hover rounded"
               >
                 {isExpanded ? (
-                  <FaChevronCircleUp className="w-3 h-3 text-zinc-500" />
+                  <FaChevronCircleUp className="w-3 h-3 text-control-icon" />
                 ) : (
-                  <FaChevronCircleDown className="w-3 h-3 text-zinc-500" />
+                  <FaChevronCircleDown className="w-3 h-3 text-control-icon" />
                 )}
               </button>
             )}

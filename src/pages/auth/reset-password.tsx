@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { EyeIcon, EyeOffIcon, Save } from 'lucide-react';
-import { cn } from '../lib/utils';
-import PasswordStrengthMeter from '../components/Auth/PasswordStrengthMeter';
-import { checkPasswordStrength, validatePassword } from '../utils/passwordUtils';
-import logger from '../lib/logger';
+import { cn } from '../../lib/utils';
+import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
+import { checkPasswordStrength, validatePassword } from '../../utils/passwordUtils';
+import logger from '../../lib/logger';
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -27,51 +27,14 @@ const ResetPassword: React.FC = () => {
         if (sessionError) {
           throw sessionError;
         }
-
-        // Check if we have a valid session from a password recovery flow
-        if (session) {
-          logger.info('Valid session found for password reset');
-          setIsTokenValid(true);
+        
+        if (!session) {
+          setError('Invalid or expired reset link. Please request a new password reset.');
+          setIsTokenValid(false);
           return;
         }
         
-        // If no session yet, check URL for recovery token
-        const url = new URL(window.location.href);
-        const token = url.searchParams.get('token');
-        const type = url.searchParams.get('type');
-        
-        if (token && type === 'recovery') {
-          logger.info('Recovery token found in URL, attempting to verify');
-          
-          try {
-            // Verify the recovery token
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'recovery'
-            });
-            
-            if (verifyError) {
-              logger.error('Error verifying recovery token:', verifyError);
-              setError('Invalid or expired reset link. Please request a new password reset.');
-              setIsTokenValid(false);
-              return;
-            }
-            
-            // Token verified successfully
-            logger.info('Recovery token verified successfully');
-            setIsTokenValid(true);
-            return;
-          } catch (verifyErr) {
-            logger.error('Exception verifying recovery token:', verifyErr);
-            setError('Error processing reset link. Please try again or request a new password reset.');
-            setIsTokenValid(false);
-            return;
-          }
-        }
-        
-        // No session and no valid token in URL
-        setError('Invalid or expired reset link. Please request a new password reset.');
-        setIsTokenValid(false);
+        setIsTokenValid(true);
       } catch (err) {
         logger.error('Error checking reset token:', err);
         setError('Unable to verify reset token. Please try again.');
@@ -246,8 +209,8 @@ const ResetPassword: React.FC = () => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className={cn(
                   "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-brand-neutral-900 placeholder-brand-neutral-400",
-                  confirmPassword && newPassword !== confirmPassword
-                    ? "border-status-error focus:border-status-error focus:ring-status-error-light"
+                  confirmPassword && confirmPassword !== newPassword
+                    ? "border-status-error-border focus:border-status-error-border focus:ring-status-error-border"
                     : "border-brand-neutral-300 focus:border-brand-primary-500 focus:ring-brand-primary-500"
                 )}
                 placeholder="••••••••"
@@ -265,46 +228,33 @@ const ResetPassword: React.FC = () => {
                 )}
               </button>
             </div>
-            {confirmPassword && newPassword !== confirmPassword && (
+            {confirmPassword && confirmPassword !== newPassword && (
               <p className="mt-1 text-sm text-status-error">Passwords do not match</p>
             )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div>
             <button
-              type="button"
-              onClick={() => window.location.href = '/'}
-              className="text-sm font-medium text-brand-primary-600 hover:text-brand-primary-500"
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Back to Sign In
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <Save className="h-4 w-4 mr-2" />
+                  Update Password
+                </span>
+              )}
             </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={cn(
-              "w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white",
-              "bg-brand-gradient hover:bg-brand-gradient",
-              "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500",
-              isLoading ? "opacity-75 cursor-not-allowed" : ""
-            )}
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Processing...
-              </span>
-            ) : (
-              <span className="flex items-center justify-center">
-                <Save className="h-4 w-4 mr-2" />
-                Update Password
-              </span>
-            )}
-          </button>
         </form>
       </div>
     </div>
