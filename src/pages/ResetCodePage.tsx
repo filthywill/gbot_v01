@@ -4,6 +4,18 @@ import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
+// Define the extended params type to handle the password option
+interface ExtendedVerifyOtpParams {
+  email: string;
+  token: string;
+  type: 'recovery';
+  options?: {
+    password?: string;
+    redirectTo?: string;
+    captchaToken?: string;
+  };
+}
+
 const ResetCodePage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -16,7 +28,6 @@ const ResetCodePage: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeVerified, setCodeVerified] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<any>(null);
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,28 +43,36 @@ const ResetCodePage: React.FC = () => {
       
       logger.info('Verifying password reset code', { email });
       
-      // Directly verify the OTP code with Supabase for more control
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: 'recovery'
-      });
-      
-      if (verifyError) {
-        logger.error('Code verification error:', verifyError);
-        throw new Error(verifyError.message);
+      // At this step, we just verify the code without actually updating the session
+      // This just checks if the code is valid before showing the password form
+      try {
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token: code,
+          type: 'recovery'
+        });
+        
+        if (verifyError) {
+          logger.error('Code verification error:', verifyError);
+          throw new Error(verifyError.message);
+        }
+        
+        // If we got here, the code is valid
+        logger.info('Reset code verified successfully', {
+          hasUser: !!data?.user,
+          hasSession: !!data?.session
+        });
+        
+        setCodeVerified(true);
+      } catch (verifyErr) {
+        if (verifyErr instanceof Error && verifyErr.message.includes('Token has expired')) {
+          throw new Error('The reset code has expired. Please request a new code.');
+        } else if (verifyErr instanceof Error && verifyErr.message.includes('Invalid token')) {
+          throw new Error('Invalid reset code. Please check and try again.');
+        } else {
+          throw verifyErr;
+        }
       }
-      
-      // Store the verification result for later use
-      setVerificationResult(data);
-      
-      // If we got here, the code is valid
-      logger.info('Reset code verified successfully', {
-        hasUser: !!data?.user,
-        hasSession: !!data?.session
-      });
-      
-      setCodeVerified(true);
     } catch (err) {
       logger.error('Error verifying reset code:', err);
       setError(err instanceof Error ? err.message : 'Failed to verify reset code');
@@ -79,56 +98,40 @@ const ResetCodePage: React.FC = () => {
       setIsResetting(true);
       setError(null);
       
-      logger.info('Updating password after code verification');
+      logger.info('Updating password with reset code');
       
-      // If we have a session from the verification, use it for the password update
-      if (verificationResult?.session) {
-        // Apply the session from verification first
-        await supabase.auth.setSession({
-          access_token: verificationResult.session.access_token,
-          refresh_token: verificationResult.session.refresh_token
-        });
-        
-        // Now update the password directly
-        const { error: updateError } = await supabase.auth.updateUser({
+      // Use the single-step flow that combines verification and password update
+      // We need to use a type assertion to handle the password option
+      const params: ExtendedVerifyOtpParams = {
+        email,
+        token: code,
+        type: 'recovery',
+        options: {
           password: password
-        });
-        
-        if (updateError) {
-          logger.error('Password update error:', updateError);
-          throw new Error(updateError.message);
         }
-      } else {
-        // Use a two-step approach to bypass type issues
-        // First verify the OTP again
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          email,
-          token: code,
-          type: 'recovery'
-        });
+      };
+      
+      const { data, error: resetError } = await supabase.auth.verifyOtp(params as any);
+      
+      if (resetError) {
+        logger.error('Password reset error:', resetError);
         
-        if (verifyError) {
-          logger.error('Reset verification error:', verifyError);
-          throw new Error(verifyError.message);
-        }
-        
-        // Then update the password
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: password
-        });
-        
-        if (updateError) {
-          logger.error('Password update error:', updateError);
-          throw new Error(updateError.message);
+        if (resetError.message.includes('Token has expired')) {
+          throw new Error('The reset code has expired. Please request a new code.');
+        } else if (resetError.message.includes('Invalid token')) {
+          throw new Error('Invalid reset code. Please check and try again.');
+        } else {
+          throw resetError;
         }
       }
       
       // Password updated successfully
-      logger.info('Password updated successfully');
-      setIsSuccess(true);
+      logger.info('Password updated successfully', {
+        hasUser: !!data.user,
+        hasSession: !!data.session
+      });
       
-      // Sign out to clear the session
-      await supabase.auth.signOut();
+      setIsSuccess(true);
     } catch (err) {
       logger.error('Error updating password:', err);
       setError(err instanceof Error ? err.message : 'Failed to update password');
