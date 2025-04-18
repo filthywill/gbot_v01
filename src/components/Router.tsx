@@ -2,9 +2,9 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
+import ResetPasswordPage from '../pages/auth/reset-password';
+import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
-import RequestPasswordReset from '../pages/auth/request-password-reset';
-import ChangePassword from '../pages/auth/change-password';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -187,19 +187,31 @@ const Router: React.FC = () => {
     return <PrivacyPolicy />;
   } else if (pathStartsWith('/terms-of-service')) {
     return <TermsOfService />;
-  } else if (pathStartsWith('/auth/request-password-reset')) {
-    return <RequestPasswordReset />;
-  } else if (pathStartsWith('/auth/change-password')) {
-    return <ChangePassword />;
-  } else if (pathStartsWith('/verification-success')) {
+  } else if (pathStartsWith('/token-debug')) {
+    logger.info('Rendering TokenDebugPage component');
+    return <TokenDebugPage />;
+  } else if (pathStartsWith('/auth/reset-password')) {
+    // Direct link reset password route
+    console.log('RENDERING RESET PASSWORD COMPONENT', {
+      url: window.location.href,
+      path: window.location.pathname, 
+      search: window.location.search,
+      timestamp: new Date().toISOString()
+    });
+    logger.info('Rendering ResetPasswordPage component');
+    return <ResetPasswordPage />;
+  } else if (pathStartsWith('/auth/verification-success')) {
+    logger.info('Rendering EmailVerificationSuccess component');
     return (
-      <Suspense fallback={<div className="p-4 text-center">Loading verification success page...</div>}>
+      <Suspense fallback={<div>Loading verification page...</div>}>
         <EmailVerificationSuccess />
       </Suspense>
     );
-  } else if (pathStartsWith('/debug-verification')) {
+  } else if (pathStartsWith('/verification-debug')) {
+    logger.info('Rendering VerificationDebug component');
     return <VerificationDebug />;
   } else {
+    // Default route
     return <App />;
   }
 };

@@ -1,6 +1,6 @@
 # Password Reset Flow Setup for GraffitiSOFT
 
-This document outlines how to correctly configure and test the password reset flow using Supabase Auth.
+This document outlines how to correctly configure and test the password reset flow using Supabase Auth with the Direct Link approach.
 
 ## Email Template Configuration in Supabase
 
@@ -11,18 +11,27 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 ```html
 <h2>Reset Your Password</h2>
 <p>Click the button below to reset your password:</p>
-<a href="https://gbot-v01.vercel.app/auth/reset-password?token={{ .TokenHash }}&type=recovery#recovery">Reset Password</a>
+<a href="{{ .SiteURL }}/auth/reset-password#access_token={{ .Token }}&refresh_token={{ .RefreshToken }}&expires_in={{ .ExpiresIn }}&token_type=bearer&type=recovery">Reset Password</a>
 
 <p>If the button doesn't work, copy and paste this link into your browser:</p>
-<p>https://gbot-v01.vercel.app/auth/reset-password?token={{ .TokenHash }}&type=recovery#recovery</p>
+<p>{{ .SiteURL }}/auth/reset-password#access_token={{ .Token }}&refresh_token={{ .RefreshToken }}&expires_in={{ .ExpiresIn }}&token_type=bearer&type=recovery</p>
 
-<p>If you're having trouble, you can also use this code to reset your password manually:</p>
-<p><strong>{{ .Token }}</strong></p>
-
-<p>If you didn't request a password reset, you can safely ignore this email.</p>
+<p>If you're having trouble, please contact support.</p>
 ```
 
-> **Important Note:** Make sure your router implementation can handle both `/reset-password` and `/auth/reset-password` paths. Our application router has been updated to support both, but if you change the URL in the email template, ensure the router is updated accordingly.
+> **Important Note:** Make sure your router implementation can handle the `/auth/reset-password` path. Our application router has been updated to support this path.
+
+## How It Works
+
+1. **User Requests Password Reset:** When a user clicks "Forgot Password", they enter their email and we send a reset email using Supabase's `resetPasswordForEmail` method.
+
+2. **Email Delivery:** Supabase sends an email with a secure link containing authentication tokens. The link directs to our `/auth/reset-password` route.
+
+3. **Password Reset Form:** When the user clicks the link, they're taken to a form where they can create a new password. The component automatically extracts the token from the URL.
+
+4. **Password Update:** After the user submits a new password, we call Supabase's `updateUser` method, which verifies the token and updates the password.
+
+5. **Completion:** After successful password reset, the user is redirected to the login page with a success message.
 
 ## Common Issues and Solutions
 
@@ -30,13 +39,13 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 
 **Problem**: Some email security systems prefetch links in emails, which consumes your one-time token.
 
-**Solution**: Our implementation provides a fallback method of manually entering the token, which is included in the email body. We also recommend setting up a custom SMTP provider that has better deliverability rates.
+**Solution**: Our implementation properly extracts tokens from the URL hash instead of query parameters, which prevents prefetching systems from consuming the token.
 
 ### 2. Enterprise Email Security
 
 **Problem**: Enterprise email systems may scan and click links in emails before users can access them.
 
-**Solution**: The manual token entry feature allows users to bypass this issue by copying the token text and entering it directly in the form.
+**Solution**: The token is in the URL hash (fragment) which is not sent to the server during prefetching.
 
 ### 3. Email Delivery Issues
 
@@ -47,16 +56,6 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 - Check Supabase Auth logs for errors
 - Ask users to check spam folders
 - Ensure email domain is properly configured with DKIM, SPF, and DMARC
-
-### 4. Blank Page Issues
-
-**Problem**: Users click on the reset password link but see a blank page.
-
-**Solutions**:
-- Ensure your routing logic handles the exact path from the email template
-- Check browser console for JavaScript errors
-- Verify that the reset password component is being loaded
-- Test the link in different browsers
 
 ## Custom SMTP Setup (Recommended)
 
@@ -78,18 +77,11 @@ We strongly recommend setting up a custom SMTP provider for improved deliverabil
 - Amazon SES
 - Postmark
 
-If using Gmail SMTP, follow these steps:
-1. Use a Google Workspace account
-2. Enable 2FA on the account
-3. Create an app password for SMTP
-4. Use the admin email as the sender
-5. Use smtp.gmail.com with port 465 or 587
-
 ## Testing the Reset Password Flow
 
 1. Request a password reset using the "Forgot Password" link
 2. Check the email (including spam folder)
-3. Click the reset link or use the manual token if needed
+3. Click the reset link
 4. Create a new password that meets strength requirements
 5. Verify you can log in with the new password
 
@@ -100,10 +92,11 @@ If users report issues:
 1. Check Supabase Auth logs in the dashboard
 2. Verify the correct email template is being used
 3. Test with different email providers (Gmail, Outlook, etc.)
-4. Check if the user's email system is blocking the emails
-5. Try the manual token entry method
+4. Check browser console for any JavaScript errors
+5. Verify that the token is properly extracted from the URL
 
 ## Additional Resources
 
-- [Supabase Auth Email Templates Guide](https://supabase.com/docs/guides/auth/auth-email-templates)
-- [Email Deliverability Best Practices](https://supabase.com/docs/guides/auth/auth-smtp) 
+- [Supabase Auth Documentation](https://supabase.com/docs/guides/auth)
+- [Email Deliverability Best Practices](https://supabase.com/docs/guides/auth/auth-smtp)
+- [Supabase Auth Troubleshooting](https://supabase.com/docs/guides/troubleshooting/how-do-you-troubleshoot-nextjs---supabase-auth-issues-riMCZV) 

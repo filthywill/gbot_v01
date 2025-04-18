@@ -27,8 +27,8 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetError: () => void;
   setError: (error: string) => void;
-  requestPasswordReset: (email: string) => Promise<void>;
-  changePassword: (newPassword: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<boolean>;
+  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   
   // Direct state setters (for auth callbacks and external auth sources)
   setUser: (user: User | null) => void;
@@ -288,91 +288,113 @@ const useAuthStore = create<AuthState>((set, get) => ({
     lastError: new Error(error)
   }),
 
-  requestPasswordReset: async (email: string) => {
+  resetPassword: async (email: string) => {
     try {
       set({ status: 'LOADING', error: null });
-
+      
+      // Get the current hostname for the redirect URL
+      const origin = window.location.origin;
+      const redirectTo = `${origin}/auth/reset-password`;
+      
+      logger.info('Sending password reset email with direct link', { email, redirectUrl: redirectTo });
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/auth/change-password',
+        redirectTo: redirectTo,
       });
-
+      
       if (error) throw error;
-
+      
       set({ status: 'UNAUTHENTICATED' });
-      logger.info('Password reset email sent');
+      logger.info('Password reset email sent successfully');
+      return true;
     } catch (error) {
       logger.error('Password reset error:', error);
-      set({
+      set({ 
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
-        lastError: error instanceof Error ? error : new Error('Unknown error'),
+        lastError: error instanceof Error ? error : new Error('Unknown error')
       });
-      throw error;
+      return false;
     }
   },
   
-  changePassword: async (newPassword: string) => {
+  // OTP verification method
+  verifyOtp: async (email: string, token: string) => {
     try {
       set({ status: 'LOADING', error: null });
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      logger.info('Verifying OTP code', { email });
+      
+      // Create a timeout promise to handle potential hanging requests
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Verification request timed out. Please try again.'));
+        }, 10000); // 10 second timeout
+      });
+      
+      // Create the actual verification promise
+      const verificationPromise = supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup'
+      });
+      
+      // Race the verification against the timeout
+      const result = await Promise.race([
+        verificationPromise,
+        timeoutPromise
+      ]);
+      
+      // Since result will be the verification response if it won the race
+      const { data, error } = result;
+      
       if (error) throw error;
-      await supabase.auth.signOut();
-      set({ user: null, session: null, status: 'UNAUTHENTICATED', error: null });
-      logger.info('Password changed successfully and user signed out');
+      
+      // Handle case where we got data but no user
+      if (!data.user) {
+        logger.warn('Verification completed but no user returned');
+        throw new Error('Verification successful but user data unavailable. Please try signing in.');
+      }
+      
+      // Update auth state with verified user
+      set({ 
+        user: data.user,
+        session: data.session,
+        status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
+        error: null
+      });
+      
+      logger.info('OTP verification successful', { userId: data.user?.id });
+      
+      // Clear verification state
+      clearAllVerificationState();
+      
+      return data;
     } catch (error) {
-      logger.error('Error changing password:', error);
-      set({ status: 'ERROR', error: error instanceof Error ? error.message : 'Failed to change password', lastError: error instanceof Error ? error : new Error('Unknown error') });
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify code';
+      logger.error('OTP verification error:', error);
+      
+      // Set more user-friendly error messages based on error type
+      let userFriendlyError = errorMessage;
+      if (errorMessage.includes('timeout')) {
+        userFriendlyError = 'Verification timed out. Please try again.';
+      } else if (errorMessage.includes('expired')) {
+        userFriendlyError = 'This verification code has expired. Please request a new one.';
+      } else if (errorMessage.includes('invalid')) {
+        userFriendlyError = 'Invalid verification code. Please check and try again.';
+      }
+      
+      set({ 
+        status: 'ERROR',
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
+      });
+      return null;
     }
   },
   
   // Direct state setters for auth callbacks
-  setUser: (user: User | null) => {
-    logger.debug('Explicitly setting user in auth store', { userId: user?.id });
-    const currentStatus = get().status;
-    
-    set({ 
-      user, 
-      status: user ? 'AUTHENTICATED' : (currentStatus === 'AUTHENTICATED' ? 'UNAUTHENTICATED' : currentStatus)
-    });
-    
-    // If we're setting a user but don't have a session, try to get the current session
-    if (user && !get().session) {
-      logger.debug('User set but no session, attempting to get current session');
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) {
-          logger.debug('Retrieved session to match user');
-          set({ session: data.session });
-        }
-      }).catch(error => {
-        logger.error('Error getting session after setting user:', error);
-      });
-    }
-  },
-  
-  setSession: (session: Session | null) => {
-    logger.debug('Explicitly setting session in auth store', { hasSession: !!session });
-    const currentUser = get().user;
-    const currentStatus = get().status;
-    
-    set({ 
-      session, 
-      status: session ? 'AUTHENTICATED' : (currentStatus === 'AUTHENTICATED' ? 'UNAUTHENTICATED' : currentStatus)
-    });
-    
-    // If we're setting a session but don't have a user, try to get the current user
-    if (session && !currentUser) {
-      logger.debug('Session set but no user, attempting to get current user');
-      getCurrentUser().then(user => {
-        if (user) {
-          logger.debug('Retrieved user to match session');
-          set({ user });
-        }
-      }).catch(error => {
-        logger.error('Error getting user after setting session:', error);
-      });
-    }
-  },
+  setUser: (user: User | null) => set({ user }),
+  setSession: (session: Session | null) => set({ session }),
   
   // Computed helpers
   isAuthenticated: () => get().status === 'AUTHENTICATED',

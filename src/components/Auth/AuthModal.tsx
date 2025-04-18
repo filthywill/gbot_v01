@@ -8,7 +8,7 @@ import { AUTH_VIEWS, AUTH_ERROR_MESSAGES } from '../../lib/auth/constants';
 import { AuthModalProps } from '../../lib/auth/types';
 import { cn } from '../../lib/utils';
 import { checkAuthAndClose, clearAllVerificationState } from '../../lib/auth/utils';
-import { SignIn, SignUp } from './flows';
+import { SignIn, SignUp, ResetPassword } from './flows';
 import VerificationCodeInput from './VerificationCodeInput';
 
 // Use the type from AUTH_VIEWS
@@ -183,12 +183,8 @@ export function AuthModal({
     mouseDownOnBackdrop.current = false;
   };
   
-  // Handle view changes - intercept forgot-password to redirect
+  // Handle view changes - changing to accept string instead of AuthMode
   const handleViewChange = (newMode: string) => {
-    if (newMode === AUTH_VIEWS.FORGOT_PASSWORD) {
-      window.location.href = '/auth/request-password-reset';
-      return;
-    }
     setMode(newMode as AuthMode);
     resetError();
   };
@@ -343,6 +339,16 @@ export function AuthModal({
             onEmailValidation={handleEmailValidation}
             onViewChange={handleViewChange}
             onSignUpComplete={handleSignUpComplete}
+            onClose={onClose}
+          />
+        );
+      case AUTH_VIEWS.FORGOT_PASSWORD:
+        return (
+          <ResetPassword
+            email={email || ''}
+            setEmail={setEmail}
+            onEmailValidation={handleEmailValidation}
+            onViewChange={handleViewChange}
             onClose={onClose}
           />
         );
