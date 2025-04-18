@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
 import logger from '../lib/logger';
+import useAuthStore from '../store/useAuthStore';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const ResetCodePage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeVerified, setCodeVerified] = useState(false);
+
+  // Get methods from auth store
+  const { verifyResetOtp, updateUserPassword } = useAuthStore();
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,24 +34,16 @@ const ResetCodePage: React.FC = () => {
       
       logger.info('Verifying password reset code', { email });
       
-      // Verify the OTP code
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: 'recovery'
-      });
+      // Verify the OTP code using the auth store function
+      const success = await verifyResetOtp(email, code);
       
-      if (verifyError) {
-        logger.error('Code verification error:', verifyError);
-        throw new Error(verifyError.message);
+      if (!success) {
+        // Error will be set by the verifyResetOtp function
+        throw new Error('Invalid or expired reset code. Please try again or request a new code.');
       }
       
       // If we got here, the code is valid
-      logger.info('Reset code verified successfully', { 
-        hasUser: !!data?.user,
-        hasSession: !!data?.session
-      });
-      
+      logger.info('Reset code verified successfully');
       setCodeVerified(true);
     } catch (err) {
       logger.error('Error verifying reset code:', err);
@@ -73,22 +72,16 @@ const ResetCodePage: React.FC = () => {
       
       logger.info('Updating password after code verification');
       
-      // Update the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password
-      });
+      // Update the password using auth store function
+      const result = await updateUserPassword(email, code, password);
       
-      if (updateError) {
-        logger.error('Password update error:', updateError);
-        throw new Error(updateError.message);
+      if (!result) {
+        throw new Error('Failed to update password. Please try again with a new reset code.');
       }
       
       // Password updated successfully
       logger.info('Password updated successfully');
       setIsSuccess(true);
-      
-      // Sign out to clear the session
-      await supabase.auth.signOut();
     } catch (err) {
       logger.error('Error updating password:', err);
       setError(err instanceof Error ? err.message : 'Failed to update password');
@@ -182,7 +175,15 @@ const ResetCodePage: React.FC = () => {
               disabled={isVerifying}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
             >
-              {isVerifying ? 'Verifying...' : 'Verify Code'}
+              {isVerifying ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Verifying...
+                </span>
+              ) : 'Verify Code'}
             </button>
           </form>
         ) : (
@@ -192,30 +193,64 @@ const ResetCodePage: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-brand-neutral-600">
                 New Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500"
-                placeholder="Enter your new password"
-                required
-              />
+              <div className="mt-1 relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500"
+                  placeholder="Enter your new password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-500"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
             
             <div>
               <label htmlFor="confirm-password" className="block text-sm font-medium text-brand-neutral-600">
                 Confirm Password
               </label>
-              <input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500"
-                placeholder="Confirm your new password"
-                required
-              />
+              <div className="mt-1 relative">
+                <input
+                  id="confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={cn(
+                    "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none",
+                    confirmPassword && password !== confirmPassword
+                      ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                      : "border-brand-neutral-300 focus:ring-brand-primary-500 focus:border-brand-primary-500"
+                  )}
+                  placeholder="Confirm your new password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-500"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">Passwords do not match</p>
+              )}
             </div>
             
             <button
@@ -223,7 +258,15 @@ const ResetCodePage: React.FC = () => {
               disabled={isResetting}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
             >
-              {isResetting ? 'Updating Password...' : 'Update Password'}
+              {isResetting ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating Password...
+                </span>
+              ) : 'Update Password'}
             </button>
           </form>
         )}

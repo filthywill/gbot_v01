@@ -28,7 +28,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
   
-  const { resetPassword } = useAuthStore();
+  const { sendResetOtp } = useAuthStore();
   const { setLastUsedEmail } = usePreferencesStore();
   
   // Email validation
@@ -50,20 +50,24 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
       setIsLoading(true);
       setError(null);
       
-      logger.info('Sending password reset email to:', email);
+      logger.info('Sending password reset code to:', email);
       
       // Remember this email
       setLastUsedEmail(email);
       
-      // Send reset password email
-      await resetPassword(email);
+      // Send reset password OTP
+      const success = await sendResetOtp(email);
       
-      // If we get here, the reset email was sent successfully
+      if (!success) {
+        throw new Error('Failed to send password reset code. Please try again.');
+      }
+      
+      // If we get here, the reset code was sent successfully
       setResetSent(true);
-      logger.info('Password reset email sent successfully');
+      logger.info('Password reset code sent successfully');
     } catch (err) {
-      logger.error('Password reset error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send reset email. Please try again.');
+      logger.error('Password reset code error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send reset code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -91,27 +95,41 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
       {resetSent ? (
         <div className="space-y-5">
           <div className="bg-status-success-light border border-status-success-border text-status-success px-4 py-3 rounded-md text-sm">
-            <strong>Email sent!</strong> Check your inbox for a link to reset your password.
+            <strong>Reset code sent!</strong> Check your inbox for a code to reset your password.
           </div>
           
           <p className="text-brand-neutral-600 text-sm">
-            If you don't see the email, please check your spam folder or request another reset link.
+            If you don't see the email, please check your spam folder or request another reset code.
           </p>
           
-          <div className="flex gap-3 mt-6 pt-2">
+          <div className="flex space-x-3">
             <button
               type="button"
-              onClick={() => setResetSent(false)}
-              className="flex-1 py-2 px-4 border border-brand-neutral-300 rounded-md shadow-sm text-sm font-medium text-brand-neutral-700 bg-white hover:bg-brand-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
+              onClick={() => window.location.href = '/reset-code'}
+              className="flex-1 bg-brand-gradient text-white rounded-md py-2.5 px-4 text-center text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
+            >
+              Enter Reset Code
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setResetSent(false);
+                setError(null);
+              }}
+              className="flex-1 bg-white border border-brand-neutral-300 text-brand-neutral-700 rounded-md py-2.5 px-4 text-center text-sm font-medium hover:bg-brand-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
             >
               Try Again
             </button>
+          </div>
+          
+          <div className="text-center">
             <button
               type="button"
               onClick={() => onViewChange(AUTH_VIEWS.SIGN_IN)}
-              className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
+              className="text-brand-primary-600 hover:text-brand-primary-500 text-sm"
             >
-              Back to Sign In
+              Back to sign in
             </button>
           </div>
         </div>
@@ -128,7 +146,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
               Email
             </label>
             <p className="text-sm text-brand-neutral-400 mb-1">
-              Enter your email to receive a password reset link
+              Enter your email to receive a password reset code
             </p>
             <input
               id="reset-email"
@@ -141,15 +159,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
             />
           </div>
           
-          <div className="pt-2">
+          <div className="flex space-x-3">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
+              className="flex-1 flex items-center justify-center bg-brand-gradient text-white rounded-md py-2.5 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -158,19 +176,19 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
               ) : (
                 <span className="flex items-center">
                   <SendIcon className="h-4 w-4 mr-2" />
-                  Send Reset Link
+                  Send Reset Code
                 </span>
               )}
             </button>
           </div>
           
-          <div className="text-center mt-4">
+          <div className="text-center pt-2">
             <button
               type="button"
               onClick={() => onViewChange(AUTH_VIEWS.SIGN_IN)}
-              className="text-sm font-medium text-brand-primary-600 hover:text-brand-primary-500 hover:underline"
+              className="text-brand-primary-600 hover:text-brand-primary-500 text-sm"
             >
-              Back to Sign In
+              Back to sign in
             </button>
           </div>
         </form>
