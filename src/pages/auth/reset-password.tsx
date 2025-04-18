@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon } from 'lucide-react';
 import useAuthStore from '../../store/useAuthStore';
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
@@ -19,11 +18,21 @@ const ResetPasswordPage: React.FC = () => {
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
   const [passwordValid, setPasswordValid] = useState(false);
   
-  const navigate = useNavigate();
+  const navigate = (path: string) => {
+    logger.info('Custom navigation to:', path);
+    window.history.pushState({}, '', path);
+    if (typeof (window as any).navigateTo === 'function') {
+      logger.info('Using global navigateTo function');
+      (window as any).navigateTo(path);
+    } else {
+      logger.info('Fallback to window.location.href redirect');
+      window.location.href = path;
+    }
+  };
   
-  // Extract token from URL on component mount
   useEffect(() => {
     try {
+      logger.info('Reset password page mounted, parsing URL for token');
       const url = new URL(window.location.href);
       const hashParams = new URLSearchParams(url.hash.substring(1));
       const queryToken = url.searchParams.get('token');
@@ -31,9 +40,28 @@ const ResetPasswordPage: React.FC = () => {
       
       const extractedToken = queryToken || hashToken;
       
+      logger.debug('URL token extraction:', { 
+        url: window.location.href,
+        queryToken: queryToken ? queryToken.substring(0, 8) + '...' : null,
+        hashToken: hashToken ? hashToken.substring(0, 8) + '...' : null,
+        extractedToken: extractedToken ? extractedToken.substring(0, 8) + '...' : null
+      });
+      
       if (extractedToken) {
         logger.info('Found token in URL');
         setToken(extractedToken);
+        
+        const isValidTokenFormat = 
+          (extractedToken.startsWith('pkce_') && extractedToken.length > 20) || 
+          (extractedToken.includes('.') && extractedToken.split('.').length === 3);
+        
+        if (!isValidTokenFormat) {
+          logger.warn('Token appears to be in an invalid format:', 
+            extractedToken.substring(0, 8) + '...');
+          setError('The reset token appears to be invalid. Please request a new password reset link.');
+        } else {
+          logger.info('Token format appears valid, proceeding with reset form');
+        }
       } else {
         logger.error('No token found in URL');
         setError('Invalid or missing reset token. Please request a new password reset link.');
@@ -44,13 +72,11 @@ const ResetPasswordPage: React.FC = () => {
     }
   }, []);
   
-  // Password strength checking
   useEffect(() => {
     if (newPassword) {
       const strength = checkPasswordStrength(newPassword);
       setPasswordStrength(strength);
       
-      // Validate password
       const validation = validatePassword(newPassword);
       setPasswordValid(validation.isValid);
     } else {
@@ -67,14 +93,12 @@ const ResetPasswordPage: React.FC = () => {
       return;
     }
     
-    // Validate the new password
     const validation = validatePassword(newPassword);
     if (!validation.isValid) {
       setError(validation.message || 'Password is not strong enough');
       return;
     }
     
-    // Check if passwords match
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -84,32 +108,45 @@ const ResetPasswordPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      logger.info('Updating password with token');
+      logger.info('Attempting to update password with token');
       
-      // Use updateUser to set the new password (Supabase will validate the token)
-      const { error } = await supabase.auth.updateUser({
+      const result = await supabase.auth.updateUser({
         password: newPassword
       });
       
-      if (error) throw error;
+      if (result.error) {
+        logger.error('Supabase returned error during password update:', result.error);
+        throw result.error;
+      }
       
-      // Password updated successfully
+      if (!result.data?.user) {
+        logger.warn('Password update succeeded but no user data returned');
+      } else {
+        logger.info('User data returned after password update:', { 
+          id: result.data.user.id,
+          email: result.data.user.email 
+        });
+      }
+      
       setSuccess(true);
       logger.info('Password updated successfully');
       
-      // Redirect to home with success message after a short delay
       setTimeout(() => {
         navigate('/?passwordReset=success');
       }, 3000);
     } catch (err) {
       logger.error('Error updating password:', err);
       
-      // Set user-friendly error message
       if (err instanceof Error) {
-        if (err.message.includes('expired')) {
+        const errorMsg = err.message.toLowerCase();
+        if (errorMsg.includes('expired')) {
           setError('Your reset link has expired. Please request a new one.');
-        } else if (err.message.includes('invalid')) {
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
           setError('Invalid reset link. Please request a new one.');
+        } else if (errorMsg.includes('network')) {
+          setError('Network error. Please check your connection and try again.');
+        } else if (errorMsg.includes('same password')) {
+          setError('The new password cannot be the same as your current password.');
         } else {
           setError(err.message);
         }

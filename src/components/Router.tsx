@@ -103,7 +103,18 @@ const Router: React.FC = () => {
   const pathStartsWith = (route: string): boolean => {
     // Normalize the path by removing duplicate slashes
     const normalizedPath = currentPath.replace(/\/+/g, '/');
-    return normalizedPath.startsWith(route);
+    const result = normalizedPath.startsWith(route);
+    
+    if (route === '/auth/reset-password') {
+      logger.debug(`Path check for ${route}:`, { 
+        currentPath, 
+        normalizedPath, 
+        result,
+        url: window.location.href
+      });
+    }
+    
+    return result;
   };
 
   // Improved function to check for auth callback
@@ -196,10 +207,31 @@ const Router: React.FC = () => {
       url: window.location.href,
       path: window.location.pathname, 
       search: window.location.search,
+      hash: window.location.hash,
       timestamp: new Date().toISOString()
     });
-    logger.info('Rendering ResetPasswordPage component');
-    return <ResetPasswordPage />;
+    logger.info('Rendering ResetPasswordPage component with token params', {
+      hasToken: new URLSearchParams(window.location.search).has('token'),
+      tokenLength: new URLSearchParams(window.location.search).get('token')?.length,
+      type: new URLSearchParams(window.location.search).get('type')
+    });
+    
+    try {
+      return <ResetPasswordPage />;
+    } catch (error) {
+      logger.error('Error rendering ResetPasswordPage:', error);
+      return (
+        <div className="p-4 flex flex-col items-center justify-center min-h-screen bg-zinc-900">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
+            <p className="font-bold">Error rendering Reset Password page</p>
+            <p>{error instanceof Error ? error.message : 'Unknown error'}</p>
+          </div>
+          <a href="/" className="mt-4 text-blue-400 hover:underline">
+            Return to Home
+          </a>
+        </div>
+      );
+    }
   } else if (pathStartsWith('/auth/verification-success')) {
     logger.info('Rendering EmailVerificationSuccess component');
     return (
