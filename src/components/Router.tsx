@@ -3,6 +3,7 @@ import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
 import ResetPassword from '../pages/auth/reset-password';
+import ConfirmResetPage from '../pages/ConfirmResetPage';
 import VerificationDebug from '../pages/VerificationDebug';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
@@ -186,6 +187,16 @@ const Router: React.FC = () => {
     return <PrivacyPolicy />;
   } else if (pathStartsWith('/terms-of-service')) {
     return <TermsOfService />;
+  } else if (pathStartsWith('/confirm-reset')) {
+    // New confirm-reset route that provides a button to complete the reset process
+    console.log('RENDERING CONFIRM RESET COMPONENT', {
+      url: window.location.href,
+      path: window.location.pathname, 
+      search: window.location.search,
+      timestamp: new Date().toISOString()
+    });
+    logger.info('Rendering ConfirmReset component');
+    return <ConfirmResetPage />;
   } else if (pathStartsWith('/reset-password') || pathStartsWith('/auth/reset-password')) {
     console.log('RENDERING RESET PASSWORD COMPONENT', { 
       url: window.location.href,

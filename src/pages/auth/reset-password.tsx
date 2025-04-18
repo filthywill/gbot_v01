@@ -58,23 +58,22 @@ const ResetPassword: React.FC = () => {
     const checkRecoveryToken = async () => {
       try {
         setIsCheckingToken(true);
-        logger.info('Checking for recovery token in URL:', window.location.href);
+        logger.info('Checking for token in URL:', window.location.href);
         
-        // Get token from URL
+        // Get token from URL - explicitly look for token_hash parameter
         const url = new URL(window.location.href);
-        const urlToken = url.searchParams.get('token');
+        const urlToken = url.searchParams.get('token_hash');
         const tokenType = url.searchParams.get('type') || 'recovery';
         
-        // If we have a token in the URL, we can proceed with verification
         if (urlToken) {
           setToken(urlToken);
-          setIsTokenValid(true); // Assume token is valid to show form immediately
+          logger.info('Found token_hash in URL, attempting verification', { 
+            tokenLength: urlToken.length,
+            tokenType
+          });
           
-          // Verify the token in background
           try {
-            // Log token verification attempt
-            logger.debug('Verifying token', { tokenType, tokenLength: urlToken.length });
-            
+            // Verify with token_hash parameter
             const verifyResult = await supabase.auth.verifyOtp({
               token_hash: urlToken,
               type: tokenType
@@ -91,6 +90,7 @@ const ResetPassword: React.FC = () => {
                 hasUser: !!data?.user,
                 hasSession: !!data?.session
               });
+              setIsTokenValid(true);
             }
           } catch (err) {
             logger.error('Error verifying token:', err);
@@ -99,36 +99,24 @@ const ResetPassword: React.FC = () => {
           } finally {
             setIsCheckingToken(false);
           }
-          
-          // Don't wait for verification to complete, show the form immediately
-          setIsCheckingToken(false);
-          return;
         } else {
-          // Check if we're in a recovery flow based on hash fragment or URL path
-          const isRecoveryFlow = window.location.hash === '#recovery' || 
-                                window.location.pathname.includes('reset-password');
-          
-          if (isRecoveryFlow) {
-            logger.warn('Recovery flow detected but no token in URL');
-          }
-          
           // If no token in URL, check for active session
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session) {
             setIsTokenValid(true);
-            logger.info('Session is valid for password reset');
+            logger.info('No token in URL but user has active session, allowing password reset');
           } else {
             setError('Invalid or expired reset link. Please request a new password reset.');
             setIsTokenValid(false);
             logger.warn('No token in URL and no active session');
           }
+          setIsCheckingToken(false);
         }
       } catch (err) {
         logger.error('Error checking reset token:', err);
         setError('Unable to verify reset token. Please try again. Error: ' + (err instanceof Error ? err.message : String(err)));
         setIsTokenValid(false);
-      } finally {
         setIsCheckingToken(false);
       }
     };
