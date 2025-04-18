@@ -6,6 +6,7 @@ import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import { checkPasswordStrength, validatePassword } from '../../utils/passwordUtils';
 import logger from '../../lib/logger';
 import useAuthStore from '../../store/useAuthStore';
+import { AuthError, Session, User } from '@supabase/supabase-js';
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -39,24 +40,34 @@ const ResetPassword: React.FC = () => {
           // Get token from URL
           const url = new URL(window.location.href);
           const urlToken = url.searchParams.get('token');
+          const tokenType = url.searchParams.get('type') || 'recovery';
           
           if (urlToken) {
             setToken(urlToken);
             setIsTokenValid(true); // Assume token is valid to show form immediately
             
             // Verify the token in background
-            const { error: verifyError } = await supabase.auth.verifyOtp({
+            supabase.auth.verifyOtp({
               token_hash: urlToken,
-              type: 'recovery'
-            });
-            
-            if (verifyError) {
-              logger.error('Invalid recovery token:', verifyError);
-              setError(`Password reset failed: ${verifyError.message}`);
+              type: tokenType
+            }).then(({ data, error: verifyError }: { 
+              data: { user: User | null; session: Session | null }; 
+              error: AuthError | null 
+            }) => {
+              if (verifyError) {
+                logger.error('Invalid recovery token:', verifyError);
+                setError(`Password reset failed: ${verifyError.message}`);
+                setIsTokenValid(false);
+              } else {
+                logger.info('Token verified successfully, ready for password reset');
+              }
+            }).catch((err: unknown) => {
+              logger.error('Error verifying token:', err);
+              setError('Error verifying reset token');
               setIsTokenValid(false);
-            } else {
-              logger.info('Token verified successfully, ready for password reset');
-            }
+            }).finally(() => {
+              setIsCheckingToken(false);
+            });
             
             // Don't wait for verification to complete, show the form immediately
             setIsCheckingToken(false);
@@ -217,8 +228,65 @@ const ResetPassword: React.FC = () => {
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-brand-neutral-900">Invalid Reset Link</h2>
             <p className="mt-2 text-brand-neutral-600">
-              This password reset link is invalid or has expired. Please request a new password reset.
+              This password reset link is invalid or has expired. Please request a new password reset or try entering the token manually below.
             </p>
+          </div>
+          
+          <div className="mt-4 mb-6">
+            <label htmlFor="manual-token" className="block text-sm font-medium text-brand-neutral-600 mb-1">
+              Enter Reset Token Manually
+            </label>
+            <p className="text-xs text-brand-neutral-500 mb-2">
+              If you have a valid token from your email, you can enter it here
+            </p>
+            <div className="flex gap-2">
+              <input
+                id="manual-token"
+                type="text"
+                placeholder="Enter token from email"
+                className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm placeholder-brand-neutral-400 focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500"
+                value={token || ''}
+                onChange={(e) => setToken(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (token) {
+                    setIsCheckingToken(true);
+                    supabase.auth.verifyOtp({
+                      token_hash: token,
+                      type: 'recovery'
+                    }).then(({ data, error: verifyError }: { 
+                      data: { user: User | null; session: Session | null }; 
+                      error: AuthError | null 
+                    }) => {
+                      if (verifyError) {
+                        setError(`Manual token verification failed: ${verifyError.message}`);
+                        setIsTokenValid(false);
+                      } else {
+                        setIsTokenValid(true);
+                        setError(null);
+                      }
+                    }).catch((err: unknown) => {
+                      setError('Error verifying token manually');
+                      setIsTokenValid(false);
+                    }).finally(() => {
+                      setIsCheckingToken(false);
+                    });
+                  } else {
+                    setError('Please enter a token');
+                  }
+                }}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
+              >
+                Verify
+              </button>
+            </div>
+            {error && (
+              <p className="mt-2 text-sm text-red-600">
+                {error}
+              </p>
+            )}
           </div>
           
           <button
