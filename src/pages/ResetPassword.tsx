@@ -5,8 +5,13 @@ import { cn } from '../lib/utils';
 import PasswordStrengthMeter from '../components/Auth/PasswordStrengthMeter';
 import { checkPasswordStrength, validatePassword } from '../utils/passwordUtils';
 import logger from '../lib/logger';
+import { useRouter } from 'next/router';
 
 const ResetPassword: React.FC = () => {
+  const router = useRouter();
+  const { token } = router.query as { token?: string };
+
+  const [stage, setStage] = useState<'loading' | 'form' | 'invalid' | 'success'>('loading');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -20,77 +25,31 @@ const ResetPassword: React.FC = () => {
 
   // Check for reset token on mount
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        // Check if we have a valid session from a password recovery flow
-        if (session) {
-          logger.info('Valid session found for password reset');
+    if (typeof token !== 'string') return;
+    supabase.auth.verifyOtp({ token_hash: token, type: 'recovery' })
+      .then(({ error: verifyError }) => {
+        if (verifyError) {
+          logger.error('Error verifying recovery token:', verifyError);
+          setError('Invalid or expired reset link. Please request a new password reset.');
+          setIsTokenValid(false);
+          setIsCheckingToken(false);
+          setStage('invalid');
+        } else {
+          logger.info('Recovery token verified successfully');
           setIsTokenValid(true);
           setIsCheckingToken(false);
-          return;
+          setIsSuccess(true);
+          setStage('form');
         }
-        
-        // If no session yet, check URL for recovery token
-        const url = new URL(window.location.href);
-        const token = url.searchParams.get('token');
-        const type = url.searchParams.get('type');
-        
-        logger.info('Checking reset parameters:', { hasToken: !!token, type });
-        
-        if (token && type === 'recovery') {
-          logger.info('Recovery token found in URL, attempting to verify');
-          
-          try {
-            // Verify the recovery token
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'recovery'
-            });
-            
-            if (verifyError) {
-              logger.error('Error verifying recovery token:', verifyError);
-              setError('Invalid or expired reset link. Please request a new password reset.');
-              setIsTokenValid(false);
-              setIsCheckingToken(false);
-              return;
-            }
-            
-            // Token verified successfully
-            logger.info('Recovery token verified successfully');
-            setIsTokenValid(true);
-            setIsCheckingToken(false);
-            return;
-          } catch (verifyErr) {
-            logger.error('Exception verifying recovery token:', verifyErr);
-            setError('Error processing reset link. Please try again or request a new password reset.');
-            setIsTokenValid(false);
-            setIsCheckingToken(false);
-            return;
-          }
-        }
-        
-        // No session and no valid token in URL
-        logger.warn('No valid reset parameters found');
-        setError('Invalid or expired reset link. Please request a new password reset.');
+      })
+      .catch(() => {
+        logger.error('Error verifying recovery token');
+        setError('Error verifying recovery token. Please try again or request a new password reset.');
         setIsTokenValid(false);
         setIsCheckingToken(false);
-      } catch (err) {
-        logger.error('Error checking reset token:', err);
-        setError('Unable to verify reset token. Please try again.');
-        setIsTokenValid(false);
-        setIsCheckingToken(false);
-      }
-    };
-    
-    checkSession();
-  }, []);
+        setStage('invalid');
+      });
+  }, [token]);
 
   useEffect(() => {
     if (newPassword) {
@@ -135,6 +94,8 @@ const ResetPassword: React.FC = () => {
       // Show success state
       setIsSuccess(true);
       logger.info('Password updated successfully');
+      await supabase.auth.signOut();      // clear the recovery session
+      setStage('success');
     } catch (err) {
       logger.error('Error updating password:', err);
       setError(err instanceof Error ? err.message : 'Failed to update password');
@@ -152,7 +113,7 @@ const ResetPassword: React.FC = () => {
     window.location.href = '/?reset=true';
   };
 
-  if (isCheckingToken) {
+  if (stage === 'loading') {
     return (
       <div className="min-h-screen bg-app flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg text-center">
@@ -164,7 +125,7 @@ const ResetPassword: React.FC = () => {
     );
   }
 
-  if (isTokenValid === false) {
+  if (stage === 'invalid') {
     return (
       <div className="min-h-screen bg-app flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
@@ -186,7 +147,7 @@ const ResetPassword: React.FC = () => {
     );
   }
 
-  if (isSuccess) {
+  if (stage === 'success') {
     return (
       <div className="min-h-screen bg-app flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">

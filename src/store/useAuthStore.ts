@@ -292,9 +292,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password#recovery',
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
       
       if (error) throw error;
       

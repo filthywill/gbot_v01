@@ -45,24 +45,18 @@ const ResetPassword: React.FC = () => {
             setIsTokenValid(true); // Assume token is valid to show form immediately
             
             // Verify the token in background
-            supabase.auth.verifyOtp({
+            const { error: verifyError } = await supabase.auth.verifyOtp({
               token_hash: urlToken,
               type: 'recovery'
-            }).then(({ data, error: verifyError }) => {
-              if (verifyError) {
-                logger.error('Invalid recovery token:', verifyError);
-                setError(`Password reset failed: ${verifyError.message}`);
-                setIsTokenValid(false);
-              } else {
-                logger.info('Token verified successfully, ready for password reset');
-              }
-            }).catch(err => {
-              logger.error('Error verifying token:', err);
-              setError('Error verifying reset token');
-              setIsTokenValid(false);
-            }).finally(() => {
-              setIsCheckingToken(false);
             });
+            
+            if (verifyError) {
+              logger.error('Invalid recovery token:', verifyError);
+              setError(`Password reset failed: ${verifyError.message}`);
+              setIsTokenValid(false);
+            } else {
+              logger.info('Token verified successfully, ready for password reset');
+            }
             
             // Don't wait for verification to complete, show the form immediately
             setIsCheckingToken(false);
