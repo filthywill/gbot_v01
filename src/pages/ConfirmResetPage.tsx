@@ -3,40 +3,41 @@ import logger from '../lib/logger';
 
 const ConfirmResetPage: React.FC = () => {
   const [tokenInfo, setTokenInfo] = useState<{
-    token: string | null;
+    tokenHash: string | null;
     type: string | null;
   }>({
-    token: null,
+    tokenHash: null,
     type: null
   });
 
   useEffect(() => {
     // Extract token information from URL
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const tokenHash = params.get('token_hash');
     const type = params.get('type') || 'recovery';
 
     logger.info('ConfirmReset page loaded with params:', {
-      hasToken: !!token,
+      hasTokenHash: !!tokenHash,
+      tokenHashLength: tokenHash ? tokenHash.length : 0,
       type,
       url: window.location.href
     });
 
     // Store the token
     setTokenInfo({
-      token,
+      tokenHash,
       type
     });
   }, []);
 
   const handleProceedToReset = () => {
     // Build the URL for the actual reset page with the token
-    if (tokenInfo.token) {
-      const resetUrl = `/reset-password?token_hash=${tokenInfo.token}&type=${tokenInfo.type || 'recovery'}`;
+    if (tokenInfo.tokenHash) {
+      const resetUrl = `/reset-password?token_hash=${tokenInfo.tokenHash}&type=${tokenInfo.type || 'recovery'}`;
       logger.info('Redirecting to reset password page:', resetUrl);
       window.location.href = resetUrl;
     } else {
-      logger.error('No token found when attempting to proceed to reset');
+      logger.error('No token hash found when attempting to proceed to reset');
     }
   };
 
@@ -45,7 +46,7 @@ const ConfirmResetPage: React.FC = () => {
       <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-brand-neutral-900">Reset Your Password</h2>
-          {tokenInfo.token ? (
+          {tokenInfo.tokenHash ? (
             <>
               <p className="mt-4 text-brand-neutral-600">
                 To protect your security, please click the button below to continue with your password reset.
