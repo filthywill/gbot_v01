@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import logger from '../lib/logger';
-import useAuthStore from '../store/useAuthStore';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 const ResetCodePage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,9 +16,7 @@ const ResetCodePage: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeVerified, setCodeVerified] = useState(false);
-
-  // Get methods from auth store
-  const { verifyResetOtp, updateUserPassword } = useAuthStore();
+  const [verificationResult, setVerificationResult] = useState<any>(null);
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,16 +32,27 @@ const ResetCodePage: React.FC = () => {
       
       logger.info('Verifying password reset code', { email });
       
-      // Verify the OTP code using the auth store function
-      const success = await verifyResetOtp(email, code);
+      // Directly verify the OTP code with Supabase for more control
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: 'recovery'
+      });
       
-      if (!success) {
-        // Error will be set by the verifyResetOtp function
-        throw new Error('Invalid or expired reset code. Please try again or request a new code.');
+      if (verifyError) {
+        logger.error('Code verification error:', verifyError);
+        throw new Error(verifyError.message);
       }
       
+      // Store the verification result for later use
+      setVerificationResult(data);
+      
       // If we got here, the code is valid
-      logger.info('Reset code verified successfully');
+      logger.info('Reset code verified successfully', {
+        hasUser: !!data?.user,
+        hasSession: !!data?.session
+      });
+      
       setCodeVerified(true);
     } catch (err) {
       logger.error('Error verifying reset code:', err);
@@ -72,16 +81,54 @@ const ResetCodePage: React.FC = () => {
       
       logger.info('Updating password after code verification');
       
-      // Update the password using auth store function
-      const result = await updateUserPassword(email, code, password);
-      
-      if (!result) {
-        throw new Error('Failed to update password. Please try again with a new reset code.');
+      // If we have a session from the verification, use it for the password update
+      if (verificationResult?.session) {
+        // Apply the session from verification first
+        await supabase.auth.setSession({
+          access_token: verificationResult.session.access_token,
+          refresh_token: verificationResult.session.refresh_token
+        });
+        
+        // Now update the password directly
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password
+        });
+        
+        if (updateError) {
+          logger.error('Password update error:', updateError);
+          throw new Error(updateError.message);
+        }
+      } else {
+        // Use a two-step approach to bypass type issues
+        // First verify the OTP again
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token: code,
+          type: 'recovery'
+        });
+        
+        if (verifyError) {
+          logger.error('Reset verification error:', verifyError);
+          throw new Error(verifyError.message);
+        }
+        
+        // Then update the password
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password
+        });
+        
+        if (updateError) {
+          logger.error('Password update error:', updateError);
+          throw new Error(updateError.message);
+        }
       }
       
       // Password updated successfully
       logger.info('Password updated successfully');
       setIsSuccess(true);
+      
+      // Sign out to clear the session
+      await supabase.auth.signOut();
     } catch (err) {
       logger.error('Error updating password:', err);
       setError(err instanceof Error ? err.message : 'Failed to update password');
