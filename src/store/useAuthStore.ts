@@ -28,6 +28,9 @@ type AuthState = {
   resetError: () => void;
   setError: (error: string) => void;
   resetPassword: (email: string) => Promise<void>;
+  sendResetOtp: (email: string) => Promise<boolean>;
+  verifyResetOtp: (email: string, token: string) => Promise<boolean>;
+  updateUserPassword: (email: string, token: string, newPassword: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   
   // Direct state setters (for auth callbacks and external auth sources)
@@ -307,6 +310,117 @@ const useAuthStore = create<AuthState>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
+    }
+  },
+  
+  // OTP-based password reset
+  sendResetOtp: async (email: string) => {
+    try {
+      set({ status: 'LOADING', error: null });
+      logger.info('Sending password reset OTP code', { email });
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-code',
+      });
+      
+      if (error) throw error;
+      
+      set({ status: 'UNAUTHENTICATED' });
+      logger.info('Password reset OTP code sent');
+      return true;
+    } catch (error) {
+      logger.error('Password reset OTP error:', error);
+      set({ 
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Failed to send password reset code',
+        lastError: error instanceof Error ? error : new Error('Unknown error')
+      });
+      return false;
+    }
+  },
+  
+  // Verify OTP code for password reset
+  verifyResetOtp: async (email: string, token: string) => {
+    try {
+      set({ status: 'LOADING', error: null });
+      logger.info('Verifying password reset OTP code', { email });
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'recovery'
+      });
+      
+      if (error) throw error;
+      
+      // If we get here, verification was successful
+      logger.info('Password reset OTP verification successful', { email });
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify reset code';
+      logger.error('OTP reset verification error:', error);
+      
+      // Set more user-friendly error messages
+      let userFriendlyError = errorMessage;
+      if (errorMessage.includes('expired')) {
+        userFriendlyError = 'This reset code has expired. Please request a new one.';
+      } else if (errorMessage.includes('invalid')) {
+        userFriendlyError = 'Invalid reset code. Please check and try again.';
+      }
+      
+      set({ 
+        status: 'ERROR',
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
+      });
+      return false;
+    }
+  },
+  
+  // Update user password after OTP verification
+  updateUserPassword: async (email: string, token: string, newPassword: string) => {
+    try {
+      set({ status: 'LOADING', error: null });
+      logger.info('Updating user password with OTP', { email });
+      
+      // Verify the OTP and update password in one step
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'recovery',
+        options: {
+          password: newPassword
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Update auth state with user data if available
+      if (data.user) {
+        set({ 
+          user: data.user,
+          session: data.session,
+          status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
+          error: null
+        });
+        
+        logger.info('Password updated successfully', { userId: data.user?.id });
+      } else {
+        set({ status: 'UNAUTHENTICATED', error: null });
+        logger.info('Password updated but no user data returned');
+      }
+      
+      return data;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update password';
+      logger.error('Password update error:', error);
+      
+      set({ 
+        status: 'ERROR',
+        error: errorMessage,
+        lastError: error instanceof Error ? error : new Error(errorMessage)
+      });
+      return null;
     }
   },
   

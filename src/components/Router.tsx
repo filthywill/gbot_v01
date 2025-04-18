@@ -6,6 +6,7 @@ import ResetPassword from '../pages/auth/reset-password';
 import ConfirmResetPage from '../pages/ConfirmResetPage';
 import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
+import ResetCodePage from '../pages/ResetCodePage';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -201,6 +202,9 @@ const Router: React.FC = () => {
     });
     logger.info('Rendering ConfirmReset component');
     return <ConfirmResetPage />;
+  } else if (pathStartsWith('/reset-code')) {
+    logger.info('Rendering ResetCodePage component');
+    return <ResetCodePage />;
   } else if (pathStartsWith('/reset-password') || pathStartsWith('/auth/reset-password')) {
     console.log('RENDERING RESET PASSWORD COMPONENT', { 
       url: window.location.href,
