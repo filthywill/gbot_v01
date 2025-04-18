@@ -2,11 +2,9 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import App from '../App';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import TermsOfService from '../pages/TermsOfService';
-import ResetPassword from '../pages/auth/reset-password';
-import ConfirmResetPage from '../pages/ConfirmResetPage';
-import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
-import ResetCodePage from '../pages/ResetCodePage';
+import RequestPasswordReset from '../pages/auth/request-password-reset';
+import ChangePassword from '../pages/auth/change-password';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -189,35 +187,10 @@ const Router: React.FC = () => {
     return <PrivacyPolicy />;
   } else if (pathStartsWith('/terms-of-service')) {
     return <TermsOfService />;
-  } else if (pathStartsWith('/token-debug')) {
-    logger.info('Rendering TokenDebugPage component');
-    return <TokenDebugPage />;
-  } else if (pathStartsWith('/confirm-reset')) {
-    // New confirm-reset route that provides a button to complete the reset process
-    console.log('RENDERING CONFIRM RESET COMPONENT', {
-      url: window.location.href,
-      path: window.location.pathname, 
-      search: window.location.search,
-      timestamp: new Date().toISOString()
-    });
-    logger.info('Rendering ConfirmReset component');
-    return <ConfirmResetPage />;
-  } else if (pathStartsWith('/reset-code')) {
-    logger.info('Rendering ResetCodePage component');
-    return <ResetCodePage />;
-  } else if (pathStartsWith('/reset-password') || pathStartsWith('/auth/reset-password')) {
-    console.log('RENDERING RESET PASSWORD COMPONENT', { 
-      url: window.location.href,
-      path: window.location.pathname,
-      hasToken: window.location.search.includes('token='),
-      timestamp: new Date().toISOString()
-    });
-    logger.info('Rendering ResetPassword component', { 
-      path: window.location.pathname,
-      hasToken: window.location.search.includes('token='),
-      hasType: window.location.search.includes('type=recovery')
-    });
-    return <ResetPassword />;
+  } else if (pathStartsWith('/auth/request-password-reset')) {
+    return <RequestPasswordReset />;
+  } else if (pathStartsWith('/auth/change-password')) {
+    return <ChangePassword />;
   } else if (pathStartsWith('/verification-success')) {
     return (
       <Suspense fallback={<div className="p-4 text-center">Loading verification success page...</div>}>

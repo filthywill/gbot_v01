@@ -27,11 +27,8 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetError: () => void;
   setError: (error: string) => void;
-  resetPassword: (email: string) => Promise<void>;
-  sendResetOtp: (email: string) => Promise<boolean>;
-  verifyResetOtp: (email: string, token: string) => Promise<boolean>;
-  updateUserPassword: (email: string, token: string, newPassword: string) => Promise<{ user: User | null; session: Session | null; } | null>;
-  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  changePassword: (newPassword: string) => Promise<void>;
   
   // Direct state setters (for auth callbacks and external auth sources)
   setUser: (user: User | null) => void;
@@ -291,210 +288,41 @@ const useAuthStore = create<AuthState>((set, get) => ({
     lastError: new Error(error)
   }),
 
-  resetPassword: async (email: string) => {
+  requestPasswordReset: async (email: string) => {
     try {
       set({ status: 'LOADING', error: null });
-      
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password',
+        redirectTo: window.location.origin + '/auth/change-password',
       });
-      
+
       if (error) throw error;
-      
+
       set({ status: 'UNAUTHENTICATED' });
       logger.info('Password reset email sent');
     } catch (error) {
       logger.error('Password reset error:', error);
-      set({ 
+      set({
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Failed to send password reset email',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        lastError: error instanceof Error ? error : new Error('Unknown error'),
       });
+      throw error;
     }
   },
   
-  // OTP-based password reset
-  sendResetOtp: async (email: string) => {
+  changePassword: async (newPassword: string) => {
     try {
       set({ status: 'LOADING', error: null });
-      logger.info('Sending password reset OTP code', { email });
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-code',
-      });
-      
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      
-      set({ status: 'UNAUTHENTICATED' });
-      logger.info('Password reset OTP code sent');
-      return true;
+      await supabase.auth.signOut();
+      set({ user: null, session: null, status: 'UNAUTHENTICATED', error: null });
+      logger.info('Password changed successfully and user signed out');
     } catch (error) {
-      logger.error('Password reset OTP error:', error);
-      set({ 
-        status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to send password reset code',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
-      });
-      return false;
-    }
-  },
-  
-  // Verify OTP code for password reset
-  verifyResetOtp: async (email: string, token: string) => {
-    try {
-      set({ status: 'LOADING', error: null });
-      logger.info('Verifying password reset OTP code', { email });
-      
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'recovery'
-      });
-      
-      if (error) throw error;
-      
-      // If we get here, verification was successful
-      logger.info('Password reset OTP verification successful', { email });
-      return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to verify reset code';
-      logger.error('OTP reset verification error:', error);
-      
-      // Set more user-friendly error messages
-      let userFriendlyError = errorMessage;
-      if (errorMessage.includes('expired')) {
-        userFriendlyError = 'This reset code has expired. Please request a new one.';
-      } else if (errorMessage.includes('invalid')) {
-        userFriendlyError = 'Invalid reset code. Please check and try again.';
-      }
-      
-      set({ 
-        status: 'ERROR',
-        error: userFriendlyError,
-        lastError: error instanceof Error ? error : new Error(userFriendlyError)
-      });
-      return false;
-    }
-  },
-  
-  // Update user password after OTP verification
-  updateUserPassword: async (email: string, token: string, newPassword: string) => {
-    try {
-      set({ status: 'LOADING', error: null });
-      logger.info('Updating user password with OTP', { email });
-      
-      // Verify the OTP and update password in one step
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'recovery',
-        options: {
-          password: newPassword
-        }
-      });
-      
-      if (error) throw error;
-      
-      // Update auth state with user data if available
-      if (data.user) {
-        set({ 
-          user: data.user,
-          session: data.session,
-          status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
-          error: null
-        });
-        
-        logger.info('Password updated successfully', { userId: data.user?.id });
-      } else {
-        set({ status: 'UNAUTHENTICATED', error: null });
-        logger.info('Password updated but no user data returned');
-      }
-      
-      return data;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update password';
-      logger.error('Password update error:', error);
-      
-      set({ 
-        status: 'ERROR',
-        error: errorMessage,
-        lastError: error instanceof Error ? error : new Error(errorMessage)
-      });
-      return null;
-    }
-  },
-  
-  // OTP verification method
-  verifyOtp: async (email: string, token: string) => {
-    try {
-      set({ status: 'LOADING', error: null });
-      logger.info('Verifying OTP code', { email });
-      
-      // Create a timeout promise to handle potential hanging requests
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Verification request timed out. Please try again.'));
-        }, 10000); // 10 second timeout
-      });
-      
-      // Create the actual verification promise
-      const verificationPromise = supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup'
-      });
-      
-      // Race the verification against the timeout
-      const result = await Promise.race([
-        verificationPromise,
-        timeoutPromise
-      ]);
-      
-      // Since result will be the verification response if it won the race
-      const { data, error } = result;
-      
-      if (error) throw error;
-      
-      // Handle case where we got data but no user
-      if (!data.user) {
-        logger.warn('Verification completed but no user returned');
-        throw new Error('Verification successful but user data unavailable. Please try signing in.');
-      }
-      
-      // Update auth state with verified user
-      set({ 
-        user: data.user,
-        session: data.session,
-        status: data.session ? 'AUTHENTICATED' : 'UNAUTHENTICATED',
-        error: null
-      });
-      
-      logger.info('OTP verification successful', { userId: data.user?.id });
-      
-      // Clear verification state
-      clearAllVerificationState();
-      
-      return data;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to verify code';
-      logger.error('OTP verification error:', error);
-      
-      // Set more user-friendly error messages based on error type
-      let userFriendlyError = errorMessage;
-      if (errorMessage.includes('timeout')) {
-        userFriendlyError = 'Verification timed out. Please try again.';
-      } else if (errorMessage.includes('expired')) {
-        userFriendlyError = 'This verification code has expired. Please request a new one.';
-      } else if (errorMessage.includes('invalid')) {
-        userFriendlyError = 'Invalid verification code. Please check and try again.';
-      }
-      
-      set({ 
-        status: 'ERROR',
-        error: userFriendlyError,
-        lastError: error instanceof Error ? error : new Error(userFriendlyError)
-      });
-      return null;
+      logger.error('Error changing password:', error);
+      set({ status: 'ERROR', error: error instanceof Error ? error.message : 'Failed to change password', lastError: error instanceof Error ? error : new Error('Unknown error') });
+      throw error;
     }
   },
   

@@ -335,11 +335,7 @@ function App() {
       // Check for URL parameters
       const urlParams = new URLSearchParams(window.location.search);
       
-      // Check for reset=true to trigger reset password flow
-      if (urlParams.has('reset')) {
-        setAuthModalMode(AUTH_VIEWS.FORGOT_PASSWORD);
-        setShowAuthModal(true);
-      }
+      // Removed obsolete '?reset' handling for OTP-based flow
       
       // Check for successful password reset
       if (urlParams.has('passwordReset') && urlParams.get('passwordReset') === 'success') {
