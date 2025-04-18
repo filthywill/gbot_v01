@@ -186,13 +186,15 @@ const Router: React.FC = () => {
     return <PrivacyPolicy />;
   } else if (pathStartsWith('/terms-of-service')) {
     return <TermsOfService />;
-  } else if (pathStartsWith('/reset-password')) {
+  } else if (pathStartsWith('/reset-password') || pathStartsWith('/auth/reset-password')) {
     console.log('RENDERING RESET PASSWORD COMPONENT', { 
       url: window.location.href,
+      path: window.location.pathname,
       hasToken: window.location.search.includes('token='),
       timestamp: new Date().toISOString()
     });
     logger.info('Rendering ResetPassword component', { 
+      path: window.location.pathname,
       hasToken: window.location.search.includes('token='),
       hasType: window.location.search.includes('type=recovery')
     });

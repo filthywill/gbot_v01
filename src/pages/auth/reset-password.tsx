@@ -20,9 +20,38 @@ const ResetPassword: React.FC = () => {
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, any> | null>(null);
   
   // Get the signOut function from auth store
   const { signOut } = useAuthStore();
+
+  // Log component mount for debugging
+  useEffect(() => {
+    logger.info('ResetPassword component mounted', {
+      url: window.location.href,
+      path: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+    });
+    
+    // Capture and display debug info
+    const urlInfo = {
+      fullUrl: window.location.href,
+      path: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      token: new URLSearchParams(window.location.search).get('token'),
+      type: new URLSearchParams(window.location.search).get('type'),
+      timestamp: new Date().toISOString()
+    };
+    
+    setDebugInfo(urlInfo);
+    logger.debug('Reset password URL info:', urlInfo);
+    
+    return () => {
+      logger.info('ResetPassword component unmounted');
+    };
+  }, []);
 
   // Check for reset token on mount
   useEffect(() => {
@@ -47,31 +76,40 @@ const ResetPassword: React.FC = () => {
             setIsTokenValid(true); // Assume token is valid to show form immediately
             
             // Verify the token in background
-            supabase.auth.verifyOtp({
-              token_hash: urlToken,
-              type: tokenType
-            }).then(({ data, error: verifyError }: { 
-              data: { user: User | null; session: Session | null }; 
-              error: AuthError | null 
-            }) => {
+            try {
+              // Log token verification attempt
+              logger.debug('Verifying token', { tokenType, tokenLength: urlToken.length });
+              
+              const verifyResult = await supabase.auth.verifyOtp({
+                token_hash: urlToken,
+                type: tokenType
+              });
+              
+              const { data, error: verifyError } = verifyResult;
+              
               if (verifyError) {
                 logger.error('Invalid recovery token:', verifyError);
                 setError(`Password reset failed: ${verifyError.message}`);
                 setIsTokenValid(false);
               } else {
-                logger.info('Token verified successfully, ready for password reset');
+                logger.info('Token verified successfully, ready for password reset', { 
+                  hasUser: !!data?.user,
+                  hasSession: !!data?.session
+                });
               }
-            }).catch((err: unknown) => {
+            } catch (err) {
               logger.error('Error verifying token:', err);
-              setError('Error verifying reset token');
+              setError('Error verifying reset token: ' + (err instanceof Error ? err.message : String(err)));
               setIsTokenValid(false);
-            }).finally(() => {
+            } finally {
               setIsCheckingToken(false);
-            });
+            }
             
             // Don't wait for verification to complete, show the form immediately
             setIsCheckingToken(false);
             return;
+          } else {
+            logger.warn('Recovery hash fragment found but no token in URL');
           }
           
           // If no token in URL, check for active session
@@ -83,6 +121,7 @@ const ResetPassword: React.FC = () => {
           } else {
             setError('Invalid or expired reset link. Please request a new password reset.');
             setIsTokenValid(false);
+            logger.warn('No token in URL and no active session');
           }
         } else {
           // No recovery hash found, user might have navigated here directly
@@ -101,7 +140,7 @@ const ResetPassword: React.FC = () => {
         }
       } catch (err) {
         logger.error('Error checking reset token:', err);
-        setError('Unable to verify reset token. Please try again.');
+        setError('Unable to verify reset token. Please try again. Error: ' + (err instanceof Error ? err.message : String(err)));
         setIsTokenValid(false);
       } finally {
         setIsCheckingToken(false);
@@ -216,6 +255,12 @@ const ResetPassword: React.FC = () => {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
+          {debugInfo && import.meta.env.DEV && (
+            <div className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-48">
+              <p className="font-semibold mb-1">Debug Info:</p>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -263,13 +308,16 @@ const ResetPassword: React.FC = () => {
                       if (verifyError) {
                         setError(`Manual token verification failed: ${verifyError.message}`);
                         setIsTokenValid(false);
+                        logger.error('Manual token verification failed:', verifyError);
                       } else {
                         setIsTokenValid(true);
                         setError(null);
+                        logger.info('Manual token verification succeeded');
                       }
                     }).catch((err: unknown) => {
-                      setError('Error verifying token manually');
+                      setError('Error verifying token manually: ' + (err instanceof Error ? err.message : String(err)));
                       setIsTokenValid(false);
+                      logger.error('Error in manual token verification:', err);
                     }).finally(() => {
                       setIsCheckingToken(false);
                     });
@@ -288,6 +336,13 @@ const ResetPassword: React.FC = () => {
               </p>
             )}
           </div>
+          
+          {debugInfo && import.meta.env.DEV && (
+            <div className="mt-4 mb-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-48">
+              <p className="font-semibold mb-1">Debug Info:</p>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          )}
           
           <button
             onClick={handleRequestNewReset}

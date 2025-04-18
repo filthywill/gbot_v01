@@ -22,6 +22,8 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 <p>If you didn't request a password reset, you can safely ignore this email.</p>
 ```
 
+> **Important Note:** Make sure your router implementation can handle both `/reset-password` and `/auth/reset-password` paths. Our application router has been updated to support both, but if you change the URL in the email template, ensure the router is updated accordingly.
+
 ## Common Issues and Solutions
 
 ### 1. Email Prefetching
@@ -45,6 +47,16 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 - Check Supabase Auth logs for errors
 - Ask users to check spam folders
 - Ensure email domain is properly configured with DKIM, SPF, and DMARC
+
+### 4. Blank Page Issues
+
+**Problem**: Users click on the reset password link but see a blank page.
+
+**Solutions**:
+- Ensure your routing logic handles the exact path from the email template
+- Check browser console for JavaScript errors
+- Verify that the reset password component is being loaded
+- Test the link in different browsers
 
 ## Custom SMTP Setup (Recommended)
 
