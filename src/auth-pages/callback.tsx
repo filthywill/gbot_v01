@@ -10,7 +10,45 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Handle the callback from the OAuth provider
+        // First check URL parameters to see if it's a password reset flow
+        const url = new URL(window.location.href)
+        const token = url.searchParams.get('token')
+        const type = url.searchParams.get('type')
+        
+        // If this is a password recovery flow with a token
+        if (token && type === 'recovery') {
+          setMessage('Verifying your password reset link...')
+          console.log('Password recovery flow detected, verifying token')
+          
+          try {
+            // Verify the token and establish a session
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'recovery'
+            })
+            
+            if (verifyError) {
+              throw verifyError
+            }
+            
+            // If the verification was successful, we should have a session
+            if (data.session) {
+              console.log('Recovery token verified successfully with session')
+              // Redirect to reset password page with verification flag
+              window.location.href = '/auth/reset-password?from_callback=true&verified=true'
+              return
+            } else {
+              console.log('Token verified but no session established')
+              throw new Error('Authentication session could not be established')
+            }
+          } catch (err) {
+            console.error('Error verifying recovery token:', err)
+            setError('Recovery link verification failed. Please request a new password reset link.')
+            return
+          }
+        }
+        
+        // For other auth flows, check for an established session
         const { data, error: authError } = await supabase.auth.getSession()
         
         if (authError) throw authError
@@ -20,7 +58,6 @@ const AuthCallback = () => {
           window.location.href = '/'
         } else {
           // If we need to go to reset password page with the session
-          const url = new URL(window.location.href)
           const isPasswordReset = url.searchParams.get('type') === 'recovery'
           
           if (isPasswordReset) {

@@ -55,7 +55,58 @@ const ResetPasswordPage: React.FC = () => {
           logger.info('Valid verification from callback detected');
           setIsTokenValid(true);
           setError(null);
+          setIsTokenChecking(false);
+          tokenChecked.current = true;
           return;
+        }
+        
+        // Check if we have a token in the URL (direct link)
+        const token = url.searchParams.get('token');
+        const type = url.searchParams.get('type');
+        
+        if (token && type === 'recovery') {
+          logger.info('Found recovery token in URL, attempting verification');
+          
+          try {
+            // Verify the recovery token
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'recovery'
+            });
+            
+            if (verifyError) {
+              logger.error('Error verifying recovery token:', verifyError);
+              setError('Invalid or expired reset link. Please request a new one.');
+              setIsTokenValid(false);
+              setIsTokenChecking(false);
+              tokenChecked.current = true;
+              return;
+            }
+            
+            // If we have a session, we're good to go
+            if (data.session) {
+              logger.info('Recovery token verified, session established');
+              setIsTokenValid(true);
+              setError(null);
+              setIsTokenChecking(false);
+              tokenChecked.current = true;
+              return;
+            } else {
+              logger.warn('Token verified but no session established');
+              setError('Authentication session could not be established. Please try again.');
+              setIsTokenValid(false);
+              setIsTokenChecking(false);
+              tokenChecked.current = true;
+              return;
+            }
+          } catch (err) {
+            logger.error('Error during token verification:', err);
+            setError('There was a problem verifying your reset link. Please request a new one.');
+            setIsTokenValid(false);
+            setIsTokenChecking(false);
+            tokenChecked.current = true;
+            return;
+          }
         }
         
         // Otherwise, check for a valid session
@@ -65,6 +116,8 @@ const ResetPasswordPage: React.FC = () => {
           logger.error('Error checking session:', authError);
           setError('There was a problem verifying your reset link. Please request a new one.');
           setIsTokenValid(false);
+          setIsTokenChecking(false);
+          tokenChecked.current = true;
           return;
         }
         
@@ -73,6 +126,8 @@ const ResetPasswordPage: React.FC = () => {
           logger.info('Valid session found for password reset');
           setIsTokenValid(true);
           setError(null);
+          setIsTokenChecking(false);
+          tokenChecked.current = true;
           return;
         }
         
@@ -82,6 +137,8 @@ const ResetPasswordPage: React.FC = () => {
           logger.warn('Came from callback page but no session established');
           setError('Your password reset link may have expired. Please request a new one.');
           setIsTokenValid(false);
+          setIsTokenChecking(false);
+          tokenChecked.current = true;
           return;
         }
         
@@ -89,11 +146,12 @@ const ResetPasswordPage: React.FC = () => {
         logger.warn('No active session found with reset token');
         setError('The reset link is invalid or has expired. Please request a new password reset link.');
         setIsTokenValid(false);
+        setIsTokenChecking(false);
+        tokenChecked.current = true;
       } catch (err) {
         logger.error('Error during token verification:', err);
         setError('There was a problem verifying your reset link. Please try again or request a new one.');
         setIsTokenValid(false);
-      } finally {
         setIsTokenChecking(false);
         tokenChecked.current = true;
       }
@@ -143,6 +201,19 @@ const ResetPasswordPage: React.FC = () => {
       
       logger.info('Updating password');
       
+      // First check if we still have a valid session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        logger.error('Error checking session before password update:', sessionError);
+        throw new Error('Auth session missing! Please try again with a new reset link.');
+      }
+      
+      if (!sessionData.session) {
+        logger.error('No active session found when updating password');
+        throw new Error('Auth session missing! Please try again with a new reset link.');
+      }
+      
       // Update user's password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
@@ -166,7 +237,9 @@ const ResetPasswordPage: React.FC = () => {
       if (err instanceof Error) {
         // Provide friendly error messages
         const errorText = err.message.toLowerCase();
-        if (errorText.includes('expired')) {
+        if (errorText.includes('session')) {
+          setError('Your authentication session is missing or expired. Please request a new reset link.');
+        } else if (errorText.includes('expired')) {
           setError('Your password reset link has expired. Please request a new one.');
         } else if (errorText.includes('weak')) {
           setError('Please choose a stronger password.');
