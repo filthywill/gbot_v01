@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon } from 'lucide-react';
-import useAuthStore from '../../store/useAuthStore';
+import React, { useState, useEffect, useRef } from 'react';
+import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon, LockIcon } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import logger from '../../lib/logger';
-import { supabase } from '../../lib/supabase';
 import { validatePassword, checkPasswordStrength } from '../../utils/passwordUtils';
 
 const ResetPasswordPage: React.FC = () => {
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  // State for password form
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -18,60 +14,65 @@ const ResetPasswordPage: React.FC = () => {
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
   const [passwordValid, setPasswordValid] = useState(false);
   
+  // State for page flow
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTokenChecking, setIsTokenChecking] = useState(true);
+  const [isTokenValid, setIsTokenValid] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
+  // Using ref to avoid hooks dependencies warnings
+  const tokenChecked = useRef(false);
+  
   const navigate = (path: string) => {
-    logger.info('Custom navigation to:', path);
-    window.history.pushState({}, '', path);
-    if (typeof (window as any).navigateTo === 'function') {
-      logger.info('Using global navigateTo function');
-      (window as any).navigateTo(path);
-    } else {
-      logger.info('Fallback to window.location.href redirect');
-      window.location.href = path;
-    }
+    window.location.href = path;
   };
   
+  // Check if the hash fragment or URL parameters contain a token
   useEffect(() => {
-    try {
-      logger.info('Reset password page mounted, parsing URL for token');
-      const url = new URL(window.location.href);
-      const hashParams = new URLSearchParams(url.hash.substring(1));
-      const queryToken = url.searchParams.get('token');
-      const hashToken = hashParams.get('token') || hashParams.get('access_token');
-      
-      const extractedToken = queryToken || hashToken;
-      
-      logger.debug('URL token extraction:', { 
-        url: window.location.href,
-        queryToken: queryToken ? queryToken.substring(0, 8) + '...' : null,
-        hashToken: hashToken ? hashToken.substring(0, 8) + '...' : null,
-        extractedToken: extractedToken ? extractedToken.substring(0, 8) + '...' : null
-      });
-      
-      if (extractedToken) {
-        logger.info('Found token in URL');
-        setToken(extractedToken);
+    if (tokenChecked.current) return;
+    
+    const checkToken = async () => {
+      try {
+        logger.info('Verifying password reset token');
+        setIsTokenChecking(true);
         
-        const isValidTokenFormat = 
-          (extractedToken.startsWith('pkce_') && extractedToken.length > 20) || 
-          (extractedToken.includes('.') && extractedToken.split('.').length === 3);
+        // Supabase will automatically use the token in the URL
+        // Let's verify by checking the auth state
+        const { data: authData, error: authError } = await supabase.auth.getSession();
         
-        if (!isValidTokenFormat) {
-          logger.warn('Token appears to be in an invalid format:', 
-            extractedToken.substring(0, 8) + '...');
-          setError('The reset token appears to be invalid. Please request a new password reset link.');
-        } else {
-          logger.info('Token format appears valid, proceeding with reset form');
+        if (authError) {
+          logger.error('Error checking session:', authError);
+          setError('There was a problem verifying your reset link. Please request a new one.');
+          setIsTokenValid(false);
+          return;
         }
-      } else {
-        logger.error('No token found in URL');
-        setError('Invalid or missing reset token. Please request a new password reset link.');
+        
+        if (!authData.session) {
+          logger.warn('No active session found with reset token');
+          setError('The reset link is invalid or has expired. Please request a new password reset link.');
+          setIsTokenValid(false);
+          return;
+        }
+        
+        // Token is valid if we have a session
+        logger.info('Valid reset token found');
+        setIsTokenValid(true);
+        setError(null);
+      } catch (err) {
+        logger.error('Error during token verification:', err);
+        setError('There was a problem verifying your reset link. Please try again or request a new one.');
+        setIsTokenValid(false);
+      } finally {
+        setIsTokenChecking(false);
+        tokenChecked.current = true;
       }
-    } catch (err) {
-      logger.error('Error parsing URL:', err);
-      setError('Something went wrong. Please request a new password reset link.');
-    }
+    };
+    
+    checkToken();
   }, []);
   
+  // Update password strength when password changes
   useEffect(() => {
     if (newPassword) {
       const strength = checkPasswordStrength(newPassword);
@@ -85,52 +86,47 @@ const ResetPasswordPage: React.FC = () => {
     }
   }, [newPassword]);
   
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!token) {
-      setError('No reset token found. Please try again with a new reset link.');
+    if (!isTokenValid) {
+      setError('Your password reset link is invalid or has expired. Please request a new one.');
       return;
     }
     
+    // Validate the new password
     const validation = validatePassword(newPassword);
     if (!validation.isValid) {
-      setError(validation.message || 'Password is not strong enough');
+      setError(validation.message || 'Your password is not strong enough. Please choose a stronger password.');
       return;
     }
     
+    // Check passwords match
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Your passwords do not match. Please make sure both passwords are identical.');
       return;
     }
     
     try {
-      setLoading(true);
+      setIsLoading(true);
       setError(null);
       
-      logger.info('Attempting to update password with token');
+      logger.info('Updating password');
       
-      const result = await supabase.auth.updateUser({
+      // Update user's password
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
       
-      if (result.error) {
-        logger.error('Supabase returned error during password update:', result.error);
-        throw result.error;
+      if (updateError) {
+        throw updateError;
       }
       
-      if (!result.data?.user) {
-        logger.warn('Password update succeeded but no user data returned');
-      } else {
-        logger.info('User data returned after password update:', { 
-          id: result.data.user.id,
-          email: result.data.user.email 
-        });
-      }
-      
+      // Success!
       setSuccess(true);
       logger.info('Password updated successfully');
       
+      // Schedule a redirect back to the home page
       setTimeout(() => {
         navigate('/?passwordReset=success');
       }, 3000);
@@ -138,30 +134,43 @@ const ResetPasswordPage: React.FC = () => {
       logger.error('Error updating password:', err);
       
       if (err instanceof Error) {
-        const errorMsg = err.message.toLowerCase();
-        if (errorMsg.includes('expired')) {
-          setError('Your reset link has expired. Please request a new one.');
-        } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
-          setError('Invalid reset link. Please request a new one.');
-        } else if (errorMsg.includes('network')) {
-          setError('Network error. Please check your connection and try again.');
-        } else if (errorMsg.includes('same password')) {
-          setError('The new password cannot be the same as your current password.');
+        // Provide friendly error messages
+        const errorText = err.message.toLowerCase();
+        if (errorText.includes('expired')) {
+          setError('Your password reset link has expired. Please request a new one.');
+        } else if (errorText.includes('weak')) {
+          setError('Please choose a stronger password.');
+        } else if (errorText.includes('same')) {
+          setError('Your new password must be different from your old password.');
         } else {
           setError(err.message);
         }
       } else {
-        setError('Failed to update password. Please try again.');
+        setError('There was a problem updating your password. Please try again.');
       }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
   
+  // Loading state while we check the token
+  if (isTokenChecking) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-brand-neutral-900 mb-2">Verifying Reset Link</h2>
+          <p className="text-brand-neutral-600">Please wait while we verify your password reset link...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Success state after password reset
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
           <div className="flex flex-col items-center">
             <div className="w-16 h-16 bg-status-success-light rounded-full flex items-center justify-center mb-4">
               <CheckIcon className="h-8 w-8 text-status-success" />
@@ -183,10 +192,45 @@ const ResetPasswordPage: React.FC = () => {
     );
   }
   
+  // Invalid token state
+  if (!isTokenValid) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 bg-status-error-light rounded-full flex items-center justify-center mb-4">
+              <AlertTriangleIcon className="h-8 w-8 text-status-error" />
+            </div>
+            <h1 className="text-2xl font-bold text-center mb-2">Invalid Reset Link</h1>
+            <p className="text-brand-neutral-600 text-center mb-6">
+              {error || 'Your password reset link is invalid or has expired. Please request a new password reset.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/?reset=true')}
+              className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
+            >
+              Request New Reset Link
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Password reset form
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Set New Password</h1>
+    <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-16 h-16 bg-brand-primary-50 rounded-full flex items-center justify-center mb-4">
+            <LockIcon className="h-8 w-8 text-brand-primary-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-center">Set New Password</h1>
+          <p className="mt-2 text-brand-neutral-600 text-center">
+            Please create a new password for your account
+          </p>
+        </div>
         
         {error && (
           <div className="flex items-start bg-status-error-light text-status-error border border-status-error-border p-4 rounded-md mb-6">
@@ -195,7 +239,7 @@ const ResetPasswordPage: React.FC = () => {
           </div>
         )}
         
-        <form onSubmit={handleResetPassword} className="space-y-6">
+        <form onSubmit={handlePasswordUpdate} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="new-password" className="block text-sm font-medium text-brand-neutral-700">
               New Password
@@ -209,6 +253,7 @@ const ResetPasswordPage: React.FC = () => {
                 className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900"
                 placeholder="••••••••"
                 required
+                autoFocus
               />
               <button
                 type="button"
@@ -260,27 +305,27 @@ const ResetPasswordPage: React.FC = () => {
             </div>
             
             {confirmPassword && newPassword && confirmPassword !== newPassword && (
-              <p className="text-status-error text-sm">Passwords do not match</p>
+              <p className="text-status-error text-sm mt-1">Passwords do not match</p>
             )}
           </div>
           
           <button
             type="submit"
-            disabled={loading || !passwordValid || newPassword !== confirmPassword}
+            disabled={isLoading || !passwordValid || newPassword !== confirmPassword}
             className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Updating...' : 'Update Password'}
+            {isLoading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating Password...
+              </span>
+            ) : (
+              'Update Password'
+            )}
           </button>
-          
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="text-brand-primary-600 hover:text-brand-primary-500 text-sm"
-            >
-              Return to Login
-            </button>
-          </div>
         </form>
       </div>
     </div>

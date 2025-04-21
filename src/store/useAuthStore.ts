@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser } from '../lib/supabase';
 import usePreferencesStore from './usePreferencesStore';
 import logger from '../lib/logger';
-import { clearAllVerificationState } from '../lib/auth/utils';
+import { clearAllVerificationState, getAuthRedirectUrls, signOutUser } from '../lib/auth/utils';
 
 // Auth states that represent the full lifecycle of authentication
 export type AuthStatus = 
@@ -256,12 +256,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
-      set({ status: 'LOADING' });
+      set({ status: 'LOADING', error: null });
       
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Use the standardized signOutUser function with redirect disabled
+      // This way we handle state in the store first
+      await signOutUser(false);
       
-      // Clear auth state
+      // Update local state
       set({ 
         user: null,
         session: null,
@@ -270,11 +271,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       logger.info('User signed out successfully');
+      
+      // Clear any verification state
+      clearAllVerificationState();
+      
+      // Return to home page
+      const { signOut: signOutUrl } = getAuthRedirectUrls();
+      window.location.href = signOutUrl;
     } catch (error) {
-      logger.error('Sign out error:', error);
+      logger.error('Error signing out:', error);
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to sign out',
+        error: 'Failed to sign out. Please try again.',
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
     }
@@ -292,14 +300,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
-      // Get the current hostname for the redirect URL
-      const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/reset-password`;
+      // Get the redirect URL from the auth utils
+      const { passwordReset } = getAuthRedirectUrls();
       
-      logger.info('Sending password reset email with direct link', { email, redirectUrl: redirectTo });
+      logger.info('Sending password reset email', { email, redirectUrl: passwordReset });
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo,
+        redirectTo: passwordReset,
       });
       
       if (error) throw error;
@@ -309,9 +316,26 @@ const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (error) {
       logger.error('Password reset error:', error);
+      
+      // Provide more user-friendly error messages based on the error
+      let errorMessage = 'Failed to send password reset email';
+      
+      if (error instanceof Error) {
+        const errorText = error.message.toLowerCase();
+        if (errorText.includes('rate limit') || errorText.includes('too many requests')) {
+          errorMessage = 'Too many password reset attempts. Please try again later.';
+        } else if (errorText.includes('no user found') || errorText.includes('invalid email')) {
+          errorMessage = 'No account found with this email address. Please check the email and try again.';
+        } else if (errorText.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to send password reset email',
+        error: errorMessage,
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
       return false;

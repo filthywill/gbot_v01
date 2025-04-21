@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, X } from 'lucide-react';
+import { Mail, X, AlertTriangle } from 'lucide-react';
 import useAuthStore from '../../../store/useAuthStore';
 import usePreferencesStore from '../../../store/usePreferencesStore';
 import { AUTH_VIEWS } from '../../../lib/auth/constants';
@@ -15,7 +15,7 @@ interface ResetPasswordProps {
 
 /**
  * ResetPassword Component
- * Handles the password reset flow using Supabase's Direct Link approach
+ * Handles the password reset flow using Supabase's standard password reset
  */
 const ResetPassword: React.FC<ResetPasswordProps> = ({
   email,
@@ -50,19 +50,19 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
       setIsLoading(true);
       setError(null);
       
-      logger.info('Sending password reset email to:', email);
+      logger.info('Initiating password reset for:', email);
       
-      // Remember this email
+      // Remember this email for convenience
       setLastUsedEmail(email);
       
-      // Send reset password email with magic link
+      // Send reset password email using the updated auth store method
       const success = await resetPassword(email);
       
       if (!success) {
-        throw new Error('Failed to send password reset email. Please try again.');
+        throw new Error('Unable to send reset email. Please try again later.');
       }
       
-      // If we get here, the reset email was sent successfully
+      // If successful, show success message
       setResetSent(true);
       logger.info('Password reset email sent successfully');
     } catch (err) {
@@ -99,7 +99,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
           </div>
           
           <p className="text-brand-neutral-600 text-sm">
-            If you don't see the email, please check your spam folder or request another reset link.
+            We've sent instructions to <strong>{email}</strong>. Please check your inbox, including spam or junk folders.
           </p>
           
           <div className="flex space-x-3">
@@ -128,8 +128,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
       ) : (
         <form onSubmit={handleResetPassword} className="space-y-5">
           {error && (
-            <div className="bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded-md text-sm">
-              {error}
+            <div className="bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded-md text-sm flex items-start">
+              <AlertTriangle className="h-5 w-5 mr-2 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
           
@@ -138,7 +139,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
               Email
             </label>
             <p className="text-sm text-brand-neutral-400 mb-1">
-              Enter your email to receive a password reset link
+              Enter your account email to receive a password reset link
             </p>
             <input
               id="reset-email"
@@ -146,7 +147,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm placeholder-brand-neutral-400 focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900 h-11"
-              placeholder="Your email address"
+              placeholder="your.email@example.com"
               required
             />
           </div>

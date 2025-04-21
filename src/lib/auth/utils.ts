@@ -214,4 +214,56 @@ export const clearAllVerificationState = () => {
     logger.error('Error clearing verification state:', error);
     return false;
   }
+};
+
+/**
+ * Get standardized URLs for auth redirects
+ * This ensures all auth flows use consistent URLs
+ */
+export const getAuthRedirectUrls = () => {
+  const origin = window.location.origin;
+  
+  return {
+    // URL to redirect to after password reset
+    passwordReset: `${origin}/auth/reset-password`,
+    
+    // URL to redirect to after email verification
+    emailVerification: `${origin}/auth/verify`,
+    
+    // URL to redirect to after successful sign-in
+    signIn: `${origin}`,
+    
+    // URL to redirect to after sign-out
+    signOut: `${origin}`
+  };
+};
+
+/**
+ * Signs out the current user and redirects to the home page
+ * @param redirectAfterSignOut Whether to redirect after sign out (default: true)
+ */
+export const signOutUser = async (redirectAfterSignOut = true): Promise<void> => {
+  try {
+    logger.debug('Signing out user');
+    
+    // Clear all verification state and local storage items
+    clearAllVerificationState();
+    
+    // Sign out with Supabase
+    await supabase.auth.signOut();
+    
+    logger.info('User signed out successfully');
+    
+    // Redirect if requested
+    if (redirectAfterSignOut) {
+      const { signOut: signOutUrl } = getAuthRedirectUrls();
+      window.location.href = signOutUrl;
+    }
+  } catch (error) {
+    logger.error('Error signing out:', error);
+    // Still try to redirect even if there's an error
+    if (redirectAfterSignOut) {
+      window.location.href = '/';
+    }
+  }
 }; 
