@@ -7,10 +7,6 @@
   "rewrites": [
     { "source": "/auth/callback", "destination": "/auth/callback/index.html" },
     { "source": "/auth/callback/:path*", "destination": "/auth/callback/index.html" },
-    { "source": "/auth/reset-password", "destination": "/auth/reset-password/index.html" },
-    { "source": "/auth/reset-password/:path*", "destination": "/auth/reset-password/index.html" },
-    { "source": "/auth/error", "destination": "/auth/error/index.html" },
-    { "source": "/auth/error/:path*", "destination": "/auth/error/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

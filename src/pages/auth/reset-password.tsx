@@ -1,166 +1,56 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon, LockIcon } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useEffect } from 'react';
+import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon } from 'lucide-react';
+import useAuthStore from '../../store/useAuthStore';
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import logger from '../../lib/logger';
+import { supabase } from '../../lib/supabase';
 import { validatePassword, checkPasswordStrength } from '../../utils/passwordUtils';
 
 const ResetPasswordPage: React.FC = () => {
-  // State for password form
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
   const [passwordValid, setPasswordValid] = useState(false);
-  
-  // State for page flow
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTokenChecking, setIsTokenChecking] = useState(true);
-  const [isTokenValid, setIsTokenValid] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  
-  // Using ref to avoid hooks dependencies warnings
-  const tokenChecked = useRef(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   
   const navigate = (path: string) => {
-    window.location.href = path;
+    logger.info('Custom navigation to:', path);
+    window.history.pushState({}, '', path);
+    if (typeof (window as any).navigateTo === 'function') {
+      logger.info('Using global navigateTo function');
+      (window as any).navigateTo(path);
+    } else {
+      logger.info('Fallback to window.location.href redirect');
+      window.location.href = path;
+    }
   };
   
-  // Check if the hash fragment or URL parameters contain a token
   useEffect(() => {
-    if (tokenChecked.current) return;
-    
-    const checkToken = async () => {
+    const checkAuth = async () => {
       try {
-        logger.info('Verifying password reset token');
-        setIsTokenChecking(true);
-        
-        // Check URL parameters
-        const url = new URL(window.location.href);
-        const fromCallback = url.searchParams.has('from_callback');
-        const isVerified = url.searchParams.has('verified');
-        
-        // Log URL information for debugging
-        logger.debug('Reset password URL info:', { 
-          url: window.location.href,
-          referrer: document.referrer,
-          fromCallback,
-          isVerified
-        });
-        
-        // If we came from callback with verified flag, we can trust the session
-        if (fromCallback && isVerified) {
-          logger.info('Valid verification from callback detected');
-          setIsTokenValid(true);
-          setError(null);
-          setIsTokenChecking(false);
-          tokenChecked.current = true;
-          return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          logger.info('ResetPasswordPage: User is authenticated via session.');
+          setIsAuthenticated(true);
+        } else {
+          logger.warn('ResetPasswordPage: User is not authenticated. Invalid or expired link?');
+          setError('Invalid or expired reset link. Please request a new password reset.');
+          setIsAuthenticated(false);
         }
-        
-        // Check if we have a token in the URL (direct link)
-        const token = url.searchParams.get('token');
-        const type = url.searchParams.get('type');
-        
-        if (token && type === 'recovery') {
-          logger.info('Found recovery token in URL, attempting verification');
-          
-          try {
-            // Verify the recovery token
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'recovery'
-            });
-            
-            if (verifyError) {
-              logger.error('Error verifying recovery token:', verifyError);
-              setError('Invalid or expired reset link. Please request a new one.');
-              setIsTokenValid(false);
-              setIsTokenChecking(false);
-              tokenChecked.current = true;
-              return;
-            }
-            
-            // If we have a session, we're good to go
-            if (data.session) {
-              logger.info('Recovery token verified, session established');
-              setIsTokenValid(true);
-              setError(null);
-              setIsTokenChecking(false);
-              tokenChecked.current = true;
-              return;
-            } else {
-              logger.warn('Token verified but no session established');
-              setError('Authentication session could not be established. Please try again.');
-              setIsTokenValid(false);
-              setIsTokenChecking(false);
-              tokenChecked.current = true;
-              return;
-            }
-          } catch (err) {
-            logger.error('Error during token verification:', err);
-            setError('There was a problem verifying your reset link. Please request a new one.');
-            setIsTokenValid(false);
-            setIsTokenChecking(false);
-            tokenChecked.current = true;
-            return;
-          }
-        }
-        
-        // Otherwise, check for a valid session
-        const { data: authData, error: authError } = await supabase.auth.getSession();
-        
-        if (authError) {
-          logger.error('Error checking session:', authError);
-          setError('There was a problem verifying your reset link. Please request a new one.');
-          setIsTokenValid(false);
-          setIsTokenChecking(false);
-          tokenChecked.current = true;
-          return;
-        }
-        
-        // If we have a session, we're good to go
-        if (authData.session) {
-          logger.info('Valid session found for password reset');
-          setIsTokenValid(true);
-          setError(null);
-          setIsTokenChecking(false);
-          tokenChecked.current = true;
-          return;
-        }
-        
-        // If we don't have a session but came from the callback page, 
-        // there might have been an issue with the token
-        if (fromCallback) {
-          logger.warn('Came from callback page but no session established');
-          setError('Your password reset link may have expired. Please request a new one.');
-          setIsTokenValid(false);
-          setIsTokenChecking(false);
-          tokenChecked.current = true;
-          return;
-        }
-        
-        // If we got here directly without a session, something is wrong
-        logger.warn('No active session found with reset token');
-        setError('The reset link is invalid or has expired. Please request a new password reset link.');
-        setIsTokenValid(false);
-        setIsTokenChecking(false);
-        tokenChecked.current = true;
       } catch (err) {
-        logger.error('Error during token verification:', err);
-        setError('There was a problem verifying your reset link. Please try again or request a new one.');
-        setIsTokenValid(false);
-        setIsTokenChecking(false);
-        tokenChecked.current = true;
+        logger.error('ResetPasswordPage: Error checking authentication:', err);
+        setError('Could not verify authentication status. Please try again or request a new link.');
+        setIsAuthenticated(false);
       }
     };
-    
-    checkToken();
+    checkAuth();
   }, []);
   
-  // Update password strength when password changes
   useEffect(() => {
     if (newPassword) {
       const strength = checkPasswordStrength(newPassword);
@@ -174,60 +64,52 @@ const ResetPasswordPage: React.FC = () => {
     }
   }, [newPassword]);
   
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isTokenValid) {
-      setError('Your password reset link is invalid or has expired. Please request a new one.');
+    if (isAuthenticated !== true) {
+      setError('Cannot reset password. Please ensure you used a valid reset link.');
       return;
     }
     
-    // Validate the new password
     const validation = validatePassword(newPassword);
     if (!validation.isValid) {
-      setError(validation.message || 'Your password is not strong enough. Please choose a stronger password.');
+      setError(validation.message || 'Password is not strong enough');
       return;
     }
     
-    // Check passwords match
     if (newPassword !== confirmPassword) {
-      setError('Your passwords do not match. Please make sure both passwords are identical.');
+      setError('Passwords do not match');
       return;
     }
     
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
       
-      logger.info('Updating password');
+      logger.info('Attempting to update password for authenticated user');
       
-      // First check if we still have a valid session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        logger.error('Error checking session before password update:', sessionError);
-        throw new Error('Auth session missing! Please try again with a new reset link.');
-      }
-      
-      if (!sessionData.session) {
-        logger.error('No active session found when updating password');
-        throw new Error('Auth session missing! Please try again with a new reset link.');
-      }
-      
-      // Update user's password
-      const { error: updateError } = await supabase.auth.updateUser({
+      const result = await supabase.auth.updateUser({
         password: newPassword
       });
       
-      if (updateError) {
-        throw updateError;
+      if (result.error) {
+        logger.error('Supabase returned error during password update:', result.error);
+        throw result.error;
       }
       
-      // Success!
+      if (!result.data?.user) {
+        logger.warn('Password update succeeded but no user data returned');
+      } else {
+        logger.info('User data returned after password update:', { 
+          id: result.data.user.id,
+          email: result.data.user.email 
+        });
+      }
+      
       setSuccess(true);
       logger.info('Password updated successfully');
       
-      // Schedule a redirect back to the home page
       setTimeout(() => {
         navigate('/?passwordReset=success');
       }, 3000);
@@ -235,45 +117,30 @@ const ResetPasswordPage: React.FC = () => {
       logger.error('Error updating password:', err);
       
       if (err instanceof Error) {
-        // Provide friendly error messages
-        const errorText = err.message.toLowerCase();
-        if (errorText.includes('session')) {
-          setError('Your authentication session is missing or expired. Please request a new reset link.');
-        } else if (errorText.includes('expired')) {
-          setError('Your password reset link has expired. Please request a new one.');
-        } else if (errorText.includes('weak')) {
-          setError('Please choose a stronger password.');
-        } else if (errorText.includes('same')) {
-          setError('Your new password must be different from your old password.');
+        const errorMsg = err.message.toLowerCase();
+        if (errorMsg.includes('expired')) {
+          setError('Your reset link has expired. Please request a new one.');
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
+          setError('Invalid reset link. Please request a new one.');
+        } else if (errorMsg.includes('network')) {
+          setError('Network error. Please check your connection and try again.');
+        } else if (errorMsg.includes('same password')) {
+          setError('The new password cannot be the same as your current password.');
         } else {
           setError(err.message);
         }
       } else {
-        setError('There was a problem updating your password. Please try again.');
+        setError('Failed to update password. Please try again.');
       }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
   
-  // Loading state while we check the token
-  if (isTokenChecking) {
-    return (
-      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-brand-neutral-900 mb-2">Verifying Reset Link</h2>
-          <p className="text-brand-neutral-600">Please wait while we verify your password reset link...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Success state after password reset
   if (success) {
     return (
-      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+      <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
           <div className="flex flex-col items-center">
             <div className="w-16 h-16 bg-status-success-light rounded-full flex items-center justify-center mb-4">
               <CheckIcon className="h-8 w-8 text-status-success" />
@@ -295,45 +162,10 @@ const ResetPasswordPage: React.FC = () => {
     );
   }
   
-  // Invalid token state
-  if (!isTokenValid) {
-    return (
-      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <div className="flex flex-col items-center">
-            <div className="w-16 h-16 bg-status-error-light rounded-full flex items-center justify-center mb-4">
-              <AlertTriangleIcon className="h-8 w-8 text-status-error" />
-            </div>
-            <h1 className="text-2xl font-bold text-center mb-2">Invalid Reset Link</h1>
-            <p className="text-brand-neutral-600 text-center mb-6">
-              {error || 'Your password reset link is invalid or has expired. Please request a new password reset.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/?reset=true')}
-              className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
-            >
-              Request New Reset Link
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Password reset form
   return (
-    <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-16 h-16 bg-brand-primary-50 rounded-full flex items-center justify-center mb-4">
-            <LockIcon className="h-8 w-8 text-brand-primary-500" />
-          </div>
-          <h1 className="text-2xl font-bold text-center">Set New Password</h1>
-          <p className="mt-2 text-brand-neutral-600 text-center">
-            Please create a new password for your account
-          </p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Set New Password</h1>
         
         {error && (
           <div className="flex items-start bg-status-error-light text-status-error border border-status-error-border p-4 rounded-md mb-6">
@@ -342,7 +174,7 @@ const ResetPasswordPage: React.FC = () => {
           </div>
         )}
         
-        <form onSubmit={handlePasswordUpdate} className="space-y-6">
+        <form onSubmit={handleResetPassword} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="new-password" className="block text-sm font-medium text-brand-neutral-700">
               New Password
@@ -356,7 +188,6 @@ const ResetPasswordPage: React.FC = () => {
                 className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900"
                 placeholder="••••••••"
                 required
-                autoFocus
               />
               <button
                 type="button"
@@ -408,27 +239,27 @@ const ResetPasswordPage: React.FC = () => {
             </div>
             
             {confirmPassword && newPassword && confirmPassword !== newPassword && (
-              <p className="text-status-error text-sm mt-1">Passwords do not match</p>
+              <p className="text-status-error text-sm">Passwords do not match</p>
             )}
           </div>
           
           <button
             type="submit"
-            disabled={isLoading || !passwordValid || newPassword !== confirmPassword}
+            disabled={loading || !passwordValid || newPassword !== confirmPassword}
             className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Updating Password...
-              </span>
-            ) : (
-              'Update Password'
-            )}
+            {loading ? 'Updating...' : 'Update Password'}
           </button>
+          
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="text-brand-primary-600 hover:text-brand-primary-500 text-sm"
+            >
+              Return to Login
+            </button>
+          </div>
         </form>
       </div>
     </div>

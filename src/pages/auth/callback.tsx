@@ -77,56 +77,10 @@ const AuthCallback: React.FC = () => {
         
         // Handle verification token
         if (token_hash && type) {
-          logger.info('Found token in URL, attempting verification', { type });
-          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION', { type });
+          logger.info('Found token in URL, attempting verification');
+          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION');
           
           try {
-            // Special handling for password reset tokens (recovery type)
-            if (type === 'recovery') {
-              setMessage('Verifying your password reset link...');
-              
-              try {
-                // For recovery, we need to update the auth session without redirecting right away
-                // First verify the session tokens in the URL
-                const { data, error } = await supabase.auth.verifyOtp({
-                  token_hash,
-                  type: 'recovery',
-                });
-                
-                if (error) {
-                  logger.error('Error verifying recovery token:', error);
-                  throw error;
-                }
-                
-                // If we have a session, we can proceed
-                if (data.session) {
-                  logger.info('Successfully verified recovery token and created session');
-                  console.log('RECOVERY TOKEN VERIFIED', { hasSession: true });
-                  
-                  // Update auth store with the new session
-                  setSession(data.session);
-                  if (data.user) {
-                    setUser(data.user);
-                  }
-                  
-                  // Redirect to the reset password page with success indicator
-                  window.location.href = '/auth/reset-password?from_callback=true&verified=true';
-                  return;
-                } else {
-                  logger.warn('Token verified but no session created');
-                  throw new Error('Token verified but no session was created. Please try again.');
-                }
-              } catch (err) {
-                console.error('Error during recovery verification:', err);
-                // Redirect to error page with specific message
-                window.location.href = '/auth/error?error=' + encodeURIComponent(
-                  err instanceof Error ? err.message : 'Failed to verify password reset token'
-                );
-                return;
-              }
-            }
-            
-            // For all other types, proceed with verification
             setMessage('Verifying your email...');
             
             // Verify OTP to exchange the token for a session
