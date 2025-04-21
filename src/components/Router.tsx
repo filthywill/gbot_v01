@@ -123,45 +123,34 @@ const Router: React.FC = () => {
     const pathname = window.location.pathname;
     const currentPathNormalized = pathname.replace(/\/+/g, '/');
     const searchParams = new URLSearchParams(window.location.search);
-    
-    // Check for our special flag from the static HTML redirect
-    const hasAuthCallbackFlag = searchParams.get('auth_callback') === 'true';
-    
-    // Check if path is /auth/callback
+
+    // Check 1: Is the path explicitly /auth/callback?
     const isPathCallback = currentPathNormalized.startsWith('/auth/callback');
-    
-    // Check URL for authentication query parameters
-    const hasToken = searchParams.has('token');
-    const hasType = searchParams.has('type') && ['signup', 'recovery', 'invite'].includes(searchParams.get('type') || '');
-    const hasCode = searchParams.has('code');
-    const hasAuthParams = hasToken || hasType || hasCode;
-                         
-    // Check hash for authentication data
-    const urlHash = window.location.hash;
-    const hasAuthHash = urlHash.length > 0 && 
-                        (urlHash.includes('access_token=') || 
-                         urlHash.includes('refresh_token=') || 
-                         urlHash.includes('type=signup'));
-    
-    const result = hasAuthCallbackFlag || isPathCallback || hasAuthParams || hasAuthHash;
-    
+
+    // Check 2: Does the URL have specific query params indicating an OAuth/MagicLink/etc callback?
+    const hasCode = searchParams.has('code'); // Used by OAuth
+    // Add other specific search param checks if needed for other flows handled by /auth/callback
+    const hasSpecificSearchParams = hasCode; 
+
+    // Check 3: Check for our special flag from the static HTML redirect (if used)
+    const hasAuthCallbackFlag = searchParams.get('auth_callback') === 'true';
+
+    // Determine if this is an auth callback based ONLY on path or specific search params
+    const result = isPathCallback || hasSpecificSearchParams || hasAuthCallbackFlag;
+
     if (result) {
-      console.log('AUTH CALLBACK DETECTED:', { 
+      console.log('AUTH CALLBACK DETECTED (ROUTER):', { 
+        isPathCallback,
+        hasSpecificSearchParams,
         hasAuthCallbackFlag,
-        path: isPathCallback, 
-        hasToken,
-        hasType,
-        hasCode,
-        hasHash: hasAuthHash,
         fullUrl,
         pathname
       });
       
-      logger.debug('Auth callback detected:', { 
+      logger.debug('Auth callback detected (Router):', { 
+        isPathCallback, 
+        hasSpecificSearchParams, 
         hasAuthCallbackFlag,
-        path: isPathCallback, 
-        hasAuthParams, 
-        hasHash: hasAuthHash,
         fullUrl
       });
     }
