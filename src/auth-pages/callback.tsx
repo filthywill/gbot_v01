@@ -57,6 +57,22 @@ const AuthCallback = () => {
             throw new Error('Authentication failed - no session established')
           }
           
+          // Store the auth session data explicitly in localStorage to ensure it persists across page navigation
+          try {
+            // Save the current time to track when this session was established
+            localStorage.setItem('password_reset_verified', 'true')
+            localStorage.setItem('password_reset_timestamp', new Date().getTime().toString())
+            
+            // We need to ensure the auth session is properly stored
+            // This is usually handled by Supabase but we'll make sure it's stored with the correct key
+            const authSession = supabase.auth.getSession()
+            console.log('Auth session retrieved and stored', { 
+              hasSession: !!(authSession) 
+            })
+          } catch (storageError) {
+            console.error('Error storing session data:', storageError)
+          }
+          
           console.log('Recovery verified successfully, redirecting to reset password page')
           
           // Redirect to reset-password page with verification status

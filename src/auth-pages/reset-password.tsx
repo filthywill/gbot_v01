@@ -28,6 +28,27 @@ const ResetPasswordPage = () => {
         searchParams: Object.fromEntries(url.searchParams.entries())
       })
       
+      // Check for localStorage verification (this is set by the callback page)
+      const localVerified = localStorage.getItem('password_reset_verified') === 'true'
+      const resetTimestamp = localStorage.getItem('password_reset_timestamp')
+      const isRecentReset = resetTimestamp && 
+        (Date.now() - parseInt(resetTimestamp)) < 5 * 60 * 1000; // 5 minutes
+      
+      console.log('Checking localStorage verification:', {
+        localVerified,
+        resetTimestamp,
+        isRecentReset,
+        timeSinceReset: resetTimestamp ? (Date.now() - parseInt(resetTimestamp)) / 1000 + ' seconds' : 'N/A'
+      })
+      
+      // If we have local verification that's recent, we're good to go
+      if (localVerified && isRecentReset) {
+        console.log('Found valid local verification, proceeding with password reset')
+        setVerified(true)
+        setSessionChecked(true)
+        return
+      }
+      
       // If we're coming from the callback with verification
       if (isFromCallback && isVerified) {
         console.log('Coming from callback with verified status')
@@ -54,11 +75,16 @@ const ResetPasswordPage = () => {
             hasError: !!verifyError
           })
           
-          if (error) {
+          if (verifyError) {
             console.error('Direct token verification failed:', verifyError)
             setError('Your password reset link is invalid or has expired. Please request a new one.')
           } else if (data && data.session) {
             console.log('Token verified directly, enabling password reset')
+            
+            // Save verification status to localStorage
+            localStorage.setItem('password_reset_verified', 'true')
+            localStorage.setItem('password_reset_timestamp', new Date().getTime().toString())
+            
             setVerified(true)
           } else {
             console.log('No session created from direct token verification')
@@ -147,12 +173,44 @@ const ResetPasswordPage = () => {
     
     try {
       console.log('Attempting to update password')
-      const { error } = await supabase.auth.updateUser({ password })
       
-      if (error) {
-        console.error('Password update error:', error)
-        throw error
+      // Special handling for password reset without active session
+      const hasLocalVerification = localStorage.getItem('password_reset_verified') === 'true'
+      
+      let result;
+      if (hasLocalVerification) {
+        // Use a different approach for password update when we have local verification
+        // but potentially no active session
+        result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ password }),
+        }).then(r => r.json());
+        
+        console.log('Password update via direct API call result:', {
+          success: !result.error,
+          hasError: !!result.error,
+        });
+        
+        if (result.error) {
+          throw new Error(result.error.message || 'Failed to update password');
+        }
+      } else {
+        // Standard approach using Supabase client
+        const { error } = await supabase.auth.updateUser({ password })
+        
+        if (error) {
+          console.error('Password update error:', error)
+          throw error
+        }
       }
+      
+      // Clear localStorage verification data
+      localStorage.removeItem('password_reset_verified')
+      localStorage.removeItem('password_reset_timestamp')
       
       console.log('Password updated successfully')
       setMessage('Your password has been updated successfully! Redirecting to login...')
