@@ -71,58 +71,78 @@ function App() {
     const checkForVerification = async () => {
       // First check for hash fragments in the URL (Supabase uses these for email verification)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      
+
       // Get URL parameters - from either query string or hash fragment
-      const token = hashParams.get('access_token') || 
-                   new URLSearchParams(window.location.search).get('token');
-      const type = hashParams.get('type') || 
-                  new URLSearchParams(window.location.search).get('type');
-      const email = hashParams.get('email') || 
-                   new URLSearchParams(window.location.search).get('email');
-                   
-      logger.info('Checking for verification params:', { token: token?.substring(0, 8), type, email });
-      
-      // Handle callback from Supabase with #access_token in URL
-      if (hashParams.get('access_token')) {
+      const tokenFromSearch = new URLSearchParams(window.location.search).get('token');
+      const typeFromSearch = new URLSearchParams(window.location.search).get('type');
+      const emailFromSearch = new URLSearchParams(window.location.search).get('email');
+      const tokenFromHash = hashParams.get('access_token');
+      const typeFromHash = hashParams.get('type');
+
+      // Combine parameters (prefer hash if available)
+      const token = tokenFromHash || tokenFromSearch;
+      const type = typeFromHash || typeFromSearch;
+      const email = emailFromSearch; // Email usually comes in search params for our custom flows
+
+      logger.info('Checking for verification params:', { 
+        token: token?.substring(0, 8), 
+        type, 
+        email 
+      });
+
+      // ==============================================================
+      // TEMPORARILY COMMENTED OUT - Let Supabase handle #access_token automatically
+      // ==============================================================
+      // // Handle callback from Supabase with #access_token in URL
+      // if (hashParams.get('access_token')) {
+      //   logger.info('Detected Supabase auth redirect with access_token (Manual handling bypassed)');
+      //   // setIsVerifying(true); // Let Supabase handle session, don't show manual verification state
+      //   // try {
+      //   //   // Supabase automatically handles the session when it detects the access_token in URL
+      //   //   // We might just need to refresh the auth state AFTER Supabase has done its work.
+      //   //   // A slight delay or listening to onAuthStateChange might be better here.
+      //   //   logger.info('Detected Supabase auth redirect with access_token');
+      //   //   
+      //   //   // Re-initialize auth state after a short delay to allow Supabase to process
+      //   //   // setTimeout(async () => {
+      //   //   //   logger.info('Re-initializing auth state after delay...');
+      //   //   //   await initialize();
+      //   //   //   const { user, status } = useAuthStore.getState();
+      //   //   //   logger.info('Auth state after handling Supabase redirect (delayed check):', { status, hasUser: !!user });
+      //   //   //   // Potentially clear verification state IF user is authenticated
+      //   //   //   if(status === 'AUTHENTICATED') {
+      //   //   //       setVerificationEmail(null);
+      //   //   //       setPendingVerification(false);
+      //   //   //       clearAllVerificationState();
+      //   //   //       // Show success modal and clean up the URL
+      //   //   //       setShowVerificationModal(true);
+      //   //   //       window.history.replaceState({}, document.title, '/');
+      //   //   //   } else {
+      //   //   //       logger.warn('Supabase redirect handled, but user not authenticated after delay.');
+      //   //   //       // Don't clean URL, maybe show error?
+      //   //   //   }
+      //   //   //   setIsVerifying(false);
+      //   //   // }, 500); // Adjust delay as needed
+
+      //   // } catch (error) {
+      //   //   logger.error('Failed to process Supabase auth redirect:', error);
+      //   //   setVerificationError('Failed to complete authentication');
+      //   //   setIsVerifying(false);
+      //   // }
+      //   return; // Return here to prevent further processing if it was an access_token hash
+      // }
+      // ==============================================================
+
+      // Check if this is our custom verification request with token param (non-Supabase magic link)
+      // This part handles flows where WE put the token/type/email in the SEARCH parameters
+      if (tokenFromSearch && (typeFromSearch === 'verification' || typeFromSearch === 'signup') && emailFromSearch) {
+        logger.info('Detected CUSTOM verification parameters in SEARCH URL:', { token: tokenFromSearch.substring(0, 8), type: typeFromSearch, email: emailFromSearch });
         setIsVerifying(true);
-        try {
-          // Supabase automatically handles the session when it detects the access_token in URL
-          // We just need to refresh the auth state
-          logger.info('Detected Supabase auth redirect with access_token');
-          
-          // Refresh auth state to confirm the user is logged in
-          await initialize();
-          
-          // Check if the user is authenticated after initialization
-          const { user, status } = useAuthStore.getState();
-          logger.info('Auth state after handling Supabase redirect:', { status, hasUser: !!user });
-          
-          // Clear verification state
-          setVerificationEmail(null);
-          setPendingVerification(false);
-          clearAllVerificationState();
-          
-          // Show success modal and clean up the URL
-          setShowVerificationModal(true);
-          window.history.replaceState({}, document.title, '/');
-        } catch (error) {
-          logger.error('Failed to process Supabase auth redirect:', error);
-          setVerificationError('Failed to complete authentication');
-        } finally {
-          setIsVerifying(false);
-        }
-        return;
-      }
-      
-      // Check if this is our custom verification request with token param
-      if (token && (type === 'verification' || type === 'signup') && email) {
-        logger.info('Detected verification parameters in URL:', { token: token.substring(0, 8), type, email });
-        setIsVerifying(true);
-        setVerificationEmail(email);
+        setVerificationEmail(emailFromSearch);
         
         try {
           // Save email for login form in case they need to sign in manually later
-          setLastUsedEmail(email);
+          setLastUsedEmail(emailFromSearch);
           setRememberMe(true);
           
           // The correct way to handle email verification in Supabase v2
@@ -130,13 +150,13 @@ function App() {
           
           // First try exchangeCodeForSession which is the recommended method
           try {
-            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(token);
+            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(tokenFromSearch);
             if (sessionError) {
               logger.error('Error exchanging code for session, falling back to verifyOtp:', sessionError);
               
               // Fallback to verifyOtp if exchangeCodeForSession fails
               const { error: verifyError } = await supabase.auth.verifyOtp({
-                token_hash: token,
+                token_hash: tokenFromSearch,
                 type: 'signup'
               });
               
