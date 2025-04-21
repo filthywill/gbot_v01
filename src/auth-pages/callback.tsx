@@ -63,11 +63,28 @@ const AuthCallback = () => {
             localStorage.setItem('password_reset_verified', 'true')
             localStorage.setItem('password_reset_timestamp', new Date().getTime().toString())
             
+            // Store the access token for session recovery
+            if (data?.session?.access_token) {
+              localStorage.setItem('supabase.auth.token', JSON.stringify({
+                currentSession: {
+                  access_token: data.session.access_token,
+                  refresh_token: data.session.refresh_token || '',
+                  expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+                  user: data.user,
+                },
+                expiresAt: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+              }))
+              console.log('Stored auth token in localStorage for session recovery')
+            } else {
+              console.warn('No access token available to store')
+            }
+            
             // We need to ensure the auth session is properly stored
             // This is usually handled by Supabase but we'll make sure it's stored with the correct key
             const authSession = supabase.auth.getSession()
             console.log('Auth session retrieved and stored', { 
-              hasSession: !!(authSession) 
+              hasSession: !!(authSession),
+              hasAccessToken: !!(data?.session?.access_token)
             })
           } catch (storageError) {
             console.error('Error storing session data:', storageError)

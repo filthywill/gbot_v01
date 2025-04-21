@@ -181,22 +181,44 @@ const ResetPasswordPage = () => {
       if (hasLocalVerification) {
         // Use a different approach for password update when we have local verification
         // but potentially no active session
-        result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ password }),
-        }).then(r => r.json());
-        
-        console.log('Password update via direct API call result:', {
-          success: !result.error,
-          hasError: !!result.error,
-        });
-        
-        if (result.error) {
-          throw new Error(result.error.message || 'Failed to update password');
+        try {
+          // First, check if we can get the session or access token
+          const { data: sessionData } = await supabase.auth.getSession();
+          console.log('Session check before password update:', { 
+            hasSession: !!(sessionData?.session),
+            hasAccessToken: !!(sessionData?.session?.access_token)
+          });
+          
+          if (sessionData?.session?.access_token) {
+            // If we have an access token, use it to update the password
+            result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${sessionData.session.access_token}`
+              },
+              body: JSON.stringify({ password }),
+            }).then(r => r.json());
+            
+            console.log('Password update via API with access token result:', {
+              success: !result.error,
+              hasError: !!result.error,
+            });
+          } else {
+            // If we don't have a session, use the standard Supabase client
+            // This might work if the auth state was preserved by Supabase's SDK
+            console.log('No access token found, falling back to Supabase client');
+            const { error } = await supabase.auth.updateUser({ password });
+            
+            if (error) {
+              console.error('Password update error with Supabase client:', error);
+              throw error;
+            }
+          }
+        } catch (apiError) {
+          console.error('Error in API password update:', apiError);
+          throw apiError;
         }
       } else {
         // Standard approach using Supabase client
