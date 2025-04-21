@@ -1,99 +1,168 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import useAuthStore from '../../store/useAuthStore';
 import usePreferencesStore from '../../store/usePreferencesStore';
 import useGoogleAuthStore from '../../store/useGoogleAuthStore';
-import logger from '../../lib/logger';
-import { AUTH_VIEWS, AUTH_ERROR_MESSAGES } from '../../lib/auth/constants';
-import { AuthModalProps } from '../../lib/auth/types';
-import { cn } from '../../lib/utils';
-import { checkAuthAndClose, clearAllVerificationState } from '../../lib/auth/utils';
-import { SignIn, SignUp, ResetPassword } from './flows';
+import GoogleSignInButton from './GoogleSignInButton';
+import PasswordStrengthMeter from './PasswordStrengthMeter';
 import VerificationCodeInput from './VerificationCodeInput';
+import { cn } from '../../lib/utils';
+import { EyeIcon, EyeOffIcon, CheckCircle, AlertCircle, ArrowLeft, Mail, Save, X } from 'lucide-react';
+import logger from '../../lib/logger';
+import { checkPasswordStrength, validatePassword } from '../../utils/passwordUtils';
+import { supabase } from '../../lib/supabase';
 
-// Use the type from AUTH_VIEWS
-type AuthMode = typeof AUTH_VIEWS[keyof typeof AUTH_VIEWS];
+// Define validation types
+type ValidationStatus = 'idle' | 'valid' | 'invalid';
 
-export function AuthModal({
-  isOpen,
-  onClose,
-  initialView = AUTH_VIEWS.SIGN_IN,
-  initialEmail = '',
-  verificationEmail = null,
-}: AuthModalProps) {
-  // Get auth state to check if user is already authenticated
-  const authStore = useAuthStore();
-  const isUserAuthenticated = authStore.status === 'AUTHENTICATED' && authStore.user !== null;
-  
-  // Safety check: If user is already authenticated and the modal is in verification mode,
-  // close the modal and clear verification state
-  useEffect(() => {
-    if (isOpen && initialView === AUTH_VIEWS.VERIFICATION && isUserAuthenticated) {
-      logger.info('User already authenticated but verification modal was shown, closing modal');
-      clearAllVerificationState();
-      onClose();
-    }
-  }, [isOpen, initialView, isUserAuthenticated, onClose]);
-  
-  const [mode, setMode] = useState<AuthMode>(initialView);
-  const [email, setEmail] = useState(initialEmail);
+interface FieldValidation {
+  status: ValidationStatus;
+  message: string;
+}
+
+interface ValidationState {
+  email: FieldValidation;
+  password: FieldValidation;
+}
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialMode?: AuthMode;
+  prefillEmail?: string | null;
+}
+
+type AuthMode = 'signin' | 'signup' | 'forgot-password' | 'reset-confirmation' | 'signup-confirmation' | 'update-password' | 'verification-code';
+
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin', prefillEmail }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
+  const [validationState, setValidationState] = useState<ValidationState>({
+    email: { status: 'idle', message: '' },
+    password: { status: 'idle', message: '' }
+  });
+  const [isDirty, setIsDirty] = useState({
+    email: false,
+    password: false
+  });
+  const [lastTypedField, setLastTypedField] = useState<'email' | 'password' | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
+  const [signupComplete, setSignupComplete] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [newPasswordStrength, setNewPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [rememberMeChecked, setRememberMeChecked] = useState(false);
   const [hasPrefilledEmail, setHasPrefilledEmail] = useState(false);
-  const [isEmailValid, setIsEmailValid] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   
-  // For verification code flow - store the verification email
-  // First check props, then localStorage
-  const [localVerificationEmail, setLocalVerificationEmail] = useState<string | null>(
-    verificationEmail || window.localStorage.getItem('verificationEmail')
-  );
-
-  // Combined verification email - prop takes precedence
-  const effectiveVerificationEmail = verificationEmail || localVerificationEmail;
-  
-  // Reference for tracking clicks on modal backdrop
+  // Ref to track mouse down state
   const mouseDownOnBackdrop = useRef(false);
   
-  // Log critical verification information for debugging
-  useEffect(() => {
-    if (isOpen && initialView === AUTH_VIEWS.VERIFICATION) {
-      console.log('AuthModal opened in VERIFICATION mode:', {
-        propVerificationEmail: verificationEmail,
-        localStorageEmail: window.localStorage.getItem('verificationEmail'),
-        localVerificationEmail,
-        effectiveVerificationEmail
-      });
-    }
-  }, [isOpen, initialView, verificationEmail, localVerificationEmail, effectiveVerificationEmail]);
-  
-  // Get stores
-  const { resetError, error } = useAuthStore();
-  const authStatus = authStore.status;
-  const { lastUsedEmail } = usePreferencesStore();
-  const { isSDKLoaded } = useGoogleAuthStore();
+  // Get stores with the new approach
+  const { 
+    signInWithEmail, 
+    signUpWithEmail, 
+    resetPassword, 
+    error, 
+    resetError 
+  } = useAuthStore();
+  const { rememberMe, setRememberMe, lastUsedEmail, setLastUsedEmail } = usePreferencesStore();
+  const { isSDKLoaded, initializeSDK } = useGoogleAuthStore();
   
   // Ref for the modal content
   const modalRef = React.useRef<HTMLDivElement>(null);
+  // Refs for validation timers
+  const emailValidationTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const passwordValidationTimer = React.useRef<NodeJS.Timeout | null>(null);
   
-  // When the modal opens, prefill email if needed
+  const { setLastUsedEmail: setPreferencesLastUsedEmail } = usePreferencesStore();
+  
+  // Check the loading state directly for non-blocking auth
+  const isAuthLoading = useAuthStore.getState().status === 'LOADING';
+  
+  // Email validation - MOVED UP before useEffect usage
+  const validateEmail = useCallback((value: string, immediate = false) => {
+    const validate = () => {
+      // Simple email regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValid = emailRegex.test(value);
+      
+      setValidationState(prev => ({
+        ...prev,
+        email: {
+          status: isValid ? 'valid' : value === '' ? 'idle' : 'invalid',
+          message: isValid ? '' : 'Please enter a valid email address'
+        }
+      }));
+    };
+    
+    // Clear existing timer
+    if (emailValidationTimer.current) {
+      clearTimeout(emailValidationTimer.current);
+    }
+    
+    if (immediate) {
+      validate();
+    } else {
+      // Set a new timer to validate after delay
+      emailValidationTimer.current = setTimeout(validate, 500);
+    }
+  }, []);
+  
+  // Reset validation and password strength when changing modes
+  useEffect(() => {
+    setPasswordStrength({ score: 0, feedback: [] });
+    setValidationState({
+      email: { status: 'idle', message: '' },
+      password: { status: 'idle', message: '' }
+    });
+    setIsDirty({
+      email: false,
+      password: false
+    });
+    setAuthError(null);
+    resetError();
+    setResetSent(false);
+    
+    // Don't reset signup completion when specifically in signup-confirmation mode
+    if (mode !== 'signup-confirmation') {
+      setSignupComplete(false);
+    }
+  }, [mode, resetError]);
+  
+  // Update the useEffect for validating pre-filled email
   useEffect(() => {
     if (isOpen) {
-      // Reset errors when opening the modal
-      resetError();
-      
       // Different behavior based on mode
-      if ((mode === AUTH_VIEWS.SIGN_IN || mode === AUTH_VIEWS.SIGN_UP) && !hasPrefilledEmail) {
-        // For sign-in, restore remembered email
-        const emailToUse = initialEmail || lastUsedEmail;
+      if ((mode === 'signin' || mode === 'signup') && !hasPrefilledEmail) {
+        // For sign-in, restore remembered email and preferences
+        const { rememberMe, lastUsedEmail } = usePreferencesStore.getState();
+        setRememberMeChecked(rememberMe);
+        
+        // Use prefillEmail if provided, otherwise use lastUsedEmail
+        const emailToUse = prefillEmail || lastUsedEmail;
         
         // Only set the email field once on initial open
         if (emailToUse) {
           setEmail(emailToUse);
-          setIsEmailValid(true); // Assume valid for prefilled email
+          validateEmail(emailToUse, true); // Validate immediately
           setHasPrefilledEmail(true); // Mark as prefilled to prevent overrides
+          
+          // If we just verified the email, we should remember this user
+          if (window.location.pathname === '/verification-success' || 
+              window.location.href.includes('verif')) {
+            logger.debug('Setting rememberMe to true due to successful verification');
+            setRememberMeChecked(true);
+          }
         }
-      }
-      
-      // Check for stored verification state if we don't already have a verificationEmail
-      if (!verificationEmail) {
+        
+        // Check for stored verification state
         try {
           const storedVerificationState = localStorage.getItem('verificationState');
           if (storedVerificationState) {
@@ -107,10 +176,7 @@ export function AuthModal({
               logger.debug('Resuming verification from stored state', { email: verificationState.email });
               
               // Restore the verification email
-              setLocalVerificationEmail(verificationState.email);
-              
-              // Switch to verification mode
-              setMode(AUTH_VIEWS.VERIFICATION);
+              setVerificationEmail(verificationState.email);
               
               // Update the verification timestamp
               const updatedState = {
@@ -119,275 +185,1119 @@ export function AuthModal({
                 resumeTime: Date.now()
               };
               localStorage.setItem('verificationState', JSON.stringify(updatedState));
-              
-              // Also store in verificationEmail for persistence
-              window.localStorage.setItem('verificationEmail', verificationState.email);
             } else {
               // Verification state is too old or invalid, clear it
               logger.debug('Clearing expired verification state');
               localStorage.removeItem('verificationState');
-              localStorage.removeItem('verificationEmail');
             }
           }
         } catch (error) {
           logger.error('Error processing stored verification state:', error);
           localStorage.removeItem('verificationState');
-          localStorage.removeItem('verificationEmail');
         }
+      } 
+      else if (mode === 'forgot-password' && email) {
+        // For forgot password, validate any existing email immediately
+        validateEmail(email, true);
+      }
+      
+      // Initialize Google SDK
+      if (window.isSecureContext) {
+        initializeSDK();
       }
     } else {
       // Reset the flag when modal closes
       setHasPrefilledEmail(false);
     }
-  }, [isOpen, mode, initialEmail, lastUsedEmail, hasPrefilledEmail, resetError, verificationEmail]);
+  }, [isOpen, mode, validateEmail, hasPrefilledEmail, prefillEmail, initializeSDK]);
   
-  // Update when initialView prop changes
+  // When the modal opens, ensure Google SDK is initialized
   useEffect(() => {
-    if (initialView) {
-      setMode(initialView);
+    if (isOpen && window.isSecureContext) {
+      initializeSDK();
     }
-  }, [initialView]);
+  }, [isOpen, initializeSDK]);
   
-  // Update verificationEmail when prop changes
+  // Add useEffect to check for reset parameter
   useEffect(() => {
-    if (verificationEmail) {
-      setLocalVerificationEmail(verificationEmail);
-      // Store in localStorage for persistence 
-      window.localStorage.setItem('verificationEmail', verificationEmail);
-      // Automatically switch to verification mode when verification email is set
-      setMode(AUTH_VIEWS.VERIFICATION);
-      logger.debug('Switching to verification mode due to verificationEmail:', verificationEmail);
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('reset') === 'true') {
+      setMode('forgot-password');
+      // Remove the reset parameter from URL
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
     }
-  }, [verificationEmail]);
+  }, []);
   
-  // Add useEffect to check for authenticated user and close modal
+  // Add a useEffect to validate the email when switching to forgot-password mode
   useEffect(() => {
-    if (isOpen) {
-      checkAuthAndClose(onClose);
+    // When switching to forgot-password mode with an existing email, validate it
+    if (mode === 'forgot-password' && email) {
+      // Validate the email immediately
+      validateEmail(email, true);
     }
-  }, [isOpen, authStatus, onClose]);
+  }, [mode, email, validateEmail]);
   
-  // Modal backdrop mouse handlers
+  // Update useEffect to handle initial mode changes
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialMode]);
+  
+  // Handle mouse events for backdrop
   const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Check if click was directly on the backdrop (not content)
-    if (e.target === e.currentTarget) {
+    // If the click is directly on the backdrop (not on the modal content)
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      // Mark that the mouse down happened on the backdrop
       mouseDownOnBackdrop.current = true;
+    } else {
+      mouseDownOnBackdrop.current = false;
     }
   };
   
   const handleBackdropMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only close if both mousedown and mouseup were on backdrop
-    if (mouseDownOnBackdrop.current && e.target === e.currentTarget) {
+    // Only close if both mouse down and mouse up happened on the backdrop
+    if (mouseDownOnBackdrop.current && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      // For verification modal, don't allow closing by clicking outside
+      if (verificationEmail) {
+        // Prevent closing - do nothing
+        return;
+      }
+      
       onClose();
     }
+    
+    // Reset the flag
     mouseDownOnBackdrop.current = false;
   };
   
-  // Handle view changes - changing to accept string instead of AuthMode
-  const handleViewChange = (newMode: string) => {
-    setMode(newMode as AuthMode);
+  // Add a function to handle verification modal close attempts
+  const handleVerificationClose = () => {
+    // Store verification state in localStorage before closing
+    if (verificationEmail) {
+      const verificationState = {
+        email: verificationEmail,
+        startTime: Date.now(),
+        attempted: true
+      };
+      
+      localStorage.setItem('verificationState', JSON.stringify(verificationState));
+      logger.info('Saved verification state', { email: verificationEmail, state: verificationState });
+    } else {
+      logger.warn('Attempting to save verification state but verificationEmail is null');
+    }
+    
+    // Close the modal
+    onClose();
+  };
+  
+  // Handle main close button click 
+  const handleCloseButtonClick = () => {
+    // For verification flow, just save state and close - no confirmation
+    if (verificationEmail) {
+      handleVerificationClose();
+    } else {
+      // Normal close for other modes
+      onClose();
+    }
+  };
+  
+  // Password validation
+  const validatePasswordField = useCallback((value: string, immediate = false) => {
+    const validate = () => {
+      // Different validation based on mode
+      if (mode === 'signin') {
+        // In signin mode, just check if password is not empty
+        const isValid = value.length > 0;
+        setValidationState(prev => ({
+          ...prev,
+          password: {
+            status: isValid ? 'valid' : 'idle',
+            message: ''
+          }
+        }));
+      } else if (mode === 'signup') {
+        // In signup mode, check password strength
+        const strength = checkPasswordStrength(value);
+        const result = validatePassword(value);
+        const isValid = strength.score >= 2 && result.isValid;
+        
+        setValidationState(prev => ({
+          ...prev,
+          password: {
+            status: isValid ? 'valid' : value === '' ? 'idle' : 'invalid',
+            message: isValid ? '' : result.message || 'Please use a stronger password'
+          }
+        }));
+        
+        setPasswordStrength(strength);
+      }
+    };
+    
+    // Clear existing timer
+    if (passwordValidationTimer.current) {
+      clearTimeout(passwordValidationTimer.current);
+    }
+    
+    if (immediate) {
+      validate();
+    } else {
+      // Set a new timer to validate after delay
+      passwordValidationTimer.current = setTimeout(validate, 500);
+    }
+  }, [mode]);
+  
+  // When password changes, update strength meter
+  useEffect(() => {
+    if (mode === 'signup' && password) {
+      setPasswordStrength(checkPasswordStrength(password));
+    }
+    
+    if (mode === 'update-password' && newPassword) {
+      setNewPasswordStrength(checkPasswordStrength(newPassword));
+    }
+  }, [password, newPassword, mode]);
+  
+  // Form submission handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetError();
+    setAuthError(null);
+    
+    // Validate fields for all flows
+    if (!email) {
+      setAuthError("Email is required");
+      return;
+    }
+    
+    if (validationState.email.status === 'invalid') {
+      setAuthError(validationState.email.message);
+      return;
+    }
+    
+    // Additional validation for sign-in and sign-up
+    if (mode !== 'forgot-password' && !password) {
+      setAuthError("Password is required");
+      return;
+    }
+    
+    // Handle the auth based on current mode
+    switch (mode) {
+      case 'signin':
+        try {
+          await signInWithEmail(email, password);
+          
+          // Set last used email if "Remember me" is checked
+          if (rememberMeChecked) {
+            setLastUsedEmail(email);
+          } else {
+            setLastUsedEmail('');
+          }
+          
+          setRememberMe(rememberMeChecked);
+          onClose();
+        } catch (error) {
+          // Error is already handled by the store
+        }
+        break;
+        
+      case 'signup':
+        try {
+          // For sign-up, add password validation
+          if (validationState.password.status === 'invalid') {
+            setAuthError(validationState.password.message);
+            return;
+          }
+          
+          // Store email for verification step
+          logger.info('Starting code-based signup flow', { email });
+          
+          try {
+            // Set loading state
+            useAuthStore.setState({ status: 'LOADING', error: null });
+            
+            // Call Supabase with OTP option instead of email redirect
+            const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: undefined, // Disable link-based verification by setting to undefined
+              }
+            });
+            
+            if (error) throw error;
+            
+            // For email confirmation flow using OTP code
+            logger.info('Signup successful, waiting for OTP verification', { 
+              user: data.user?.id,
+              identityConfirmed: data.user?.identities?.[0]?.identity_data?.email_verified
+            });
+            
+            // Switch to verification code input
+            setVerificationEmail(email);
+            
+            // Store email for later use
+            setLastUsedEmail(email);
+            setRememberMe(true);
+            
+            // Success state
+            useAuthStore.setState({ 
+              status: 'UNAUTHENTICATED',
+              error: null
+            });
+          } catch (error) {
+            logger.error('Error during signup:', error);
+            setAuthError(error instanceof Error ? error.message : 'Failed to sign up');
+            useAuthStore.setState({ 
+              status: 'ERROR',
+              error: error instanceof Error ? error.message : 'Failed to sign up'
+            });
+          }
+        } catch (error) {
+          // Error is already handled by the store
+        }
+        break;
+        
+      case 'forgot-password':
+        try {
+          await resetPassword(email);
+          setResetEmailSent(true);
+        } catch (error) {
+          // Error is already handled by the store
+        }
+        break;
+    }
+  };
+  
+  const toggleMode = (newMode: AuthMode) => {
+    setMode(newMode);
+    setAuthError(null);
     resetError();
   };
   
-  // Handle email validation from child components
-  const handleEmailValidation = (isValid: boolean) => {
-    setIsEmailValid(isValid);
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    setLastTypedField('email');
+    
+    if (!isDirty.email) {
+      setIsDirty(prev => ({ ...prev, email: true }));
+    } else {
+      validateEmail(newEmail);
+    }
   };
   
-  // Handle signup completion
-  const handleSignUpComplete = () => {
-    // Store the email for verification
-    setLocalVerificationEmail(email);
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    setLastTypedField('password');
     
-    // Store verification state in localStorage for persistence
-    const verificationState = {
-      email: email,
-      startTime: Date.now(),
-      attempted: true
-    };
-    localStorage.setItem('verificationState', JSON.stringify(verificationState));
-    localStorage.setItem('verificationEmail', email || '');
-    
-    // Switch to verification view instead of signup confirmation
-    setMode(AUTH_VIEWS.VERIFICATION);
+    if (!isDirty.password) {
+      setIsDirty(prev => ({ ...prev, password: true }));
+    } else {
+      validatePasswordField(newPassword);
+    }
   };
   
-  // Handle successful auth
-  const handleAuthSuccess = useCallback(() => {
-    // Clear any verification state
-    clearAllVerificationState();
-    
-    logger.info('Authentication successful, closing modal');
-    onClose();
-  }, [onClose]);
-  
-  // Handle verification cancel
-  const handleVerificationCancel = () => {
-    // Store verification state in localStorage before switching to sign in
-    if (effectiveVerificationEmail) {
-      const verificationState = {
-        email: effectiveVerificationEmail,
-        startTime: Date.now(),
-        attempted: true,
-        canceled: true
-      };
-      localStorage.setItem('verificationState', JSON.stringify(verificationState));
-      localStorage.setItem('verificationEmail', effectiveVerificationEmail);
-      logger.info('Saved verification state on cancel', { email: effectiveVerificationEmail });
+  const handleEmailBlur = () => {
+    if (email) {
+      validateEmail(email, true);
     }
-    
-    // Switch back to sign in
-    setMode(AUTH_VIEWS.SIGN_IN);
   };
   
-  // After mounting, check if we need to go to verification mode
-  useEffect(() => {
-    if (effectiveVerificationEmail && mode !== AUTH_VIEWS.VERIFICATION) {
-      logger.info('Setting to verification mode based on email:', effectiveVerificationEmail);
-      setMode(AUTH_VIEWS.VERIFICATION);
-      
-      // Store in localStorage for persistence
-      if (!window.localStorage.getItem('verificationEmail') && effectiveVerificationEmail) {
-        window.localStorage.setItem('verificationEmail', effectiveVerificationEmail);
-      }
+  const handlePasswordBlur = () => {
+    if (password) {
+      validatePasswordField(password, true);
     }
-  }, [effectiveVerificationEmail, mode]);
-
-  // Clear the verification email when the modal is closed
-  useEffect(() => {
-    if (!isOpen) {
-      setLocalVerificationEmail(null);
-    }
-  }, [isOpen]);
+  };
   
-  // Render the content based on the current mode
-  function renderContent() {
-    // First check if we have a verification email, regardless of mode
-    if (effectiveVerificationEmail) {
-      logger.info('Rendering VerificationCodeInput with email:', effectiveVerificationEmail);
-      return (
-        <VerificationCodeInput
-          email={effectiveVerificationEmail}
-          onSuccess={handleAuthSuccess}
-          onCancel={handleVerificationCancel}
-          onClose={onClose}
-        />
-      );
-    }
-    
-    // Add debugging for verification mode with no email
-    if (mode === AUTH_VIEWS.VERIFICATION) {
-      console.error('In VERIFICATION mode but no email is available:', {
-        mode,
-        verificationEmail,
-        localVerificationEmail,
-        effectiveVerificationEmail,
-        localStorage: {
-          verificationEmail: window.localStorage.getItem('verificationEmail'),
-          verificationState: window.localStorage.getItem('verificationState')
-        }
-      });
-    }
-    
-    if (mode === AUTH_VIEWS.SIGNUP_CONFIRMATION) {
-      return (
-        <>
-          <h2 className="text-xl font-semibold text-brand-neutral-900 mb-4">
-            Check Your Email
-          </h2>
-          
-          <div className="space-y-5">
-            <div className="bg-status-success-light border border-status-success-border text-status-success px-4 py-3 rounded-md text-sm">
-              <strong>Account created!</strong> Please check your email for a verification link.
-            </div>
-            
-            <p className="text-brand-neutral-600 text-sm">
-              We've sent you an email with a link to verify your account. Once verified, you'll be able to sign in.
-            </p>
-            
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => handleViewChange(AUTH_VIEWS.SIGN_IN)}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
-              >
-                Back to Sign In
-              </button>
-            </div>
-          </div>
-        </>
-      );
-    }
-    
-    switch (mode) {
-      case AUTH_VIEWS.SIGN_IN:
-        return (
-          <SignIn
-            email={email || ''}
-            setEmail={setEmail}
-            onEmailValidation={handleEmailValidation}
-            onViewChange={handleViewChange}
-            onSuccess={handleAuthSuccess}
-            onClose={onClose}
+  const getInputClasses = (status: ValidationStatus) => {
+    return cn(
+      "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-gray-900 placeholder-gray-400",
+      status === 'valid' ? "border-green-500 focus:border-green-500 focus:ring-green-500" : 
+      status === 'invalid' ? "border-red-500 focus:border-red-500 focus:ring-red-500" : 
+      "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+    );
+  };
+  
+  // Show verification code input screen
+  if (verificationEmail) {
+    return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
+        onMouseDown={handleBackdropMouseDown}
+        onMouseUp={handleBackdropMouseUp}
+      >
+        <div 
+          ref={modalRef}
+          className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
+        >
+          <VerificationCodeInput 
+            email={verificationEmail}
+            onSuccess={() => {
+              // Clear any saved verification state
+              localStorage.removeItem('verificationState');
+              
+              // Clear verification email to hide the modal and banner
+              setVerificationEmail(null);
+              
+              // Handle successful verification
+              logger.info('Verification completed successfully');
+              onClose();
+            }}
+            onCancel={() => {
+              // Show confirmation dialog before canceling
+              const confirmed = window.confirm(
+                'Are you sure you want to cancel verification? You will need to restart the signup process.'
+              );
+              
+              if (confirmed) {
+                // Clear verification state
+                localStorage.removeItem('verificationState');
+                
+                // Go back to sign-up form
+                setVerificationEmail(null);
+              }
+            }}
+            onClose={handleVerificationClose}
           />
-        );
-      case AUTH_VIEWS.SIGN_UP:
-        return (
-          <SignUp
-            email={email || ''}
-            setEmail={setEmail}
-            onEmailValidation={handleEmailValidation}
-            onViewChange={handleViewChange}
-            onSignUpComplete={handleSignUpComplete}
-            onClose={onClose}
-          />
-        );
-      case AUTH_VIEWS.FORGOT_PASSWORD:
-        return (
-          <ResetPassword
-            email={email || ''}
-            setEmail={setEmail}
-            onEmailValidation={handleEmailValidation}
-            onViewChange={handleViewChange}
-            onClose={onClose}
-          />
-        );
-      case AUTH_VIEWS.VERIFICATION:
-        // This case is handled at the top of the function when verificationEmail exists
-        return (
-          <div className="p-4 text-brand-neutral-500">
-            Email verification error. Please try signing up again.
-          </div>
-        );
-      default:
-        return (
-          <div className="p-4 text-brand-neutral-500">
-            Unknown view: {mode}
-          </div>
-        );
-    }
+        </div>
+      </div>
+    );
   }
   
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+  // Show signup confirmation screen
+  if (mode === 'signup-confirmation') {
+    return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
+        onMouseDown={handleBackdropMouseDown}
+        onMouseUp={handleBackdropMouseUp}
+      >
         <div 
-          className="p-6"
           ref={modalRef}
-          onMouseDown={handleBackdropMouseDown}
-          onMouseUp={handleBackdropMouseUp}
+          className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
         >
-          {error && (
-            <div className="mb-4 bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded text-sm">
-              {error}
+         <div className="relative mb-6">
+          <div className="text-center w-full">
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">Verify Your Email</h2>
+            <button 
+              onClick={onClose} 
+              className="absolute -top-2 -right-2 text-gray-400 hover:text-indigo-500 transition-colors p-1 hover:bg-gray-100 rounded-full"
+              aria-label="Close"
+            >
+              <span className="text-2xl leading-none">&times;</span>
+            </button>
+          </div>
+          </div>
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 mb-3">
+              <Mail className="h-8 w-8 text-indigo-600" />
+            </div>
+          <div>
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">
+          Check your inbox!</h2>
+          </div>
+          </div>
+          
+          <div className="text-center bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+          
+            <p className="mt-1">We've sent a confirmation email to <strong>{email}</strong></p>
+          </div>
+          
+          <p className="text-gray-600 mb-6 text-sm text-center">
+            Please click the verification link in the email to complete your account setup. 
+            If you don't see the email within a few minutes, check your spam folder.
+          </p>
+          
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => toggleMode('signin')}
+              className="flex items-center text-indigo-600 hover:text-indigo-800"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to sign in
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                // Reset the form and go back to signup mode
+                toggleMode('signup');
+                setEmail('');
+                setPassword('');
+              }}
+              className="text-indigo-600 hover:text-indigo-800"
+            >
+              Use different email
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show reset confirmation screen
+  if (mode === 'reset-confirmation') {
+    return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        onMouseDown={handleBackdropMouseDown}
+        onMouseUp={handleBackdropMouseUp}
+      >
+        <div 
+          ref={modalRef}
+          className="w-full max-w-md bg-white rounded-lg p-6 shadow-lg"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Password Reset</h2>
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
+                hover:bg-gray-100 transition-colors duration-150 text-xl"
+              aria-label="Close"
+            >
+              <span className="text-2xl leading-none">&times;</span>
+            </button>
+          </div>
+          
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            <p className="font-medium">Password reset email sent!</p>
+            <p className="mt-1">Check your inbox for instructions to reset your password.</p>
+          </div>
+          
+          <p className="text-gray-600 mb-4">
+            If you don't see the email within a few minutes, check your spam folder or try again.
+          </p>
+          
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => toggleMode('signin')}
+              className="flex items-center text-indigo-600 hover:text-indigo-800"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to sign in
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => toggleMode('forgot-password')}
+              className="text-indigo-600 hover:text-indigo-800"
+            >
+              Resend email
+            </button>
+          </div>
+            
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-gray-600 mb-2">Already clicked the reset link?</p>
+            <button
+              type="button"
+              onClick={() => toggleMode('update-password')}
+              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium 
+                text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 
+                focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Set New Password
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Add the handle update password function here inside the component
+  // to have access to component state and props
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Reset errors
+    resetError();
+    setAuthError(null);
+    
+    // Validate the new password
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      setAuthError(validation.message || 'Password is not strong enough');
+      return;
+    }
+    
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      setAuthError('Passwords do not match');
+      return;
+    }
+    
+    try {
+      // Get the Supabase client
+      const { supabase } = await import('../../lib/supabase');
+      
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      // Close modal on success
+      logger.info('Password updated successfully');
+    onClose();
+    } catch (err) {
+      logger.error('Error updating password:', err);
+      setAuthError(err instanceof Error ? err.message : 'Failed to update password');
+    }
+  };
+  
+  // Add the update password UI
+  if (mode === 'update-password') {
+      return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        onMouseDown={handleBackdropMouseDown}
+        onMouseUp={handleBackdropMouseUp}
+      >
+        <div 
+          ref={modalRef}
+          className="w-full max-w-md bg-white rounded-lg p-6 shadow-lg"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Update Your Password</h2>
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 h-8 w-8 rounded-full flex items-center justify-center 
+                hover:bg-gray-100 transition-colors duration-150 text-xl"
+              aria-label="Close"
+            >
+              <span className="text-2xl leading-none">&times;</span>
+            </button>
+          </div>
+          
+          {authError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <span>{authError}</span>
             </div>
           )}
           
-          {renderContent()}
+          {error && !authError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {isAuthLoading && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 flex items-center">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Processing authentication...</span>
+            </div>
+          )}
+          
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="font-medium">Create a new password for your account</p>
+            <p className="mt-1">Please choose a strong, unique password</p>
+          </div>
+          
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div>
+              <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">
+                New Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="new-password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-gray-900 placeholder-gray-400 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                >
+                  {showNewPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              
+              {newPassword && (
+                <PasswordStrengthMeter strength={newPasswordStrength} />
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={cn(
+                    "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-gray-900 placeholder-gray-400",
+                    confirmPassword && newPassword !== confirmPassword
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                  )}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">Passwords do not match</p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isAuthLoading || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+              className={cn(
+                "w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white",
+                "bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+                (isAuthLoading || !newPassword || !confirmPassword || newPassword !== confirmPassword) 
+                  ? "opacity-75 cursor-not-allowed" 
+                  : ""
+              )}
+            >
+              {isAuthLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center">
+                  <Save className="h-4 w-4 mr-2" />
+                  Update Password
+                </span>
+              )}
+            </button>
+            
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={() => toggleMode('signin')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+              >
+                Return to sign in
+              </button>
+            </div>
+          </form>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    );
+  }
+  
+  // Check if we need to close the modal based on authentication status
+  const checkAuthAndClose = () => {
+    // Check if the user is authenticated by accessing the store state directly
+    const user = useAuthStore.getState().user;
+    if (user) {
+      // We're authenticated - close the modal
+      onClose();
+    }
+  };
+  
+  // Return statement with main component structure
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
+      onMouseDown={handleBackdropMouseDown}
+      onMouseUp={handleBackdropMouseUp}
+    >
+      <div 
+        ref={modalRef}
+        className="w-full max-w-md bg-white rounded-xl p-8 shadow-2xl border border-gray-100"
+      >
+        <div className="relative mb-6">
+          <div className="text-center w-full">
+            <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight -mb-2">
+              {!signupComplete && mode === 'signin' && 'Sign In'}
+              {!signupComplete && mode === 'signup' && 'Create An Account'}
+              {!signupComplete && mode === 'forgot-password' && 'Reset Your Password'}
+              {signupComplete && 'Check Your Email'}
+          </h2>
+            <p className="mt-3 text-sm text-gray-500">
+              {mode === 'signin' && (
+                <>
+                  New User?{' '}
+                  <button
+                    type="button"
+                    onClick={() => toggleMode('signup')}
+                    className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
+                  >
+                    Create an account
+                  </button>
+                </>
+              )}
+              {mode === 'signup' && ''}
+              {mode === 'forgot-password' && "We'll send you a link to reset your password"}
+            </p>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="absolute -top-2 -right-2 text-gray-400 hover:text-indigo-500 transition-colors p-1 hover:bg-gray-100 rounded-full"
+            aria-label="Close"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        
+        {/* Auth state indicators */}
+        {isAuthLoading && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 flex items-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Processing authentication...</span>
+          </div>
+        )}
+        
+        {error && !authError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <span>{error}</span>
+          </div>
+        )}
+        
+        {authError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <span>{authError}</span>
+          </div>
+        )}
+        
+        {/* Main content with form-specific UI */}
+        {renderFormContent()}
+        
+      </div>
+    </div>
   );
-}
+  
+  // Internal function to render the appropriate form content based on mode
+  function renderFormContent() {
+    if (String(mode) === 'forgot-password') {
+      return (
+        <div className="space-y-4">
+          {resetEmailSent ? (
+            <div className="p-4 mb-4 border border-green-300 bg-green-50 rounded-md">
+              <div className="flex items-center">
+                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                <p className="text-green-700">
+                  Password reset link sent! Check your email to complete the process.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="mt-4 w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white
+                  bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                  transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-1">
+                <label htmlFor="reset-email" className="-mb-1 block text-sm font-semibold text-gray-700">
+                  Email address
+                </label>
+                <p className="text-sm text-gray-500 mb-1">
+                  Enter your email to receive a password reset link
+                </p>
+                <div className="relative mt-1">
+                  <input
+                    id="reset-email"
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    onBlur={handleEmailBlur}
+                    className={getInputClasses(validationState.email.status)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                  {validationState.email.status === 'valid' && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <CheckCircle className="h-5 w-5 text-green-500" aria-hidden="true" />
+                    </div>
+                  )}
+                  {validationState.email.status === 'invalid' && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <AlertCircle className="h-5 w-5 text-red-500" aria-hidden="true" />
+                    </div>
+                  )}
+                </div>
+                {validationState.email.status === 'invalid' && (
+                  <p className="mt-1 text-sm text-red-600">{validationState.email.message}</p>
+                )}
+              </div>
+              
+              <button
+                type="submit"
+                disabled={validationState.email.status !== 'valid' || isAuthLoading}
+                className={cn(
+                  "mt-2 w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white",
+                  "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700",
+                  "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+                  "transition-all duration-200 ease-in-out transform hover:scale-[1.01]",
+                                    (validationState.email.status !== 'valid' || isAuthLoading) ? "opacity-75 cursor-not-allowed" : ""
+                )}
+              >
+                {isAuthLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : "Send Reset Link"}
+              </button>
+              
+              <div className="text-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmailSent(false);
+                    setMode('signin');
+                  }}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      );
+    }
+    
+    // Normal signin/signup modes
+        return (
+      <>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label htmlFor="email" className="-mb-1 block text-sm font-semibold text-gray-700">
+              Email address
+            </label>
+            <p className="text-sm text-gray-500 mb-1">
+              {mode === 'signup' ? 'Enter your email to create an account' : 
+               mode === 'signin' ? '' :
+               'Enter your email to receive a password reset link'}
+            </p>
+            <div className="relative mt-1">
+            <input
+              id="email"
+              type="email"
+              value={email}
+                onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
+                className={getInputClasses(validationState.email.status)}
+                placeholder="you@example.com"
+              required
+            />
+              {validationState.email.status === 'valid' && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <CheckCircle className="h-5 w-5 text-green-500" aria-hidden="true" />
+                </div>
+              )}
+              {validationState.email.status === 'invalid' && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <AlertCircle className="h-5 w-5 text-red-500" aria-hidden="true" />
+                </div>
+              )}
+            </div>
+            {validationState.email.status === 'invalid' && (
+              <p className="mt-1 text-sm text-red-600">{validationState.email.message}</p>
+            )}
+          </div>
+          
+          {mode !== 'forgot-password' && (
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+              <p className="text-sm text-gray-500 mb-1">
+                {mode === 'signup' 
+                  ? 'Create a strong password with at least 8 characters'
+                  : ''}
+              </p>
+              <div className="relative mt-1">
+            <input
+              id="password"
+                  type={showPassword ? 'text' : 'password'}
+              value={password}
+                  onChange={handlePasswordChange}
+                  onBlur={handlePasswordBlur}
+                  className={getInputClasses(validationState.password.status)}
+                  placeholder={mode === 'signup' ? '••••••••' : 'Enter your password'}
+              required
+            />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              
+              {/* Password strength indicator (only show during sign up) */}
+              {mode === 'signup' && password && (
+                <PasswordStrengthMeter strength={passwordStrength} />
+              )}
+              
+              {validationState.password.status === 'invalid' && (
+                <p className="mt-1 text-sm text-red-600">{validationState.password.message}</p>
+              )}
+            </div>
+          )}
+          
+          {mode === 'signin' && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMeChecked}
+                  onChange={(e) => setRememberMeChecked(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-neutral-700">
+                  Remember me
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggleMode('forgot-password')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+          
+          {mode === 'signup' && (
+            <div className="text-sm text-gray-500">
+              By creating an account, you agree to our <a href="#" className="text-indigo-600 hover:text-indigo-500">Terms of Service</a> and <a href="#" className="text-indigo-600 hover:text-indigo-500">Privacy Policy</a>.
+          </div>
+          )}
+          
+            <button
+              type="submit"
+            disabled={isAuthLoading}
+            className={cn(
+              "w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white",
+              "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700",
+              "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+              "transition-all duration-200 ease-in-out transform hover:scale-[1.01]",
+              isAuthLoading ? "opacity-75 cursor-not-allowed" : ""
+            )}
+          >
+            {isAuthLoading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              mode === 'signin' 
+                ? 'Continue' 
+                : mode === 'signup'
+                  ? 'Sign Up'
+                  : 'Send Reset Link'
+            )}
+            </button>
+        </form>
+        
+        {/* Google Sign-In section */}
+        {isSDKLoaded && mode === 'signin' && (
+        <div className="mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or</span>
+              </div>
+          </div>
+          
+            <div className="mt-4 stable-height-container">
+            <GoogleSignInButton
+                className="w-full"
+                onSuccess={() => {
+                  // Log the event
+                  logger.info("Google sign-in callback triggered, closing modal");
+                  
+                  // Force close the modal immediately
+                  onClose();
+                  
+                  // We don't need the progressive approach since we're forcing close
+                  // If there are any auth state issues, they'll be handled by the main app
+                }}
+                onError={(error) => {
+                  setAuthError("Google Sign-In failed. Please try again or use email login.");
+                  logger.error("Google Sign-In error:", error);
+                }}
+            />
+          </div>
+        </div>
+        )}
+        
+       
+        
+        {mode === 'signup' && (
+          <div className="text-center mt-6 pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+          <button
+            type="button"
+                onClick={() => toggleMode('signin')}
+                className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
+          >
+                Sign In
+          </button>
+            </p>
+        </div>
+        )}
+      </>
+  );
+  }
+};
 
 export default AuthModal; 

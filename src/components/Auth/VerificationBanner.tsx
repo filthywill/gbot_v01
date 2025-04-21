@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { X, Clock, Mail } from 'lucide-react';
 import logger from '../../lib/logger';
-import { useTheme } from '../../hooks/useTheme';
-import BrandButton from '../ui/brand-button';
 
 interface VerificationBannerProps {
-  onResumeVerification: (email: string) => void;
+  onResumeVerification: () => void;
   forceShow?: boolean;
   email?: string; // Current verification email
   isAuthenticated?: boolean; // Whether the user is authenticated
@@ -28,7 +26,6 @@ const VerificationBanner: React.FC<VerificationBannerProps> = ({
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [dismissed, setDismissed] = useState(false);
-  const { getGradientClass } = useTheme();
 
   // Check for verification state on mount and when forceShow changes
   useEffect(() => {
@@ -110,50 +107,43 @@ const VerificationBanner: React.FC<VerificationBannerProps> = ({
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-brand-gradient text-white p-3 shadow-md">
-      <div className="max-w-[800px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between">
-        <div className="flex items-center mb-2 sm:mb-0">
-          <Mail className="hidden sm:block h-5 w-5 mr-2 flex-shrink-0" />
-          <div className="flex flex-wrap sm:flex-row sm:items-center">
-            <span className="text-sm sm:text-base whitespace-nowrap">
-              Verification pending for 
-            </span>
-            <span className="text-sm sm:text-base font-medium ml-1">
-              <span className="truncate max-w-[150px] sm:max-w-none inline-block align-bottom">{displayEmail}</span>
-            </span>
-          </div>
+    <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between">
+      <div className="flex items-center mb-2 sm:mb-0 w-full sm:w-auto">
+        <Mail className="hidden sm:block h-5 w-5 mr-2 flex-shrink-0" />
+        <div className="flex flex-wrap sm:flex-row sm:items-center">
+          <span className="text-sm sm:text-base whitespace-nowrap">
+            Verification pending for 
+          </span>
+          <span className="text-sm sm:text-base font-medium ml-1">
+            <span className="truncate max-w-[150px] sm:max-w-none inline-block align-bottom">{displayEmail}</span>
+          </span>
         </div>
+        {timeLeft > 0 && (
+          <span className="flex items-center text-xs bg-white bg-opacity-20 px-2 py-1 rounded ml-2 flex-shrink-0">
+            <Clock className="h-3 w-3 mr-1" /> {formatTimeLeft()}
+          </span>
+        )}
+      </div>
+      
+      <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end">
+        <button
+          onClick={onResumeVerification}
+          className="bg-white text-indigo-600 px-3 py-1 rounded-md text-sm font-medium mr-3 hover:bg-opacity-90 transition-colors whitespace-nowrap"
+        >
+          Resume Verification
+        </button>
         
-        <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center">
-            <BrandButton
-              variant="white"
-              size="sm"
-              onClick={() => onResumeVerification(displayEmail)}
-              className="whitespace-nowrap"
-            >
-              Resume Verification
-            </BrandButton>
-            
-            {timeLeft > 0 && (
-              <span className="flex items-center text-xs bg-white bg-opacity-20 px-2 py-1 rounded ml-2 flex-shrink-0">
-                <Clock className="h-3 w-3 mr-1" /> {formatTimeLeft()}
-              </span>
-            )}
-          </div>
-          
-          <button
-            onClick={() => {
-              setDismissed(true);
-              logger.debug('Banner dismissed by user');
-              // Don't remove the state from storage, just hide the banner
-            }}
-            className="text-white hover:text-gray-200 ml-3"
-            aria-label="Dismiss"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            logger.debug('Banner dismissed by user');
+            // Don't remove the state from storage, just hide the banner
+          }}
+          className="text-white hover:text-gray-200"
+          aria-label="Dismiss"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );

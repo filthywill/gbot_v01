@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase';
 import useAuthStore from '../../store/useAuthStore';
 import logger from '../../lib/logger';
 import { cn } from '../../lib/utils';
-import { clearAllVerificationState } from '../../lib/auth/utils';
 
 interface VerificationCodeInputProps {
   email: string;
@@ -66,11 +65,8 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
         throw new Error('Verification failed');
       }
 
-      // Successfully verified - clear ALL verification-related data
+      // Successfully verified
       logger.info('Email verified successfully', { user: result.user?.id });
-      
-      // Clear any verification state in localStorage
-      clearAllVerificationState();
       
       // Call success callback
       onSuccess();
