@@ -22,7 +22,11 @@ const ResetPasswordPage = () => {
       const isFromCallback = url.searchParams.get('from_callback') === 'true'
       const isVerified = url.searchParams.get('verified') === 'true'
       
-      console.log('URL params:', { isFromCallback, isVerified })
+      console.log('URL params:', { 
+        isFromCallback, 
+        isVerified,
+        searchParams: Object.fromEntries(url.searchParams.entries())
+      })
       
       // If we're coming from the callback with verification
       if (isFromCallback && isVerified) {
@@ -30,6 +34,42 @@ const ResetPasswordPage = () => {
         setVerified(true)
         setSessionChecked(true)
         return
+      }
+      
+      // Check if we have recovery token in the URL (direct reset password link)
+      const token = url.searchParams.get('token')
+      const type = url.searchParams.get('type')
+      
+      if (token && type === 'recovery') {
+        console.log('Found recovery token in URL, attempting to verify directly')
+        try {
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'recovery',
+          })
+          
+          console.log('Direct token verification result:', { 
+            hasData: !!data, 
+            hasSession: !!(data && data.session),
+            hasError: !!verifyError
+          })
+          
+          if (error) {
+            console.error('Direct token verification failed:', verifyError)
+            setError('Your password reset link is invalid or has expired. Please request a new one.')
+          } else if (data && data.session) {
+            console.log('Token verified directly, enabling password reset')
+            setVerified(true)
+          } else {
+            console.log('No session created from direct token verification')
+            setError('Unable to verify your password reset request. Please try again.')
+          }
+          
+          setSessionChecked(true)
+          return
+        } catch (err) {
+          console.error('Error during direct token verification:', err)
+        }
       }
       
       // Otherwise, check if we have a valid session
@@ -51,7 +91,32 @@ const ResetPasswordPage = () => {
           setVerified(true)
         } else {
           console.log('No valid session found')
-          setError('No valid authentication session found. Please request a new password reset link.')
+          
+          // Try to see if we're in the middle of a PKCE auth flow
+          if (url.searchParams.has('code')) {
+            console.log('Found auth code, waiting for session to be established')
+            
+            // Wait a short time for the session to be established by the Supabase client
+            setTimeout(async () => {
+              const { data: delayedData } = await supabase.auth.getSession()
+              
+              console.log('Delayed session check result:', {
+                hasSession: !!(delayedData && delayedData.session)
+              })
+              
+              if (delayedData && delayedData.session) {
+                console.log('Session established after delay')
+                setVerified(true)
+              } else {
+                setError('No valid authentication session found. Please request a new password reset link.')
+              }
+              
+              setSessionChecked(true)
+            }, 1500) // Wait 1.5 seconds
+            return
+          } else {
+            setError('No valid authentication session found. Please request a new password reset link.')
+          }
         }
       } catch (err) {
         console.error('Error checking session:', err)

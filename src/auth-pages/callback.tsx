@@ -17,12 +17,15 @@ const AuthCallback = () => {
         const type = url.searchParams.get('type')
         const token = url.searchParams.get('token')
         const isRecovery = type === 'recovery' && token
+        const hasCode = url.searchParams.get('code') !== null
         
         console.log('Processing auth callback:', { 
           isRecovery, 
           hasToken: !!token, 
           type,
-          urlHash: !!window.location.hash
+          hasCode,
+          urlHash: !!window.location.hash,
+          searchParams: Object.fromEntries(url.searchParams.entries())
         })
 
         // Handle recovery token verification
@@ -59,6 +62,40 @@ const AuthCallback = () => {
           // Redirect to reset-password page with verification status
           window.location.href = '/auth/reset-password?from_callback=true&verified=true'
           return
+        }
+        
+        // Handle PKCE authentication flows with code parameter
+        if (hasCode) {
+          const code = url.searchParams.get('code')
+          console.log('Found PKCE auth code, exchanging for session')
+          
+          try {
+            // Exchange the code for a session (Supabase JS SDK handles this automatically)
+            // But we'll manually check if the session was established
+            const { data, error: sessionError } = await supabase.auth.getSession()
+            
+            console.log('Code exchange result:', {
+              hasData: !!data,
+              hasSession: !!(data?.session),
+              hasError: !!sessionError
+            })
+            
+            if (sessionError) {
+              throw sessionError
+            }
+            
+            if (data?.session) {
+              console.log('Session established from code, redirecting to app')
+              window.location.href = '/'
+              return
+            } else {
+              console.error('No session established from auth code')
+              // Continue to try other auth methods
+            }
+          } catch (err) {
+            console.error('Error processing auth code:', err)
+            // Continue to try other auth methods
+          }
         }
         
         // Handle other authentication flows (signup, login, etc.)
@@ -103,8 +140,20 @@ const AuthCallback = () => {
             
             console.log('Session established from URL hash, redirecting to app')
           } else {
-            console.error('No session found and no URL hash to process')
-            throw new Error('Authentication failed - no session or URL parameters found')
+            // Check if there's a pending email confirmation
+            const isPendingConfirmation = url.searchParams.has('confirmation') || 
+                                          type === 'signup' || 
+                                          type === 'magiclink'
+            
+            if (isPendingConfirmation) {
+              console.log('Email confirmation pending, showing message')
+              setError('Please check your email to confirm your account.')
+              setLoading(false)
+              return
+            }
+            
+            console.error('No session found and no URL hash or code to process')
+            throw new Error('Authentication failed. Please try signing in again.')
           }
         } else {
           console.log('Valid session found, redirecting to app')
@@ -138,10 +187,16 @@ const AuthCallback = () => {
   return (
     <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-brand-primary-600 mb-6 text-center">Authentication Error</h1>
-        <div className="mb-4 p-3 bg-status-error-light text-status-error rounded">
-          {error || 'Failed to complete authentication process'}
-        </div>
+        <h1 className="text-2xl font-bold text-brand-primary-600 mb-6 text-center">Authentication Status</h1>
+        {error ? (
+          <div className="mb-4 p-3 bg-status-error-light text-status-error rounded">
+            {error}
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-status-success-light text-status-success rounded">
+            Authentication successful! Redirecting...
+          </div>
+        )}
         <div className="text-center">
           <button
             onClick={() => window.location.href = '/'}
