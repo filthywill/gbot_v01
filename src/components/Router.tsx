@@ -14,6 +14,9 @@ import AuthCallback from '../pages/auth/callback';
 import logger from '../lib/logger';
 
 const Router: React.FC = () => {
+  console.log('!!! ROUTER FUNCTION BODY START !!!', { timestamp: new Date().toISOString() });
+  logger.info('!!! ROUTER FUNCTION BODY START !!!');
+
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [hasError, setHasError] = useState(false);
   const [errorInfo, setErrorInfo] = useState<any>(null);
@@ -157,6 +160,9 @@ const Router: React.FC = () => {
     
     return result;
   };
+
+  console.log('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath, timestamp: new Date().toISOString() });
+  logger.info('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath });
 
   // If we have an error, show a fallback UI
   if (hasError) {
