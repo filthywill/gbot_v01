@@ -1,3 +1,4 @@
-/auth/reset-password/*    /index.html    200
-/auth/callback/*    /index.html    200
-/auth/*    /index.html    200 
+/auth/reset-password/*    /auth/reset-password/index.html    200
+/auth/callback/*    /auth/callback/index.html    200
+/auth/error/*    /auth/error/index.html    200
+/* /index.html 200 
