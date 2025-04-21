@@ -37,20 +37,28 @@ const ResetPasswordPage: React.FC = () => {
         logger.info('Verifying password reset token');
         setIsTokenChecking(true);
         
-        // Check if we came from a recovery email link
+        // Check URL parameters
         const url = new URL(window.location.href);
-        const fromCallback = url.searchParams.has('from_callback') || 
-                            document.referrer.includes('/auth/callback');
+        const fromCallback = url.searchParams.has('from_callback');
+        const isVerified = url.searchParams.has('verified');
         
         // Log URL information for debugging
         logger.debug('Reset password URL info:', { 
           url: window.location.href,
           referrer: document.referrer,
-          fromCallback: fromCallback
+          fromCallback,
+          isVerified
         });
         
-        // Supabase will automatically use the token in the URL
-        // Let's verify by checking the auth state
+        // If we came from callback with verified flag, we can trust the session
+        if (fromCallback && isVerified) {
+          logger.info('Valid verification from callback detected');
+          setIsTokenValid(true);
+          setError(null);
+          return;
+        }
+        
+        // Otherwise, check for a valid session
         const { data: authData, error: authError } = await supabase.auth.getSession();
         
         if (authError) {
