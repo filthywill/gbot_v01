@@ -63,6 +63,12 @@ const AuthCallback = () => {
             localStorage.setItem('password_reset_verified', 'true')
             localStorage.setItem('password_reset_timestamp', new Date().getTime().toString())
             
+            // Store the original recovery token for direct API use if needed
+            if (token) {
+              localStorage.setItem('password_reset_token', token)
+              console.log('Stored recovery token in localStorage')
+            }
+            
             // Store the access token for session recovery
             if (data?.session?.access_token) {
               localStorage.setItem('supabase.auth.token', JSON.stringify({

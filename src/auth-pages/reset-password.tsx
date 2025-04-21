@@ -177,47 +177,102 @@ const ResetPasswordPage = () => {
       // Special handling for password reset without active session
       const hasLocalVerification = localStorage.getItem('password_reset_verified') === 'true'
       
-      let result;
       if (hasLocalVerification) {
-        // Use a different approach for password update when we have local verification
-        // but potentially no active session
         try {
-          // First, check if we can get the session or access token
-          const { data: sessionData } = await supabase.auth.getSession();
-          console.log('Session check before password update:', { 
-            hasSession: !!(sessionData?.session),
-            hasAccessToken: !!(sessionData?.session?.access_token)
-          });
+          // Use Supabase's REST API directly to update the password
+          // This approach bypasses the session requirement
           
-          if (sessionData?.session?.access_token) {
-            // If we have an access token, use it to update the password
-            result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+          // Get user's email from localStorage if available
+          const userDataStr = localStorage.getItem('supabase.auth.token')
+          let userEmail = '';
+          
+          if (userDataStr) {
+            try {
+              const userData = JSON.parse(userDataStr);
+              userEmail = userData?.currentSession?.user?.email || '';
+              console.log('Retrieved user email from localStorage:', { 
+                hasEmail: !!userEmail,
+                email: userEmail ? userEmail.substring(0, 3) + '***' : 'none' 
+              });
+            } catch (e) {
+              console.error('Error parsing user data from localStorage', e);
+            }
+          }
+          
+          // If no email is found, try to use a different approach
+          if (!userEmail) {
+            console.log('No user email found in localStorage, using alternative approach');
+            
+            // Try to use the reset token directly - this is a workaround
+            // Reset password directly using Supabase's password recovery endpoint
+            const result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/recover`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({ 
+                password: password,
+                type: 'recovery',
+                token_hash: localStorage.getItem('password_reset_token') || '',
+              }),
+            });
+            
+            if (!result.ok) {
+              const errorData = await result.json();
+              console.error('Error in alternate password reset approach:', errorData);
+              throw new Error(errorData.message || 'Failed to update password');
+            }
+            
+            console.log('Password updated successfully using alternate approach');
+          } else {
+            // Try the standard update password API using the user's email
+            const result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${sessionData.session.access_token}`
               },
-              body: JSON.stringify({ password }),
-            }).then(r => r.json());
-            
-            console.log('Password update via API with access token result:', {
-              success: !result.error,
-              hasError: !!result.error,
+              body: JSON.stringify({ 
+                email: userEmail,
+                password: password,
+              }),
             });
-          } else {
-            // If we don't have a session, use the standard Supabase client
-            // This might work if the auth state was preserved by Supabase's SDK
-            console.log('No access token found, falling back to Supabase client');
-            const { error } = await supabase.auth.updateUser({ password });
             
-            if (error) {
-              console.error('Password update error with Supabase client:', error);
-              throw error;
+            if (!result.ok) {
+              const errorData = await result.json();
+              console.error('Error in direct password update:', errorData);
+              
+              // If first approach fails, try the email-based password reset flow instead
+              console.log('Falling back to email-based password reset flow');
+              const recoverResult = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/recover`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({ email: userEmail }),
+              });
+              
+              if (!recoverResult.ok) {
+                const recoverErrorData = await recoverResult.json();
+                console.error('Error in email recovery fallback:', recoverErrorData);
+                throw new Error(recoverErrorData.message || 'Failed to update password');
+              }
+              
+              console.log('Sent new password reset email as fallback');
+              setMessage('We were unable to update your password directly. A new password reset link has been sent to your email.');
+              // Add a slight delay before redirecting to show the success message
+              setTimeout(() => {
+                window.location.href = '/'
+              }, 5000);
+              return;
             }
+            
+            console.log('Password updated successfully via direct API call');
           }
         } catch (apiError) {
-          console.error('Error in API password update:', apiError);
+          console.error('Error in direct API password update:', apiError);
           throw apiError;
         }
       } else {
@@ -233,6 +288,7 @@ const ResetPasswordPage = () => {
       // Clear localStorage verification data
       localStorage.removeItem('password_reset_verified')
       localStorage.removeItem('password_reset_timestamp')
+      localStorage.removeItem('password_reset_token')
       
       console.log('Password updated successfully')
       setMessage('Your password has been updated successfully! Redirecting to login...')
