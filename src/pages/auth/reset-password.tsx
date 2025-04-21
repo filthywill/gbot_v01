@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon } from 'lucide-react';
-import useAuthStore from '../../store/useAuthStore';
+// import useAuthStore from '../../store/useAuthStore'; // Temporarily unused
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import logger from '../../lib/logger';
 import { supabase } from '../../lib/supabase';
 import { validatePassword, checkPasswordStrength } from '../../utils/passwordUtils';
 
 const ResetPasswordPage: React.FC = () => {
+  // Temporarily comment out state and effects for debugging
+  /*
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -137,130 +139,19 @@ const ResetPasswordPage: React.FC = () => {
     }
   };
   
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-          <div className="flex flex-col items-center">
-            <div className="w-16 h-16 bg-status-success-light rounded-full flex items-center justify-center mb-4">
-              <CheckIcon className="h-8 w-8 text-status-success" />
-            </div>
-            <h1 className="text-2xl font-bold text-center mb-2">Password Updated!</h1>
-            <p className="text-brand-neutral-600 text-center mb-6">
-              Your password has been successfully updated. You will be redirected to the login page shortly.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
-            >
-              Return to Home
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Conditional rendering commented out for debugging
+  // if (success) { ... }
+  // if (isAuthenticated === false) { ... }
+  */
   
+  // Basic render test
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Set New Password</h1>
-        
-        {error && (
-          <div className="flex items-start bg-status-error-light text-status-error border border-status-error-border p-4 rounded-md mb-6">
-            <AlertTriangleIcon className="h-5 w-5 mr-2 mt-0.5 shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
-        
-        <form onSubmit={handleResetPassword} className="space-y-6">
-          <div className="space-y-2">
-            <label htmlFor="new-password" className="block text-sm font-medium text-brand-neutral-700">
-              New Password
-            </label>
-            <div className="relative">
-              <input
-                id="new-password"
-                type={showNewPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900"
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-400 hover:text-brand-neutral-600"
-              >
-                {showNewPassword ? (
-                  <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            
-            {newPassword && (
-              <PasswordStrengthMeter strength={passwordStrength} />
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <label htmlFor="confirm-password" className="block text-sm font-medium text-brand-neutral-700">
-              Confirm New Password
-            </label>
-            <div className="relative">
-              <input
-                id="confirm-password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none 
-                  focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900
-                  ${confirmPassword && newPassword && confirmPassword !== newPassword
-                    ? 'border-status-error-border' 
-                    : 'border-brand-neutral-300'}`}
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-400 hover:text-brand-neutral-600"
-              >
-                {showConfirmPassword ? (
-                  <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            
-            {confirmPassword && newPassword && confirmPassword !== newPassword && (
-              <p className="text-status-error text-sm">Passwords do not match</p>
-            )}
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading || !passwordValid || newPassword !== confirmPassword}
-            className="w-full py-3 px-4 bg-brand-gradient text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Updating...' : 'Update Password'}
-          </button>
-          
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="text-brand-primary-600 hover:text-brand-primary-500 text-sm"
-            >
-              Return to Login
-            </button>
-          </div>
-        </form>
+        <h1 className="text-2xl font-bold text-center mb-6">Reset Password Page Render Test</h1>
+        {/* Form and other elements commented out for debugging */}
+        {/* {error && ... } */}
+        {/* <form onSubmit={handleResetPassword} ...> ... </form> */}
       </div>
     </div>
   );
