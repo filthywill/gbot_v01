@@ -1,7 +1,193 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import ResetPasswordPage from '../pages/auth/reset-password'
+import { supabase } from '../lib/supabase'
 import '../index.css'
+
+const ResetPasswordPage = () => {
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [verified, setVerified] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
+
+  // Check if we have a verified token from callback page
+  useEffect(() => {
+    const checkSession = async () => {
+      console.log('Reset password page loaded, checking params and session')
+      
+      // Check URL parameters
+      const url = new URL(window.location.href)
+      const isFromCallback = url.searchParams.get('from_callback') === 'true'
+      const isVerified = url.searchParams.get('verified') === 'true'
+      
+      console.log('URL params:', { isFromCallback, isVerified })
+      
+      // If we're coming from the callback with verification
+      if (isFromCallback && isVerified) {
+        console.log('Coming from callback with verified status')
+        setVerified(true)
+        setSessionChecked(true)
+        return
+      }
+      
+      // Otherwise, check if we have a valid session
+      try {
+        console.log('Checking for a valid auth session')
+        const { data, error } = await supabase.auth.getSession()
+        
+        console.log('Session check result:', { 
+          hasData: !!data, 
+          hasSession: !!(data && data.session),
+          hasError: !!error
+        })
+        
+        if (error) {
+          console.error('Session check error:', error)
+          setError('Unable to verify your authentication session')
+        } else if (data && data.session) {
+          console.log('Valid session found')
+          setVerified(true)
+        } else {
+          console.log('No valid session found')
+          setError('No valid authentication session found. Please request a new password reset link.')
+        }
+      } catch (err) {
+        console.error('Error checking session:', err)
+        setError('Failed to verify your authentication status')
+      }
+      
+      setSessionChecked(true)
+    }
+    
+    checkSession()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      return
+    }
+    
+    setError(null)
+    setLoading(true)
+    
+    try {
+      console.log('Attempting to update password')
+      const { error } = await supabase.auth.updateUser({ password })
+      
+      if (error) {
+        console.error('Password update error:', error)
+        throw error
+      }
+      
+      console.log('Password updated successfully')
+      setMessage('Your password has been updated successfully! Redirecting to login...')
+      
+      // Add a slight delay before redirecting to show the success message
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 2000)
+    } catch (err) {
+      console.error('Password reset error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update password')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Show loading state until session check completes
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
+            <p className="text-brand-neutral-600">Verifying your session...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-2xl font-bold text-brand-primary-600 mb-6 text-center">Reset Your Password</h1>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-status-error-light text-status-error rounded">
+            {error}
+          </div>
+        )}
+        
+        {message && (
+          <div className="mb-4 p-3 bg-status-success-light text-status-success rounded">
+            {message}
+          </div>
+        )}
+        
+        {verified ? (
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-brand-neutral-700 mb-2">
+                New Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2 border border-brand-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-primary-400"
+                required
+              />
+            </div>
+            <div className="mb-6">
+              <label htmlFor="confirmPassword" className="block text-brand-neutral-700 mb-2">
+                Confirm New Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full p-2 border border-brand-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-primary-400"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-brand-gradient text-white py-2 rounded hover:bg-opacity-90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
+        ) : (
+          <div className="text-center">
+            <p className="text-brand-neutral-600 mb-4">
+              {error || 'Your reset link appears to be invalid or has expired.'}
+            </p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="bg-brand-gradient text-white py-2 px-4 rounded"
+            >
+              Return to Sign In
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

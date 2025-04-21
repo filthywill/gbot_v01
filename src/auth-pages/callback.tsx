@@ -4,99 +4,152 @@ import { supabase } from '../lib/supabase'
 import '../index.css'
 
 const AuthCallback = () => {
-  const [message, setMessage] = useState('Processing your authentication...')
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
+    const handleCallback = async () => {
+      console.log('Auth callback triggered')
+      const url = new URL(window.location.href)
+      
       try {
-        // First check URL parameters to see if it's a password reset flow
-        const url = new URL(window.location.href)
-        const token = url.searchParams.get('token')
+        // Check for password recovery flow
         const type = url.searchParams.get('type')
+        const token = url.searchParams.get('token')
+        const isRecovery = type === 'recovery' && token
         
-        // If this is a password recovery flow with a token
-        if (token && type === 'recovery') {
-          setMessage('Verifying your password reset link...')
-          console.log('Password recovery flow detected, verifying token')
+        console.log('Processing auth callback:', { 
+          isRecovery, 
+          hasToken: !!token, 
+          type,
+          urlHash: !!window.location.hash
+        })
+
+        // Handle recovery token verification
+        if (isRecovery) {
+          console.log('Handling password recovery flow')
           
-          try {
-            // Verify the token and establish a session
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'recovery'
+          // Verify the recovery token
+          console.log('Attempting to verify recovery token')
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'recovery',
+          })
+          
+          console.log('Recovery token verification result:', { 
+            success: !!data && !verifyError,
+            hasData: !!data,
+            hasSession: !!(data?.session),
+            hasUser: !!(data?.user),
+            hasError: !!verifyError
+          })
+          
+          if (verifyError) {
+            console.error('Recovery token verification error:', verifyError)
+            throw new Error(verifyError.message || 'Failed to verify recovery token')
+          }
+          
+          if (!data || !data.session) {
+            console.error('No session established after recovery token verification')
+            throw new Error('Authentication failed - no session established')
+          }
+          
+          console.log('Recovery verified successfully, redirecting to reset password page')
+          
+          // Redirect to reset-password page with verification status
+          window.location.href = '/auth/reset-password?from_callback=true&verified=true'
+          return
+        }
+        
+        // Handle other authentication flows (signup, login, etc.)
+        console.log('Checking for session from auth hash')
+        const { data, error: sessionError } = await supabase.auth.getSession()
+        
+        console.log('Session check result:', {
+          hasData: !!data,
+          hasSession: !!(data?.session),
+          hasError: !!sessionError
+        })
+        
+        if (sessionError) {
+          console.error('Session check error:', sessionError)
+          throw sessionError
+        }
+        
+        if (!data || !data.session) {
+          console.log('No session found, attempting to parse hash')
+          
+          // Try to get session from URL hash
+          if (window.location.hash) {
+            console.log('Processing auth hash from URL')
+            const { data: hashData, error: hashError } = await supabase.auth.getSession()
+            
+            console.log('Hash processing result:', {
+              success: !!hashData && !hashError,
+              hasData: !!hashData,
+              hasSession: !!(hashData?.session),
+              hasError: !!hashError
             })
             
-            if (verifyError) {
-              throw verifyError
+            if (hashError) {
+              console.error('Hash processing error:', hashError)
+              throw hashError
             }
             
-            // If the verification was successful, we should have a session
-            if (data.session) {
-              console.log('Recovery token verified successfully with session')
-              // Redirect to reset password page with verification flag
-              window.location.href = '/auth/reset-password?from_callback=true&verified=true'
-              return
-            } else {
-              console.log('Token verified but no session established')
-              throw new Error('Authentication session could not be established')
+            if (!hashData || !hashData.session) {
+              console.error('No session established from URL hash')
+              throw new Error('Authentication failed - no session established from URL')
             }
-          } catch (err) {
-            console.error('Error verifying recovery token:', err)
-            setError('Recovery link verification failed. Please request a new password reset link.')
-            return
-          }
-        }
-        
-        // For other auth flows, check for an established session
-        const { data, error: authError } = await supabase.auth.getSession()
-        
-        if (authError) throw authError
-        
-        if (data.session) {
-          // Success! Redirect to app
-          window.location.href = '/'
-        } else {
-          // If we need to go to reset password page with the session
-          const isPasswordReset = url.searchParams.get('type') === 'recovery'
-          
-          if (isPasswordReset) {
-            // Redirect to reset password page with verification flag
-            window.location.href = '/auth/reset-password?from_callback=true&verified=true'
+            
+            console.log('Session established from URL hash, redirecting to app')
           } else {
-            // There was a problem with the session
-            throw new Error('No session established')
+            console.error('No session found and no URL hash to process')
+            throw new Error('Authentication failed - no session or URL parameters found')
           }
+        } else {
+          console.log('Valid session found, redirecting to app')
         }
+        
+        // Redirect to the main app
+        window.location.href = '/'
       } catch (err) {
         console.error('Auth callback error:', err)
         setError(err instanceof Error ? err.message : 'Authentication failed')
+        setLoading(false)
       }
     }
 
-    handleAuthCallback()
+    handleCallback()
   }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
+            <p className="text-brand-neutral-600">Completing authentication...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-brand-neutral-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-        {error ? (
-          <div>
-            <div className="text-status-error mb-4 text-xl">Authentication Failed</div>
-            <p className="text-brand-neutral-600 mb-6">{error}</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="bg-brand-gradient text-white py-2 px-4 rounded"
-            >
-              Return to Sign In
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary-600 mx-auto mb-4"></div>
-            <p className="text-brand-neutral-600">{message}</p>
-          </div>
-        )}
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-2xl font-bold text-brand-primary-600 mb-6 text-center">Authentication Error</h1>
+        <div className="mb-4 p-3 bg-status-error-light text-status-error rounded">
+          {error || 'Failed to complete authentication process'}
+        </div>
+        <div className="text-center">
+          <button
+            onClick={() => window.location.href = '/'}
+            className="bg-brand-gradient text-white py-2 px-4 rounded"
+          >
+            Return to Sign In
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -105,5 +158,5 @@ const AuthCallback = () => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthCallback />
-  </React.StrictMode>
+  </React.StrictMode>,
 ) 
