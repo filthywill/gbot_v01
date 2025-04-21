@@ -266,4 +266,38 @@ export const signOutUser = async (redirectAfterSignOut = true): Promise<void> =>
       window.location.href = '/';
     }
   }
+};
+
+/**
+ * Checks if the current page is part of a password reset flow
+ * This is useful for context-aware UI decisions
+ */
+export const isPasswordResetContext = (): boolean => {
+  try {
+    // Check current URL for password reset indicators
+    const url = new URL(window.location.href);
+    const pathname = url.pathname;
+    
+    // Direct checks
+    if (pathname.includes('/auth/reset-password')) return true;
+    if (url.searchParams.has('from_callback')) return true;
+    
+    // Check for recovery flow
+    if (pathname.includes('/auth/callback')) {
+      const type = url.searchParams.get('type');
+      if (type === 'recovery') return true;
+    }
+    
+    // Check if we came from a reset flow
+    if (document.referrer) {
+      const referrer = new URL(document.referrer);
+      if (referrer.pathname.includes('/auth/reset-password')) return true;
+      if (referrer.pathname.includes('/auth/callback') && referrer.searchParams.get('type') === 'recovery') return true;
+    }
+    
+    return false;
+  } catch (error) {
+    logger.error('Error in isPasswordResetContext:', error);
+    return false;
+  }
 }; 

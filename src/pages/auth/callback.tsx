@@ -77,10 +77,23 @@ const AuthCallback: React.FC = () => {
         
         // Handle verification token
         if (token_hash && type) {
-          logger.info('Found token in URL, attempting verification');
-          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION');
+          logger.info('Found token in URL, attempting verification', { type });
+          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION', { type });
           
           try {
+            // Special handling for password reset tokens (recovery type)
+            if (type === 'recovery') {
+              setMessage('Verifying your password reset link...');
+              
+              // Don't verify the OTP here for recovery, just redirect to reset-password page
+              // The reset-password page will handle the token verification
+              // This is important because verifyOtp would consume the token
+              logger.info('Password reset token found, redirecting to reset-password page');
+              window.location.href = '/auth/reset-password?from_callback=true';
+              return;
+            }
+            
+            // For all other types, proceed with verification
             setMessage('Verifying your email...');
             
             // Verify OTP to exchange the token for a session

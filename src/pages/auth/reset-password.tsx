@@ -37,6 +37,18 @@ const ResetPasswordPage: React.FC = () => {
         logger.info('Verifying password reset token');
         setIsTokenChecking(true);
         
+        // Check if we came from a recovery email link
+        const url = new URL(window.location.href);
+        const fromCallback = url.searchParams.has('from_callback') || 
+                            document.referrer.includes('/auth/callback');
+        
+        // Log URL information for debugging
+        logger.debug('Reset password URL info:', { 
+          url: window.location.href,
+          referrer: document.referrer,
+          fromCallback: fromCallback
+        });
+        
         // Supabase will automatically use the token in the URL
         // Let's verify by checking the auth state
         const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -48,17 +60,27 @@ const ResetPasswordPage: React.FC = () => {
           return;
         }
         
-        if (!authData.session) {
-          logger.warn('No active session found with reset token');
-          setError('The reset link is invalid or has expired. Please request a new password reset link.');
+        // If we have a session, we're good to go
+        if (authData.session) {
+          logger.info('Valid session found for password reset');
+          setIsTokenValid(true);
+          setError(null);
+          return;
+        }
+        
+        // If we don't have a session but came from the callback page, 
+        // there might have been an issue with the token
+        if (fromCallback) {
+          logger.warn('Came from callback page but no session established');
+          setError('Your password reset link may have expired. Please request a new one.');
           setIsTokenValid(false);
           return;
         }
         
-        // Token is valid if we have a session
-        logger.info('Valid reset token found');
-        setIsTokenValid(true);
-        setError(null);
+        // If we got here directly without a session, something is wrong
+        logger.warn('No active session found with reset token');
+        setError('The reset link is invalid or has expired. Please request a new password reset link.');
+        setIsTokenValid(false);
       } catch (err) {
         logger.error('Error during token verification:', err);
         setError('There was a problem verifying your reset link. Please try again or request a new one.');
