@@ -4,11 +4,10 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
-  "routes": [
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/auth/reset-password(.*)", "dest": "/index.html", "headers": { "content-type": "text/html; charset=UTF-8" } },
-    { "src": "/auth/(.*)", "dest": "/index.html", "headers": { "content-type": "text/html; charset=UTF-8" } },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/auth/callback", "destination": "/auth/callback/index.html" },
+    { "source": "/auth/callback/:path*", "destination": "/auth/callback/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
