@@ -1,264 +1,160 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { EyeIcon, EyeOffIcon, Save } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { EyeIcon, EyeOffIcon, CheckIcon, AlertTriangleIcon } from 'lucide-react';
+// import useAuthStore from '../../store/useAuthStore'; // Temporarily unused
 import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
-import { checkPasswordStrength, validatePassword } from '../../utils/passwordUtils';
 import logger from '../../lib/logger';
+import { supabase } from '../../lib/supabase';
+import { validatePassword, checkPasswordStrength } from '../../utils/passwordUtils';
 
-const ResetPassword: React.FC = () => {
+const ResetPasswordPage: React.FC = () => {
+  // Temporarily comment out state and effects for debugging
+  /*
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] });
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
-
-  // Check for reset token on mount
+  const [passwordValid, setPasswordValid] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  
+  const navigate = (path: string) => {
+    logger.info('Custom navigation to:', path);
+    window.history.pushState({}, '', path);
+    if (typeof (window as any).navigateTo === 'function') {
+      logger.info('Using global navigateTo function');
+      (window as any).navigateTo(path);
+    } else {
+      logger.info('Fallback to window.location.href redirect');
+      window.location.href = path;
+    }
+  };
+  
   useEffect(() => {
-    const checkSession = async () => {
+    const checkAuth = async () => {
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-        
-        if (!session) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          logger.info('ResetPasswordPage: User is authenticated via session.');
+          setIsAuthenticated(true);
+        } else {
+          logger.warn('ResetPasswordPage: User is not authenticated. Invalid or expired link?');
           setError('Invalid or expired reset link. Please request a new password reset.');
-          setIsTokenValid(false);
-          return;
+          setIsAuthenticated(false);
         }
-        
-        setIsTokenValid(true);
       } catch (err) {
-        logger.error('Error checking reset token:', err);
-        setError('Unable to verify reset token. Please try again.');
-        setIsTokenValid(false);
+        logger.error('ResetPasswordPage: Error checking authentication:', err);
+        setError('Could not verify authentication status. Please try again or request a new link.');
+        setIsAuthenticated(false);
       }
     };
-    
-    checkSession();
+    checkAuth();
   }, []);
-
+  
   useEffect(() => {
     if (newPassword) {
-      setPasswordStrength(checkPasswordStrength(newPassword));
+      const strength = checkPasswordStrength(newPassword);
+      setPasswordStrength(strength);
+      
+      const validation = validatePassword(newPassword);
+      setPasswordValid(validation.isValid);
+    } else {
+      setPasswordStrength({ score: 0, feedback: [] });
+      setPasswordValid(false);
     }
   }, [newPassword]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isTokenValid) {
-      setError('Invalid or expired reset link. Please request a new password reset.');
+    if (isAuthenticated !== true) {
+      setError('Cannot reset password. Please ensure you used a valid reset link.');
       return;
     }
     
-    // Reset error state
-    setError(null);
-    
-    // Validate the new password
     const validation = validatePassword(newPassword);
     if (!validation.isValid) {
       setError(validation.message || 'Password is not strong enough');
       return;
     }
     
-    // Check if passwords match
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
     
     try {
-      setIsLoading(true);
+      setLoading(true);
+      setError(null);
       
-      // Update password
-      const { error } = await supabase.auth.updateUser({
+      logger.info('Attempting to update password for authenticated user');
+      
+      const result = await supabase.auth.updateUser({
         password: newPassword
       });
       
-      if (error) throw error;
+      if (result.error) {
+        logger.error('Supabase returned error during password update:', result.error);
+        throw result.error;
+      }
       
-      // Show success state
-      setIsSuccess(true);
+      if (!result.data?.user) {
+        logger.warn('Password update succeeded but no user data returned');
+      } else {
+        logger.info('User data returned after password update:', { 
+          id: result.data.user.id,
+          email: result.data.user.email 
+        });
+      }
+      
+      setSuccess(true);
       logger.info('Password updated successfully');
+      
+      setTimeout(() => {
+        navigate('/?passwordReset=success');
+      }, 3000);
     } catch (err) {
       logger.error('Error updating password:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update password');
+      
+      if (err instanceof Error) {
+        const errorMsg = err.message.toLowerCase();
+        if (errorMsg.includes('expired')) {
+          setError('Your reset link has expired. Please request a new one.');
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
+          setError('Invalid reset link. Please request a new one.');
+        } else if (errorMsg.includes('network')) {
+          setError('Network error. Please check your connection and try again.');
+        } else if (errorMsg.includes('same password')) {
+          setError('The new password cannot be the same as your current password.');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('Failed to update password. Please try again.');
+      }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  const handleSignIn = () => {
-    window.location.href = '/';
-  };
-
-  const handleRequestNewReset = () => {
-    window.location.href = '/?reset=true';
-  };
-
-  if (isTokenValid === false) {
-    return (
-      <div className="min-h-screen bg-app flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-brand-neutral-900">Invalid Reset Link</h2>
-            <p className="mt-2 text-brand-neutral-600">
-              This password reset link is invalid or has expired. Please request a new password reset.
-            </p>
-          </div>
-          
-          <button
-            onClick={handleRequestNewReset}
-            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
-          >
-            Request New Reset Link
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-app flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-brand-neutral-900">Password Updated!</h2>
-            <p className="mt-2 text-brand-neutral-600">
-              Your password has been successfully updated. You can now sign in with your new password.
-            </p>
-          </div>
-          
-          <button
-            onClick={handleSignIn}
-            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500"
-          >
-            Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  
+  // Conditional rendering commented out for debugging
+  // if (success) { ... }
+  // if (isAuthenticated === false) { ... }
+  */
+  
+  // Basic render test
   return (
-    <div className="min-h-screen bg-app flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-lg">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-brand-neutral-900">Reset Your Password</h2>
-          <p className="mt-2 text-brand-neutral-600">
-            Please enter a new password for your account
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="new-password" className="block text-sm font-medium text-brand-neutral-700">
-              New Password
-            </label>
-            <div className="relative mt-1">
-              <input
-                id="new-password"
-                type={showNewPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-brand-neutral-900 placeholder-brand-neutral-400 border-brand-neutral-300 focus:border-brand-primary-500 focus:ring-brand-primary-500"
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-400 hover:text-brand-neutral-500"
-              >
-                {showNewPassword ? (
-                  <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            
-            {newPassword && (
-              <PasswordStrengthMeter strength={passwordStrength} />
-            )}
-          </div>
-          
-          <div>
-            <label htmlFor="confirm-password" className="block text-sm font-medium text-brand-neutral-700">
-              Confirm Password
-            </label>
-            <div className="relative mt-1">
-              <input
-                id="confirm-password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={cn(
-                  "block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none text-brand-neutral-900 placeholder-brand-neutral-400",
-                  confirmPassword && confirmPassword !== newPassword
-                    ? "border-status-error-border focus:border-status-error-border focus:ring-status-error-border"
-                    : "border-brand-neutral-300 focus:border-brand-primary-500 focus:ring-brand-primary-500"
-                )}
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-400 hover:text-brand-neutral-500"
-              >
-                {showConfirmPassword ? (
-                  <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {confirmPassword && confirmPassword !== newPassword && (
-              <p className="mt-1 text-sm text-status-error">Passwords do not match</p>
-            )}
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                <span className="flex items-center">
-                  <Save className="h-4 w-4 mr-2" />
-                  Update Password
-                </span>
-              )}
-            </button>
-          </div>
-        </form>
+    <div className="min-h-screen flex items-center justify-center bg-brand-neutral-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Reset Password Page Render Test</h1>
+        {/* Form and other elements commented out for debugging */}
+        {/* {error && ... } */}
+        {/* <form onSubmit={handleResetPassword} ...> ... </form> */}
       </div>
     </div>
   );
 };
 
-export default ResetPassword; 
+export default ResetPasswordPage; 

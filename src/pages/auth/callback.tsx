@@ -34,15 +34,16 @@ const AuthCallback: React.FC = () => {
         
         // Get URL parameters
         const url = new URL(window.location.href);
-        const token = url.searchParams.get('token');
+        const token_hash = url.searchParams.get('token_hash');
         const type = url.searchParams.get('type');
         const email = url.searchParams.get('email');
         const code = url.searchParams.get('code');
+        const redirect_to = url.searchParams.get('redirect_to') || '/';
         
         // Log URL information for debugging
         console.log('AUTH CALLBACK PARAMETERS', { 
           fullUrl: window.location.href,
-          token: token ? `${token.substring(0, 8)}...` : null,
+          token: token_hash ? `${token_hash.substring(0, 8)}...` : null,
           type, 
           email,
           hasCode: !!code,
@@ -51,7 +52,7 @@ const AuthCallback: React.FC = () => {
         
         logger.debug('AuthCallback URL info:', { 
           path: url.pathname,
-          token: token ? `${token.substring(0, 8)}...` : null,
+          token: token_hash ? `${token_hash.substring(0, 8)}...` : null,
           type, 
           email,
           hasCode: !!code
@@ -61,7 +62,7 @@ const AuthCallback: React.FC = () => {
           componentLoaded: new Date().toISOString(),
           handlerStarted: new Date().toISOString(),
           currentUrl: window.location.href,
-          token: token ? 'present' : 'missing',
+          token: token_hash ? 'present' : 'missing',
           type,
           email,
           hasCode: !!code
@@ -75,124 +76,29 @@ const AuthCallback: React.FC = () => {
         }
         
         // Handle verification token
-        if (token) {
+        if (token_hash && type) {
           logger.info('Found token in URL, attempting verification');
           console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION');
           
           try {
             setMessage('Verifying your email...');
             
-            // First, try to sign out to ensure a clean verification
-            await supabase.auth.signOut();
-            console.log('SIGNED OUT BEFORE VERIFICATION');
-            
-            // Verify OTP token with explicit handling for signup
-            console.log('CALLING SUPABASE VERIFY OTP', { 
-              type: type === 'recovery' ? 'recovery' : 'signup',
-              email: email || 'not provided' 
+            // Verify OTP to exchange the token for a session
+            const { error } = await supabase.auth.verifyOtp({
+              token_hash,
+              type: type as any,
             });
             
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: type === 'recovery' ? 'recovery' : 'signup',
-              email: email || undefined
-            });
+            if (error) throw error;
             
-            console.log('VERIFY OTP RESULT', { 
-              success: !verifyError, 
-              hasSession: !!data?.session,
-              error: verifyError ? verifyError.message : null,
-              user: data?.user ? 'present' : 'missing'
-            });
-            
-            if (verifyError) {
-              logger.error('Error verifying email:', verifyError);
-              setError(`Verification failed: ${verifyError.message}`);
-              
-              // Redirect to verification page with error
-              console.log('REDIRECTING DUE TO VERIFICATION ERROR');
-              setTimeout(() => {
-                window.location.replace(`/verification-success?verification=failed&error=${encodeURIComponent(verifyError.message)}`);
-              }, 1500);
-              return;
-            }
-            
-            logger.info('Email verified successfully!');
-            console.log('EMAIL VERIFIED SUCCESSFULLY');
-            setMessage('Email verified! Setting up your account...');
-            
-            // If we have a session from verification, update our auth store directly
-            if (data?.session && data?.user) {
-              logger.info('Session created during verification - user is authenticated');
-              console.log('SESSION CREATED DURING VERIFICATION');
-              
-              // Directly update our auth state
-              setUser(data.user);
-              setSession(data.session);
-              
-              // Store the email in preferences if provided
-              if (email) {
-                setLastUsedEmail(email);
-                setRememberMe(true);
-                logger.info('Stored verified email in preferences');
-                console.log('STORED EMAIL IN PREFERENCES', { email });
-              }
-              
-              // Double-check the session to confirm it's valid
-              const { data: sessionCheck } = await supabase.auth.getSession();
-              if (sessionCheck?.session) {
-                console.log('SESSION CONFIRMED VALID');
-              } else {
-                console.log('SESSION NOT CONFIRMED - FALLING BACK');
-                // Try to set the session explicitly as a fallback
-                try {
-                  await supabase.auth.setSession({
-                    access_token: data.session.access_token,
-                    refresh_token: data.session.refresh_token
-                  });
-                  console.log('MANUALLY SET SESSION');
-                } catch (sessionError) {
-                  console.error('FAILED TO MANUALLY SET SESSION', sessionError);
-                }
-              }
-              
-              // Redirect to verification success page
-              console.log('REDIRECTING TO VERIFICATION SUCCESS');
-              window.location.replace('/verification-success?verification=success');
-              return;
-            } else if (data?.user) {
-              // We have a user but no session - try to establish one
-              console.log('USER BUT NO SESSION - TRYING TO ESTABLISH SESSION');
-              
-              // Try setting the user in our store
-              setUser(data.user);
-              
-              // Redirect to verification success with flag to prompt login
-              window.location.replace('/verification-success?verification=success&needsLogin=true&email=' + encodeURIComponent(email || ''));
-              return;
-            }
-            
-            // If email is present but no session, redirect to the verification success page
-            // and let it handle the rest of the flow
-            if (email) {
-              console.log('NO SESSION YET BUT EMAIL AVAILABLE');
-              window.location.replace('/verification-success?verification=success&needsLogin=true&email=' + encodeURIComponent(email));
-              return;
-            }
-            
-            // Fallback - redirect to verification success page
-            window.location.replace('/verification-success?verification=pending');
-            return;
+            // If successful, redirect to the final destination
+            window.location.href = redirect_to;
           } catch (err) {
-            logger.error('Error processing verification:', err);
-            console.error('VERIFICATION PROCESSING ERROR', err);
-            setError('Verification failed. Please try again.');
-            
-            // Redirect to verification page with error
-            setTimeout(() => {
-              window.location.replace('/verification-success?verification=failed&error=processing_error');
-            }, 1500);
-            return;
+            console.error('Error during auth callback:', err);
+            // Redirect to error page
+            window.location.href = '/auth/error?error=' + encodeURIComponent(
+              err instanceof Error ? err.message : 'Failed to verify token'
+            );
           }
         }
         

@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 import logger from './logger';
 
@@ -10,6 +10,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Log Supabase configuration (hiding sensitive details)
+logger.info('Initializing Supabase client with URL:', supabaseUrl);
+
 // Create a custom fetch function with timeout
 const fetchWithTimeout = (url: RequestInfo | URL, options: RequestInit = {}) => {
   const timeout = 15000; // 15 seconds timeout
@@ -18,6 +21,7 @@ const fetchWithTimeout = (url: RequestInfo | URL, options: RequestInit = {}) => 
   
   const timeoutId = setTimeout(() => {
     controller.abort();
+    logger.warn('Supabase API request timed out:', url.toString());
   }, timeout);
   
   return fetch(url, {
@@ -35,6 +39,10 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'gbot_supabase_auth',
+    // Define flow types for smoother user experience
+    flowType: 'pkce',
+    debug: import.meta.env.DEV, // Enable auth debugging in development mode
+    // Custom URL handling is implemented in the callback pages
     storage: {
       // Use a custom storage implementation that respects the remember me preference
       async getItem(key: string) {
@@ -43,12 +51,18 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
           const preferences = JSON.parse(localStorage.getItem('gbot-preferences') || '{}');
           const rememberMe = preferences?.state?.rememberMe ?? false;
           
+          if (import.meta.env.DEV) {
+            logger.debug('Auth storage getItem:', { key, rememberMe });
+          }
+          
           // If remember me is false, don't return any stored session
           if (!rememberMe && key === 'gbot_supabase_auth') {
+            logger.debug('Not returning stored session due to rememberMe=false');
             return null;
           }
           
-          return localStorage.getItem(key);
+          const value = localStorage.getItem(key);
+          return value;
         } catch (error) {
           logger.error('Error reading from storage:', error);
           return null;
@@ -56,6 +70,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       },
       setItem(key: string, value: string) {
         try {
+          if (import.meta.env.DEV) {
+            logger.debug('Auth storage setItem:', { key, valueLength: value?.length || 0 });
+          }
           localStorage.setItem(key, value);
         } catch (error) {
           logger.error('Error writing to storage:', error);
@@ -63,6 +80,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       },
       removeItem(key: string) {
         try {
+          if (import.meta.env.DEV) {
+            logger.debug('Auth storage removeItem:', { key });
+          }
           localStorage.removeItem(key);
         } catch (error) {
           logger.error('Error removing from storage:', error);
@@ -75,6 +95,22 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
   },
   realtime: {
     timeout: 10000 // 10 seconds for realtime connections
+  }
+});
+
+// Listen for auth events
+supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+  logger.info('Auth event:', event);
+  if (event === 'SIGNED_IN') {
+    logger.info('User signed in:', session?.user?.email);
+  } else if (event === 'SIGNED_OUT') {
+    logger.info('User signed out');
+  } else if (event === 'PASSWORD_RECOVERY') {
+    logger.info('Password recovery flow initiated');
+  } else if (event === 'TOKEN_REFRESHED') {
+    logger.debug('Auth token refreshed');
+  } else if (event === 'USER_UPDATED') {
+    logger.info('User data updated');
   }
 });
 
