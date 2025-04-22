@@ -17,6 +17,8 @@ The application uses Supabase for authentication with a direct token approach fo
 - Verification State Persistence
 - Strong Password Requirements
 - Session Management
+- PKCE Authentication Flow
+- Custom Storage Implementation
 
 ### User Experience
 - Responsive Modal Design
@@ -101,7 +103,53 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storageKey: 'gbot_supabase_auth',
+    flowType: 'pkce',
+    debug: import.meta.env.DEV,
+    storage: {
+      // Custom storage implementation that respects the remember me preference
+      async getItem(key: string) {
+        try {
+          // Check preferences for remember me setting
+          const preferences = JSON.parse(localStorage.getItem('gbot-preferences') || '{}');
+          const rememberMe = preferences?.state?.rememberMe ?? false;
+          
+          // If remember me is false, don't return session
+          if (!rememberMe && key === 'gbot_supabase_auth') {
+            return null;
+          }
+          
+          return localStorage.getItem(key);
+        } catch (error) {
+          logger.error('Error reading from storage:', error);
+          return null;
+        }
+      },
+      setItem(key: string, value: string) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (error) {
+          logger.error('Error writing to storage:', error);
+        }
+      },
+      removeItem(key: string) {
+        try {
+          localStorage.removeItem(key);
+        } catch (error) {
+          logger.error('Error removing from storage:', error);
+        }
+      }
+    }
+  },
+  global: {
+    fetch: fetchWithTimeout // Custom fetch with timeout
+  }
+});
 
 // Helper to get current user
 export const getCurrentUser = async () => {
@@ -580,158 +628,277 @@ const usePreferencesStore = create<PreferencesState>((set) => ({
 }));
 ```
 
-## OTP Verification Flow
+## PKCE Authentication Flow
 
-### OTP Generation and Delivery
-1. User signs up with email and password
-2. Supabase generates a 6-digit OTP code
-3. Code is sent to the user's email address
-4. User receives email with verification code
-
-### Code Entry and Validation
-1. User enters the code in the verification modal
-2. Input supports auto-validation with proper length
-3. Code is submitted to Supabase for verification
-4. User receives immediate feedback on verification status
-
-### Verification State Persistence
-1. Verification state is stored in localStorage
-2. State includes email, timestamp, and attempt status
-3. 30-minute expiration time for security
-4. Verification banner displays when verification is pending
-5. Timer shows remaining time for verification
-6. Resume button allows reopening the verification modal
-
-### Verification Success Handling
-1. Success confirmation is displayed
-2. User is automatically signed in
-3. Verification state is cleared
-4. Banner is hidden
-5. Session is established
-
-### Error Handling
-1. Invalid codes show clear error messages
-2. Network errors are handled gracefully
-3. Expired verification shows appropriate message
-4. Too many attempts are handled with rate limiting messages
-
-## Password Reset Flow
-
-The password reset process follows these steps:
-
-1. User requests password reset
-2. Reset email is sent via Supabase
-3. User clicks reset link
-4. Password update form is displayed
-5. New password is validated and updated
+The application uses PKCE (Proof Key for Code Exchange) flow for enhanced security:
 
 ```typescript
-// Password reset request
-const handleResetPassword = async (email: string) => {
-  try {
-    await supabase.auth.resetPasswordForEmail(email);
-    setResetEmailSent(true);
-  } catch (error) {
-    handleError(error);
+// In src/lib/supabase.ts
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // ...other options
+    flowType: 'pkce', // Enhanced security flow
   }
-};
-
-// Password update
-const handleUpdatePassword = async (newPassword: string) => {
-  try {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-    if (error) throw error;
-    onPasswordUpdateSuccess();
-  } catch (error) {
-    handleError(error);
-  }
-};
+});
 ```
 
-## Form Validation
+PKCE adds an extra layer of security compared to implicit flows by:
+- Preventing authorization code interception attacks
+- Adding a code verifier that only the legitimate client knows
+- Protecting against CSRF and authorization code injection attacks
+- Ensuring that tokens are obtained directly by the client, not through the URL
 
-The application implements comprehensive form validation:
+This security enhancement is particularly important for single-page applications and mobile apps. When using OAuth providers like Google, the PKCE flow ensures that authorization codes cannot be intercepted and used by malicious actors.
 
-1. **Email Validation**:
-   - Format checking
-   - Real-time feedback
-   - Debounced validation
+## Custom Storage Implementation
 
-2. **Password Validation**:
-   - Minimum length
-   - Character requirements
-   - Password strength meter
-   - Match validation for confirmation
+The application implements a custom storage adapter that respects the user's "Remember Me" preference:
 
 ```typescript
-// Email validation
-const validateEmail = (email: string): ValidationResult => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return {
-    isValid: emailRegex.test(email),
-    message: emailRegex.test(email) ? '' : 'Please enter a valid email address'
-  };
-};
+storage: {
+  async getItem(key: string) {
+    try {
+      // Check preferences for "remember me" setting
+      const preferences = JSON.parse(localStorage.getItem('gbot-preferences') || '{}');
+      const rememberMe = preferences?.state?.rememberMe ?? false;
+      
+      // If remember me is false, don't return any stored session
+      if (!rememberMe && key === 'gbot_supabase_auth') {
+        logger.debug('Not returning stored session due to rememberMe=false');
+        return null;
+      }
+      
+      return localStorage.getItem(key);
+    } catch (error) {
+      logger.error('Error reading from storage:', error);
+      return null;
+    }
+  },
+  // Additional methods...
+}
+```
 
-// Password validation
-const validatePassword = (password: string): ValidationResult => {
-  const minLength = 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
+This approach enhances security and user experience by:
+- Only persisting sessions when explicitly requested by the user
+- Automatically clearing session data when "Remember Me" is disabled
+- Providing a consistent experience across different browsers and devices
+- Preventing unexpected persistent logins
+- Respecting user privacy preferences
+
+The implementation works by intercepting all storage operations and applying the "Remember Me" logic before allowing access to stored auth tokens. This ensures that even if an auth token exists in localStorage, it will not be used unless the user has opted to be remembered.
+
+## Comprehensive Auth State Handling
+
+The application listens for all authentication state changes and responds appropriately:
+
+```typescript
+supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+  logger.info('Auth event:', event);
+  if (event === 'SIGNED_IN') {
+    logger.info('User signed in:', session?.user?.email);
+    // Update auth state...
+  } else if (event === 'SIGNED_OUT') {
+    logger.info('User signed out');
+    // Clear auth state...
+  } else if (event === 'PASSWORD_RECOVERY') {
+    logger.info('Password recovery flow initiated');
+    // Handle password recovery...
+  } else if (event === 'TOKEN_REFRESHED') {
+    logger.debug('Auth token refreshed');
+    // Silent refresh handling...
+  } else if (event === 'USER_UPDATED') {
+    logger.info('User data updated');
+    // Update user data in store...
+  }
+});
+```
+
+This implementation ensures:
+- Consistent auth state across the application
+- Proper handling of all auth-related events
+- Automatic UI updates in response to auth changes
+- Smooth user experience during token refreshes
+- Proper cleanup during sign-out
+
+The auth state change listener is critical for maintaining a coherent authentication state throughout the application. It catches events from different authentication operations (like sign-in via Google, OTP verification, or password reset) and ensures the application state is updated accordingly.
+
+## Session Management and Token Refresh
+
+The application includes advanced session management with automatic token refresh:
+
+```typescript
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    // Additional options...
+  }
+});
+```
+
+Key session management features:
+- **Automatic Token Refresh**: Access tokens are automatically refreshed before expiration
+- **Timeout Handling**: All requests have configurable timeouts to prevent hanging operations
+- **Offline Recovery**: Robust handling of network interruptions during authentication
+- **Session Persistence**: Configurable session storage respecting user preferences
+- **Secure Token Storage**: Tokens are stored securely and not exposed in URLs
+- **Session Recovery**: Ability to resume sessions after browser refreshes or app restarts
+
+Token refresh happens in the background without disrupting the user experience. When a token is about to expire, the client automatically requests a new token using the refresh token. This ensures continuous authentication without requiring the user to log in again.
+
+## Advanced Error Handling
+
+The authentication implementation includes sophisticated error handling for different scenarios:
+
+### Network-Related Errors
+```typescript
+// Custom fetch with timeout
+const fetchWithTimeout = (url: RequestInfo | URL, options: RequestInit = {}) => {
+  const timeout = 15000; // 15 seconds timeout
+  const controller = new AbortController();
+  const { signal } = controller;
   
-  // ... validation logic
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Supabase API request timed out:', url.toString());
+  }, timeout);
+  
+  return fetch(url, {
+    ...options,
+    signal
+  }).finally(() => {
+    clearTimeout(timeoutId);
+  });
 };
 ```
 
-## UI Components
+### Authentication Errors
+```typescript
+try {
+  // Authentication operation
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  
+  // Provide user-friendly error messages
+  if (errorMessage.includes('Invalid login credentials')) {
+    setError('Email or password is incorrect');
+  } else if (errorMessage.includes('Email not confirmed')) {
+    setError('Please verify your email before signing in');
+  } else if (errorMessage.includes('rate limit')) {
+    setError('Too many attempts. Please try again later');
+  } else {
+    setError('Authentication failed. Please try again');
+  }
+  
+  // Log detailed error for debugging
+  logger.error('Authentication error:', {
+    error: errorMessage,
+    context: 'signIn',
+    // Don't log sensitive information like passwords
+    email: email ? 'provided' : 'missing'
+  });
+}
+```
 
-The authentication UI is built with modular components:
+### OTP Verification Errors
+```typescript
+// In verification flow
+try {
+  const result = await verifyOtp(email, code);
+  // Success handling...
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  
+  // User-friendly error messages for verification
+  if (errorMessage.includes('expired')) {
+    setError('This verification code has expired. Please request a new one');
+  } else if (errorMessage.includes('incorrect')) {
+    setError('Invalid verification code. Please check and try again');
+  } else if (errorMessage.includes('too many requests')) {
+    setError('Too many verification attempts. Please try again later');
+  } else {
+    setError('Verification failed. Please try again');
+  }
+}
+```
 
-1. **AuthModal**: Main authentication interface
-2. **AuthHeader**: Navigation and user status
-3. **GoogleSignInButton**: OAuth integration
-4. **PasswordStrengthMeter**: Password feedback
-5. **VerificationCodeInput**: OTP verification interface
-6. **VerificationBanner**: Persistent notification
+This comprehensive error handling provides:
+- User-friendly error messages that guide the user to resolution
+- Detailed logging for debugging without exposing sensitive information
+- Graceful degradation during network issues
+- Rate-limiting protection and appropriate user feedback
+- Clear distinction between different types of auth failures
 
-Key features include:
-- Responsive design
-- Accessible components
-- Loading states
-- Error handling
-- Smooth transitions
-- Clear user feedback
+## Verification Banner Implementation
 
-## Security Considerations
+The verification banner component provides a sophisticated notification system for pending verifications:
 
-1. **Password Security**:
-   - Strong password requirements
-   - Secure password handling
-   - Password strength feedback
+```typescript
+const VerificationBanner: React.FC<VerificationBannerProps> = ({ 
+  onResumeVerification,
+  forceShow = false,
+  email,
+  isAuthenticated = false
+}) => {
+  const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [dismissed, setDismissed] = useState(false);
 
-2. **Session Management**:
-   - Secure token storage
-   - Automatic session refresh
-   - Proper logout handling
+  // Update timer regularly
+  useEffect(() => {
+    if (!storedEmail || dismissed) return;
+    
+    // Setup timer to count down
+    const interval = setInterval(() => {
+      try {
+        const storedState = localStorage.getItem('verificationState');
+        if (!storedState) {
+          clearInterval(interval);
+          return;
+        }
+        
+        const parsedState = JSON.parse(storedState) as VerificationState;
+        const currentTime = Date.now();
+        const expirationTime = parsedState.startTime + (30 * 60 * 1000); // 30 minutes
+        
+        if (currentTime < expirationTime) {
+          setTimeLeft(Math.floor((expirationTime - currentTime) / 1000));
+        } else {
+          // Clear expired state
+          localStorage.removeItem('verificationState');
+          setStoredEmail(null);
+          clearInterval(interval);
+        }
+      } catch (error) {
+        logger.error('Error updating verification timer:', error);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [storedEmail, dismissed]);
 
-3. **Error Handling**:
-   - Generic error messages
-   - Detailed logging
-   - Rate limiting
+  // Format time display
+  const formatTimeLeft = () => {
+    if (timeLeft <= 0) return 'expired';
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
-4. **OTP Security**:
-   - 6-digit verification codes
-   - 30-minute expiration
-   - Limited verification attempts
-   - Secure verification process
+  // Banner render implementation
+}
+```
 
-5. **Data Protection**:
-   - Secure storage of preferences
-   - Email validation
-   - Input sanitization
+The verification banner provides these key features:
+- **Persistence**: Shows across page refreshes until verification is complete
+- **Countdown Timer**: Displays remaining time before the verification expires
+- **Resumable Verification**: Allows users to continue verification after interruption
+- **Dismissable UI**: Users can dismiss the banner if desired
+- **Expiration Handling**: Automatically clears expired verification state
+- **Session Awareness**: Doesn't show for authenticated users
+
+The banner uses localStorage to persist verification state and implements a countdown timer to indicate the time remaining for verification. This provides a seamless user experience even if the user navigates away or refreshes the page during the verification process.
 
 ## Usage
 

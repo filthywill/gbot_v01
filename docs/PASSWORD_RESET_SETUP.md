@@ -21,6 +21,27 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 
 > **Important Note:** Make sure your router implementation can handle the `/auth/reset-password` path. Our application router has been updated to support this path.
 
+## PKCE Flow Integration
+
+Our password reset flow is integrated with PKCE (Proof Key for Code Exchange) authentication flow for enhanced security:
+
+```typescript
+// In src/lib/supabase.ts
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    flowType: 'pkce', // Enhanced security flow
+    // Other options...
+  }
+});
+```
+
+The PKCE flow provides additional security for the token-based authentication used in the password reset process by:
+- Preventing token interception
+- Ensuring that only the client that initiated the reset can complete it
+- Protecting against cross-site request forgery
+
 ## How It Works
 
 1. **User Requests Password Reset:** When a user clicks "Forgot Password", they enter their email and we send a reset email using Supabase's `resetPasswordForEmail` method.
@@ -32,6 +53,139 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 4. **Password Update:** After the user submits a new password, we call Supabase's `updateUser` method, which verifies the token and updates the password.
 
 5. **Completion:** After successful password reset, the user is redirected to the login page with a success message.
+
+## Implementation Details
+
+### Request Password Reset
+
+```typescript
+const handleResetPassword = async (email: string) => {
+  try {
+    setIsLoading(true);
+    setError(null);
+    
+    // Get the current hostname for the redirect URL
+    const origin = window.location.origin;
+    const redirectTo = `${origin}/auth/reset-password`;
+    
+    logger.info('Sending password reset email with direct link', { email, redirectUrl: redirectTo });
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo,
+    });
+    
+    if (error) throw error;
+    
+    setResetEmailSent(true);
+    logger.info('Password reset email sent successfully');
+  } catch (error) {
+    logger.error('Password reset error:', error);
+    setError(error instanceof Error ? error.message : 'Failed to send password reset email');
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+### Extract Tokens From URL
+
+```typescript
+// In the ResetPasswordPage component
+useEffect(() => {
+  // Extract token from URL hash fragment
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const token = hashParams.get('access_token');
+  
+  if (!token) {
+    setError('Invalid or missing reset token');
+    logger.error('Password reset attempted without valid token');
+    return;
+  }
+  
+  // Set the session with the token
+  const setSession = async () => {
+    try {
+      const refreshToken = hashParams.get('refresh_token') || '';
+      const { data, error } = await supabase.auth.setSession({
+        access_token: token,
+        refresh_token: refreshToken
+      });
+      
+      if (error) throw error;
+      if (!data.session) throw new Error('No session created');
+      
+      setIsSessionSet(true);
+    } catch (error) {
+      logger.error('Error setting session for password reset:', error);
+      setError('Invalid reset link or link has expired');
+    }
+  };
+  
+  setSession();
+}, []);
+```
+
+### Update Password
+
+```typescript
+const handleUpdatePassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (password !== confirmPassword) {
+    setError('Passwords do not match');
+    return;
+  }
+  
+  try {
+    setIsLoading(true);
+    setError(null);
+    
+    // Update the user's password
+    const { error } = await supabase.auth.updateUser({
+      password: password
+    });
+    
+    if (error) throw error;
+    
+    // Show success state and prepare for redirect
+    setIsSuccessful(true);
+    
+    // Redirect to login after delay
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 3000);
+  } catch (error) {
+    logger.error('Error updating password:', error);
+    setError(error instanceof Error ? error.message : 'Failed to update password');
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+## Improved Error Handling
+
+Our password reset flow includes comprehensive error handling at each stage:
+
+### Email Request Errors
+- Email not found
+- Rate limiting
+- Network errors
+- Invalid email format
+
+### Token Validation Errors
+- Missing or invalid token
+- Expired token
+- Token already used
+- Malformed URL
+
+### Password Update Errors
+- Password too weak
+- Password policy violations
+- Token expired during form completion
+- Session errors
+
+Each error is handled with user-friendly messages and detailed logging to help troubleshoot issues.
 
 ## Common Issues and Solutions
 
@@ -56,6 +210,15 @@ When setting up your email template in Supabase Dashboard (Authentication > Emai
 - Check Supabase Auth logs for errors
 - Ask users to check spam folders
 - Ensure email domain is properly configured with DKIM, SPF, and DMARC
+
+### 4. Password Requirements Issues
+
+**Problem**: Users unable to set a new password due to strength requirements.
+
+**Solution**: 
+- We provide a password strength meter during reset
+- Clear error messages explain requirements
+- Validation occurs in real-time before submission
 
 ## Custom SMTP Setup (Recommended)
 
@@ -84,6 +247,8 @@ We strongly recommend setting up a custom SMTP provider for improved deliverabil
 3. Click the reset link
 4. Create a new password that meets strength requirements
 5. Verify you can log in with the new password
+6. Test with different browsers to ensure cross-browser compatibility
+7. Test with various email providers (Gmail, Outlook, corporate email, etc.)
 
 ## Debugging Steps
 
@@ -94,6 +259,8 @@ If users report issues:
 3. Test with different email providers (Gmail, Outlook, etc.)
 4. Check browser console for any JavaScript errors
 5. Verify that the token is properly extracted from the URL
+6. Check network requests for any API errors
+7. Test in incognito/private browsing mode to rule out browser extensions
 
 ## Additional Resources
 
