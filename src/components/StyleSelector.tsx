@@ -24,24 +24,24 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({
               key={style.id}
               onClick={() => style.available && onSelectStyle(style.id)}
               className={`
-                relative px-2 py-1 rounded-md transition-all text-center shadow-sm
+                relative px-2 py-0 rounded-md transition-all text-center shadow-sm
                 ${isSelected 
-                  ? 'bg-purple-600 text-white shadow-md' 
-                  : 'bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 hover:border-zinc-300'
+                  ? 'bg-brand-primary-600 text-control' 
+                  : 'bg-control hover:bg-control-hover text-control-secondary border border-zinc-600 hover:border-zinc-500'
                 } 
                 ${!style.available && 'opacity-60 cursor-not-allowed'}
               `}
               disabled={!style.available}
             >
               <div className="flex items-center justify-center">
-                <span className={`font-medium text-xs ${isSelected ? 'text-white' : ''}`}>
+                <span className={`font-medium ${isSelected ? 'text-control' : ''}`}>
                   {style.name}
                 </span>
                 {!style.available && <Lock className="w-3 h-3 ml-1 opacity-70" />}
               </div>
               
               {style.description && (
-                <p className={`text-xs ${isSelected ? 'text-white/80' : 'text-zinc-600'} line-clamp-1 text-[10px]`}>
+                <p className={`text-xs ${isSelected ? 'text-control/80' : 'text-control-secondary'} line-clamp-1 text-[10px]`}>
                   {style.description}
                 </p>
               )}

@@ -102,9 +102,8 @@ const MobileImageModal: React.FC<MobileImageModalProps> = ({
         <button
           ref={saveButtonRef}
           onClick={onSave}
-          className="py-2.5 px-4 bg-blue-500 text-white border-none rounded text-base cursor-pointer flex-grow max-w-[200px]"
+          className="py-2.5 px-4 bg-brand-primary-600 text-white border-none rounded text-base cursor-pointer flex-grow max-w-[200px]"
           style={{
-            backgroundColor: '#4a90e2',
             transition: 'transform 0.15s ease-out, background-color 0.15s ease-out',
             fontWeight: isIOS ? 600 : 400,
           }}

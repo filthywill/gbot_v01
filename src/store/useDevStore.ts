@@ -5,6 +5,8 @@ import { isDebugPanelEnabled } from '../lib/debug';
 interface DevStore {
   showValueOverlays: boolean;
   toggleValueOverlays: () => void;
+  showColorPanel: boolean;
+  toggleColorPanel: () => void;
 }
 
 export const useDevStore = create<DevStore>((set) => ({
@@ -13,6 +15,13 @@ export const useDevStore = create<DevStore>((set) => ({
     // Only allow toggling in development mode and when debug panels are enabled
     if (isDevelopment() && isDebugPanelEnabled()) {
       set((state) => ({ showValueOverlays: !state.showValueOverlays }));
+    }
+  },
+  showColorPanel: false,
+  toggleColorPanel: () => {
+    // Only allow toggling in development mode
+    if (isDevelopment()) {
+      set((state) => ({ showColorPanel: !state.showColorPanel }));
     }
   },
 })); 

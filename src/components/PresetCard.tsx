@@ -151,13 +151,13 @@ ${Object.entries(nonDefaultSettings)
       onClick={onClick}
       className={cn(
         'w-full max-w-[150px] mx-auto rounded overflow-hidden relative',
-        'bg-gray-300/50 shadow-[0_2px_3px_0_rgba(0,0,0,0.2)]',
-        'focus:outline-none focus:ring-2 focus:ring-purple-300 focus:ring-offset-0',
+        'bg-control shadow-[0_2px_3px_0_rgba(0,0,0,0.2)]',
+        'focus:outline-none focus:ring-2 focus:ring-brand-primary-300 focus:ring-offset-0',
         'transition-all duration-150 ease-in-out',
         'cursor-pointer',
         isActive 
           ? 'shadow-[0_3px_5px_-1px_rgba(0,0,0,0.3)] scale-[1.02] z-10'
-          : 'hover:bg-gray-300/90 hover:z-10 hover:scale-[1.01]'
+          : 'hover:bg-control-hover hover:z-10 hover:scale-[1.01]'
       )}
       role="button"
       tabIndex={0}
@@ -175,7 +175,7 @@ ${Object.entries(nonDefaultSettings)
       {isDeletable && onDelete && (
         <button
           onClick={handleDelete}
-          className="absolute top-0 right-0 z-10 w-5 h-5 bg-red-500/80 text-white rounded-bl-md flex items-center justify-center transition-colors hover:bg-red-600"
+          className="absolute top-0 right-0 z-10 w-5 h-5 bg-red-500/80 text-control rounded-bl-md flex items-center justify-center transition-colors hover:bg-red-600"
           aria-label={`Delete ${preset.name} preset`}
         >
           <X className="w-3 h-3" />
@@ -187,7 +187,7 @@ ${Object.entries(nonDefaultSettings)
         <button
           onClick={handleCopyToClipboard}
           className={cn(
-            "absolute top-0 left-0 z-10 w-5 h-5 text-white rounded-br-md flex items-center justify-center transition-colors",
+            "absolute top-0 left-0 z-10 w-5 h-5 text-control rounded-br-md flex items-center justify-center transition-colors",
             hasCopied 
               ? "bg-green-500/80 hover:bg-green-600" 
               : "bg-blue-500/80 hover:bg-blue-600"
