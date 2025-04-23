@@ -81,10 +81,11 @@ const AuthCallback: React.FC = () => {
             setMessage('Verifying your email...');
             const { data, error } = await supabase.auth.verifyOtp({ token_hash, type: type as any });
             if (error) throw error;
+            // Persist session in storage by opting into rememberMe
+            setRememberMe(true);
             // Update store
             if (data.session) setSession(data.session);
             if (data.user)    setUser(data.user);
-            await initialize();
             setIsProcessing(false);
             setMessage('Authentication successful! You should be logged in.');
             return;
@@ -101,9 +102,7 @@ const AuthCallback: React.FC = () => {
             setMessage('Exchanging OAuth code...');
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
             if (error) throw error;
-            if (data.session) setSession(data.session);
-            if (data.user)    setUser(data.user);
-            await initialize();
+            // Session is now set in store
             setIsProcessing(false);
             setMessage('Authentication successful! You should be logged in.');
             return;
@@ -125,9 +124,7 @@ const AuthCallback: React.FC = () => {
             if (access_token) {
               const { data, error } = await supabase.auth.setSession({ access_token, refresh_token: refresh_token ?? '' });
               if (error) throw error;
-              if (data.session) setSession(data.session);
-              if (data.user)    setUser(data.user);
-              await initialize();
+              // Session is now set in store
               setIsProcessing(false);
               setMessage('Authentication successful! You should be logged in.');
               return;
