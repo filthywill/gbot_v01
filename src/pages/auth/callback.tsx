@@ -18,7 +18,7 @@ const AuthCallback: React.FC = () => {
     initialUrl: window.location.href
   });
   const [message, setMessage] = useState<string>('Processing authentication...');
-  const { setUser, setSession } = useAuthStore();
+  const { setUser, setSession, initialize } = useAuthStore();
   const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
 
   useEffect(() => {
@@ -96,6 +96,8 @@ const AuthCallback: React.FC = () => {
             if (data.user) {
               setUser(data.user);
             }
+            // Refresh the auth store status with the new session/user
+            await initialize();
             // Redirect to the final destination
             window.location.href = redirect_to;
             return;
