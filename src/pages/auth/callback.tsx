@@ -34,86 +34,59 @@ const AuthCallback: React.FC = () => {
         
         // Get URL parameters
         const url = new URL(window.location.href);
-        const token_hash = url.searchParams.get('token_hash');
-        const type = url.searchParams.get('type');
-        const email = url.searchParams.get('email');
         const code = url.searchParams.get('code');
-        const redirect_to = url.searchParams.get('redirect_to') || '/';
         
-        // Log URL information for debugging
-        console.log('AUTH CALLBACK PARAMETERS', { 
-          fullUrl: window.location.href,
-          token: token_hash ? `${token_hash.substring(0, 8)}...` : null,
-          type, 
-          email,
-          hasCode: !!code,
-          timestamp: new Date().toISOString()
-        });
-        
-        logger.debug('AuthCallback URL info:', { 
-          path: url.pathname,
-          token: token_hash ? `${token_hash.substring(0, 8)}...` : null,
-          type, 
-          email,
-          hasCode: !!code
-        });
-        
+        // Set debug info early to capture all details
         setDebugInfo({
           componentLoaded: new Date().toISOString(),
           handlerStarted: new Date().toISOString(),
           currentUrl: window.location.href,
-          token: token_hash ? 'present' : 'missing',
-          type,
-          email,
-          hasCode: !!code
+          hasCode: !!code,
+          searchParams: Object.fromEntries([...url.searchParams.entries()]),
+          referrer: document.referrer || 'none'
         });
         
-        // Store the email for future use if provided
-        if (email) {
-          setLastUsedEmail(email);
-          setRememberMe(true);
-          console.log('STORED EMAIL IN PREFERENCES', { email });
-        }
-        
-        // Handle verification token
-        if (token_hash && type) {
-          logger.info('Found token in URL, attempting verification');
-          console.log('VERIFICATION TOKEN FOUND, ATTEMPTING VERIFICATION');
-          
-          try {
-            setMessage('Verifying your email...');
-            
-            // Verify OTP to exchange the token for a session
-            const { error } = await supabase.auth.verifyOtp({
-              token_hash,
-              type: type as any,
-            });
-            
-            if (error) throw error;
-            
-            // If successful, redirect to the final destination
-            window.location.href = redirect_to;
-          } catch (err) {
-            console.error('Error during auth callback:', err);
-            // Redirect to error page
-            window.location.href = '/auth/error?error=' + encodeURIComponent(
-              err instanceof Error ? err.message : 'Failed to verify token'
-            );
-          }
-        }
-        
-        // Handle code exchange (OAuth and magic link flows)
+        // Log URL information for debugging
+        console.log('AUTH CALLBACK PARAMETERS', { 
+          fullUrl: window.location.href,
+          hasCode: !!code,
+          searchParams: Object.fromEntries([...url.searchParams.entries()]),
+          timestamp: new Date().toISOString()
+        });
+
+        // FOCUS ON CODE EXCHANGE FIRST - Most important for PKCE flow
         if (code) {
-          logger.info('Found code in URL, exchanging for session');
-          console.log('CODE EXCHANGE FLOW DETECTED', { hasCode: true });
+          logger.info('Found code in URL, exchanging for session', { code_length: code.length });
+          console.log('CODE EXCHANGE FLOW DETECTED', { hasCode: true, code_length: code.length });
           
           try {
             setMessage('Completing authentication...');
+            
+            // Clear any prior auth data that might interfere
+            const currentSession = await supabase.auth.getSession();
+            if (currentSession.data.session) {
+              console.log('Found existing session, clearing before code exchange');
+              // Only in extreme cases - usually not needed
+              // await supabase.auth.signOut({ scope: 'local' });
+            }
+            
+            // PRIMARY EXCHANGE METHOD - Use Supabase's provided method
+            console.log('Calling exchangeCodeForSession with code', { code_preview: code.substring(0, 5) + '...' });
+            
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
             
             if (error) {
               logger.error('Error exchanging code for session:', error);
               setError(`Authentication failed: ${error.message}`);
+              
+              // Update debug info with error
+              setDebugInfo(prev => ({
+                ...prev,
+                error: error.message,
+                errorCode: error.status || 'unknown',
+                timestamp: new Date().toISOString(),
+                errorDetails: JSON.stringify(error)
+              }));
               
               // Redirect to home with error
               setTimeout(() => {
@@ -121,118 +94,92 @@ const AuthCallback: React.FC = () => {
               }, 1500);
             } else if (data?.session) {
               logger.info('Successfully exchanged code for session');
-              console.log('CODE EXCHANGE SUCCESSFUL', { hasSession: true });
+              console.log('CODE EXCHANGE SUCCESSFUL', { 
+                hasSession: true,
+                user_id: data.user?.id,
+                session_expires_at: data.session?.expires_at
+              });
               
               // Update auth store
               setSession(data.session);
               if (data.user) {
                 setUser(data.user);
+                
+                // If we have a verified email, store it
+                if (data.user.email) {
+                  setLastUsedEmail(data.user.email);
+                  setRememberMe(true);
+                }
               }
               
-              // Redirect to home page
-              window.location.replace('/');
+              // Update debug info with success
+              setDebugInfo(prev => ({
+                ...prev,
+                success: true,
+                user_id: data.user?.id,
+                session_expires_at: data.session?.expires_at,
+                timestamp: new Date().toISOString()
+              }));
+              
+              // Short delay to ensure state is updated before redirect
+              setTimeout(() => {
+                // Redirect to home page
+                window.location.replace('/');
+              }, 1000);
               return;
             } else {
               logger.warn('Code exchange succeeded but no session returned');
               console.log('CODE EXCHANGE NO SESSION', { success: true, hasSession: false });
-              window.location.replace('/?auth=partial');
+              
+              setError('Authentication succeeded but no session was created');
+              
+              // Redirect to home with partial auth indication
+              setTimeout(() => {
+                window.location.replace('/?auth=partial');
+              }, 1500);
             }
           } catch (err) {
+            // Handle unexpected errors in the code exchange
             logger.error('Error exchanging code:', err);
             console.error('CODE EXCHANGE ERROR', err);
             setError('Failed to complete authentication');
+            
+            // Update debug info with error
+            setDebugInfo(prev => ({
+              ...prev,
+              error: err instanceof Error ? err.message : 'Unknown error',
+              errorStack: err instanceof Error ? err.stack : null,
+              timestamp: new Date().toISOString()
+            }));
             
             // Redirect to home with error
             setTimeout(() => {
               window.location.replace('/?auth=failed&error=processing_error');
             }, 1500);
           }
-        }
-        
-        // Handle hash fragments (sometimes used by Supabase)
-        const hashFragment = window.location.hash.substring(1);
-        if (hashFragment && (hashFragment.includes('access_token=') || hashFragment.includes('type='))) {
-          logger.info('Found hash fragment, processing');
-          console.log('HASH FRAGMENT DETECTED', { hasHash: true });
-          
-          // Extract hash parameters
-          const hashParams = new URLSearchParams(hashFragment);
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-          const hashEmail = hashParams.get('email');
-          
-          if (hashEmail) {
-            setLastUsedEmail(hashEmail);
-            setRememberMe(true);
-          }
-          
-          if (accessToken) {
-            try {
-              setMessage('Setting up your session...');
-              // Set session from tokens
-              const { data, error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || ''
-              });
-              
-              if (error) {
-                logger.error('Error setting session from tokens:', error);
-                setError(`Authentication failed: ${error.message}`);
-                
-                // Redirect to home with error
-                setTimeout(() => {
-                  window.location.replace(`/?auth=failed&error=${encodeURIComponent(error.message)}`);
-                }, 1500);
-              } else if (data?.session) {
-                logger.info('Successfully set session from tokens');
-                console.log('SET SESSION FROM HASH SUCCESS', { hasSession: true });
-                
-                // Update auth store
-                setSession(data.session);
-                if (data.user) {
-                  setUser(data.user);
-                  
-                  // If we have a verified email, store it
-                  if (data.user.email) {
-                    setLastUsedEmail(data.user.email);
-                    setRememberMe(true);
-                  }
-                }
-                
-                // Redirect to home page
-                window.location.replace('/');
-                return;
-              } else {
-                logger.warn('Set session succeeded but no session data returned');
-                window.location.replace('/?auth=partial');
-              }
-            } catch (err) {
-              logger.error('Error processing tokens:', err);
-              setError('Failed to authenticate with provided tokens');
-              
-              // Redirect to home with error
-              setTimeout(() => {
-                window.location.replace('/?auth=failed&error=token_processing_error');
-              }, 1500);
-            }
-          }
-        }
-        
-        // If we get here, we didn't recognize the auth parameters
-        if (!error) {
+        } else {
+          // If we get here, we didn't recognize the auth parameters
           setError('No valid authentication parameters found');
           logger.warn('No valid auth parameters found in URL');
           console.log('NO VALID AUTH PARAMETERS FOUND');
+          
+          // Redirect to home page after delay
+          setTimeout(() => {
+            window.location.replace('/?auth=unknown');
+          }, 2000);
         }
-        
-        // Redirect to home page after delay
-        setTimeout(() => {
-          window.location.replace('/?auth=unknown');
-        }, 2000);
       } catch (err) {
         logger.error('Unexpected error in auth callback:', err);
         console.error('UNEXPECTED AUTH CALLBACK ERROR', err);
         setError('An unexpected error occurred');
+        
+        // Update debug info with error
+        setDebugInfo(prev => ({
+          ...prev,
+          unexpectedError: err instanceof Error ? err.message : 'Unknown error',
+          errorStack: err instanceof Error ? err.stack : null,
+          timestamp: new Date().toISOString()
+        }));
         
         // Redirect to home page after delay
         setTimeout(() => {
