@@ -41,26 +41,12 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storageKey: 'gbot_supabase_auth',
     // Define flow types for smoother user experience
     flowType: 'pkce',
-    debug: import.meta.env.DEV, // Enable auth debugging in development mode
-    // Custom URL handling is implemented in the callback pages
+    debug: true, // Enable auth debugging in all environments for troubleshooting
+    // Simplified storage implementation for troubleshooting PKCE flow
     storage: {
-      // Use a custom storage implementation that respects the remember me preference
-      async getItem(key: string) {
+      getItem(key: string) {
         try {
-          // Always get from localStorage first to check preferences
-          const preferences = JSON.parse(localStorage.getItem('gbot-preferences') || '{}');
-          const rememberMe = preferences?.state?.rememberMe ?? false;
-          
-          if (import.meta.env.DEV) {
-            logger.debug('Auth storage getItem:', { key, rememberMe });
-          }
-          
-          // If remember me is false, don't return any stored session
-          if (!rememberMe && key === 'gbot_supabase_auth') {
-            logger.debug('Not returning stored session due to rememberMe=false');
-            return null;
-          }
-          
+          logger.debug('Auth storage getItem:', { key });
           const value = localStorage.getItem(key);
           return value;
         } catch (error) {
@@ -70,9 +56,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       },
       setItem(key: string, value: string) {
         try {
-          if (import.meta.env.DEV) {
-            logger.debug('Auth storage setItem:', { key, valueLength: value?.length || 0 });
-          }
+          logger.debug('Auth storage setItem:', { key, valueLength: value?.length || 0 });
           localStorage.setItem(key, value);
         } catch (error) {
           logger.error('Error writing to storage:', error);
@@ -80,9 +64,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       },
       removeItem(key: string) {
         try {
-          if (import.meta.env.DEV) {
-            logger.debug('Auth storage removeItem:', { key });
-          }
+          logger.debug('Auth storage removeItem:', { key });
           localStorage.removeItem(key);
         } catch (error) {
           logger.error('Error removing from storage:', error);
