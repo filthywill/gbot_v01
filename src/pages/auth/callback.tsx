@@ -83,16 +83,22 @@ const AuthCallback: React.FC = () => {
           try {
             setMessage('Verifying your email...');
             
-            // Verify OTP to exchange the token for a session
-            const { error } = await supabase.auth.verifyOtp({
+            // Verify OTP to exchange the token for a session (PKCE magic link)
+            const { data, error } = await supabase.auth.verifyOtp({
               token_hash,
               type: type as any,
             });
-            
             if (error) throw error;
-            
-            // If successful, redirect to the final destination
+            // Update the auth store with the new session and user
+            if (data.session) {
+              setSession(data.session);
+            }
+            if (data.user) {
+              setUser(data.user);
+            }
+            // Redirect to the final destination
             window.location.href = redirect_to;
+            return;
           } catch (err) {
             console.error('Error during auth callback:', err);
             // Redirect to error page
