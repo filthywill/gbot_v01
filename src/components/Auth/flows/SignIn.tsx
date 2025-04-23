@@ -5,6 +5,7 @@ import usePreferencesStore from '../../../store/usePreferencesStore';
 import useGoogleAuthStore from '../../../store/useGoogleAuthStore';
 import { AUTH_VIEWS } from '../../../lib/auth/constants';
 import GoogleSignInButton from '../GoogleSignInButton';
+import MagicLinkForm from '../MagicLinkForm';
 import logger from '../../../lib/logger';
 
 interface SignInProps {
@@ -14,6 +15,8 @@ interface SignInProps {
   onViewChange: (view: string) => void;
   onSuccess: () => void;
   onClose?: () => void;
+  showGoogleSignIn?: boolean;
+  autoFocusPassword?: boolean;
 }
 
 /**
@@ -27,11 +30,16 @@ const SignIn: React.FC<SignInProps> = ({
   onViewChange,
   onSuccess,
   onClose,
+  showGoogleSignIn = true,
+  autoFocusPassword = false
 }) => {
+  const [formEmail, setFormEmail] = useState(email);
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMeChecked, setRememberMeChecked] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'password' | 'magic-link'>('password');
   
   const { signInWithEmail, resetError } = useAuthStore();
   const { setRememberMe, setLastUsedEmail, rememberMe } = usePreferencesStore();
@@ -41,6 +49,13 @@ const SignIn: React.FC<SignInProps> = ({
   useEffect(() => {
     setRememberMeChecked(rememberMe);
   }, [rememberMe]);
+  
+  // Reset error when unmounting
+  useEffect(() => {
+    return () => {
+      resetError();
+    };
+  }, [resetError]);
   
   // Email validation
   useEffect(() => {
@@ -52,179 +67,202 @@ const SignIn: React.FC<SignInProps> = ({
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      resetError();
-      const error = new Error('Please enter both email and password');
-      logger.error('Sign in validation error:', error);
-      useAuthStore.setState({ error: error.message });
+    if (!formEmail || !password) {
+      setErrorMessage('Please enter both email and password');
       return;
     }
     
+    setIsLoading(true);
+    setErrorMessage(null);
+    
     try {
-      setIsLoading(true);
-      resetError();
+      logger.info('Attempting email sign in', { email: formEmail });
+      const success = await signInWithEmail(formEmail, password);
       
-      logger.info('Attempting sign in for user:', email);
-      
-      // Save preferences first
-      setRememberMe(rememberMeChecked);
-      if (rememberMeChecked) {
-        setLastUsedEmail(email);
+      if (success) {
+        // Store preferences if remember me is checked
+        if (rememberMeChecked) {
+          setRememberMe(true);
+          setLastUsedEmail(formEmail);
+        } else {
+          setRememberMe(false);
+          setLastUsedEmail(null);
+        }
+      } else {
+        setErrorMessage('Invalid email or password');
       }
-      
-      // Attempt sign in - errors will be handled by the store
-      await signInWithEmail(email, password);
-      
-      // If we get here, authentication was successful
-      logger.info('Sign in successful');
-      onSuccess();
-    } catch (err) {
-      logger.error('Sign in error:', err);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed';
+      setErrorMessage(message);
+      logger.error('Sign in error', { error: message });
     } finally {
       setIsLoading(false);
     }
   };
   
+  const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRememberMeChecked(e.target.checked);
+  };
+  
+  const toggleAuthMethod = () => {
+    setAuthMethod(authMethod === 'password' ? 'magic-link' : 'password');
+    setErrorMessage(null);
+  };
+
   return (
-    <>
-      <div className="relative mb-4">
-        <h2 className="text-2xl font-extrabold text-brand-primary-900 tracking-tight mb-1.5 text-center">
-          Sign In
-        </h2>
-        
+    <div className="w-full max-w-md px-4 py-8 mx-auto">
+      <div className="flex justify-end">
         {onClose && (
-          <button 
-            type="button"
+          <button
             onClick={onClose}
-            className="absolute -top-2 -right-2 text-brand-neutral-400 hover:text-brand-primary-500 transition-colors p-1 hover:bg-brand-neutral-100 rounded-full"
+            className="text-gray-500 hover:text-gray-700"
             aria-label="Close"
           >
-            <X className="h-6 w-6" />
+            <X size={20} />
           </button>
         )}
       </div>
       
-      <div className="text-center mb-6">
-        <p className="text-sm text-brand-neutral-700">
-          New user?{' '}
-          <button
-            type="button"
-            onClick={() => onViewChange(AUTH_VIEWS.SIGN_UP)}
-            className="font-medium text-brand-primary-600 hover:text-brand-primary-500 hover:underline"
-          >
-            Create an account
-          </button>
-        </p>
-      </div>
+      <h2 className="text-2xl font-bold text-center mb-6">Sign In</h2>
       
-      <form onSubmit={handleSignIn} className="space-y-2">
-        {/* Error is now handled at the modal level, so we remove the duplicate display here */}
-        
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-brand-neutral-600">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm placeholder-brand-neutral-400 focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900 h-11"
-            placeholder="Enter your email"
-            required
-          />
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          {errorMessage}
         </div>
-        
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-brand-neutral-600">
-            Password
-          </label>
-          <div className="relative">
+      )}
+      
+      <div className="flex justify-center space-x-4 mb-6">
+        <button
+          className={`py-2 px-4 text-sm font-medium rounded-md ${
+            authMethod === 'password'
+              ? 'bg-brand-primary-100 text-brand-primary-700'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setAuthMethod('password')}
+        >
+          Password
+        </button>
+        <button
+          className={`py-2 px-4 text-sm font-medium rounded-md ${
+            authMethod === 'magic-link'
+              ? 'bg-brand-primary-100 text-brand-primary-700'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setAuthMethod('magic-link')}
+        >
+          Magic Link
+        </button>
+      </div>
+
+      {authMethod === 'password' ? (
+        <form onSubmit={handleSignIn}>
+          <div className="mb-4">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address
+            </label>
             <input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="block w-full px-3 py-2 border border-brand-neutral-300 rounded-md shadow-sm placeholder-brand-neutral-400 focus:outline-none focus:ring-brand-primary-500 focus:border-brand-primary-500 text-brand-neutral-900 h-11"
-              placeholder="Enter your password"
+              id="email"
+              type="email"
+              value={formEmail}
+              onChange={(e) => setFormEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-brand-primary-500"
+              placeholder="Enter your email"
               required
+              autoComplete="email"
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-neutral-400 hover:text-brand-neutral-500"
-            >
-              {showPassword ? (
-                <EyeOffIcon className="h-5 w-5" aria-hidden="true" />
-              ) : (
-                <EyeIcon className="h-5 w-5" aria-hidden="true" />
-              )}
-            </button>
           </div>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
+          
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => onViewChange(AUTH_VIEWS.RESET_PASSWORD)}
+                className="text-sm text-brand-primary-600 hover:text-brand-primary-800"
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-brand-primary-500"
+                placeholder="Enter your password"
+                required
+                autoComplete="current-password"
+                autoFocus={autoFocusPassword}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOffIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex items-center mb-6">
             <input
               id="remember-me"
               name="remember-me"
               type="checkbox"
               checked={rememberMeChecked}
-              onChange={(e) => setRememberMeChecked(e.target.checked)}
-              className="h-4 w-4 text-brand-primary-600 focus:ring-brand-primary-500 border-brand-neutral-300 rounded"
+              onChange={handleRememberMeChange}
+              className="h-4 w-4 text-brand-primary-600 focus:ring-brand-primary-500 border-gray-300 rounded"
             />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-brand-neutral-600">
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
               Remember me
             </label>
           </div>
           
           <button
-            type="button"
-            onClick={() => onViewChange(AUTH_VIEWS.FORGOT_PASSWORD)}
-            className="text-sm font-medium text-brand-primary-600 hover:text-brand-primary-500 hover:underline"
-          >
-            Forgot password?
-          </button>
-        </div>
-        
-        <div className="pt-2">
-          <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-gradient hover:bg-brand-gradient focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
+            className={`w-full py-2 px-4 rounded-md text-white font-medium ${
+              isLoading 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-brand-primary-600 hover:bg-brand-primary-700'
+            }`}
           >
-            {isLoading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Signing In...
-              </span>
-            ) : (
-              'Sign In'
-            )}
+            {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
-        </div>
-        
-        {isSDKLoaded && (
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-brand-neutral-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-brand-neutral-500">Or continue with</span>
-              </div>
-            </div>
-            
-            <div className="mt-4">
-              <GoogleSignInButton onSuccess={onSuccess} />
-            </div>
+        </form>
+      ) : (
+        <MagicLinkForm />
+      )}
+      
+      {showGoogleSignIn && isSDKLoaded && (
+        <>
+          <div className="my-6 flex items-center">
+            <div className="flex-grow border-t border-gray-300"></div>
+            <span className="px-3 text-sm text-gray-500">Or</span>
+            <div className="flex-grow border-t border-gray-300"></div>
           </div>
-        )}
-      </form>
-    </>
+          
+          <GoogleSignInButton />
+        </>
+      )}
+      
+      <div className="mt-6 text-center">
+        <span className="text-sm text-gray-600">Don't have an account?</span>{' '}
+        <button
+          onClick={() => onViewChange(AUTH_VIEWS.SIGN_UP)}
+          className="text-sm text-brand-primary-600 hover:text-brand-primary-800 font-medium"
+        >
+          Sign up
+        </button>
+      </div>
+    </div>
   );
 };
 

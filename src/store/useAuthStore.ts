@@ -29,6 +29,7 @@ type AuthState = {
   setError: (error: string) => void;
   resetPassword: (email: string) => Promise<boolean>;
   verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
+  signInWithMagicLink: (email: string) => Promise<boolean>;
   
   // Direct state setters (for auth callbacks and external auth sources)
   setUser: (user: User | null) => void;
@@ -287,33 +288,52 @@ const useAuthStore = create<AuthState>((set, get) => ({
     status: 'ERROR',
     lastError: new Error(error)
   }),
-
-  resetPassword: async (email: string) => {
+  
+  // Implement the magic link authentication
+  signInWithMagicLink: async (email: string) => {
     try {
       set({ status: 'LOADING', error: null });
+      logger.info('Starting magic link sign-in process for:', email);
       
-      // Get the current hostname for the redirect URL
+      // Get origin for the redirect URL
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/reset-password`;
       
-      logger.info('Sending password reset email with direct link', { email, redirectUrl: redirectTo });
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo,
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          // Redirect to callback route after successful login
+          emailRedirectTo: `${origin}/auth/callback`,
+          // Don't create a new user if they don't exist
+          shouldCreateUser: false
+        }
       });
       
       if (error) throw error;
       
-      set({ status: 'UNAUTHENTICATED' });
-      logger.info('Password reset email sent successfully');
+      // Update preferences to remember this email
+      const { setLastUsedEmail } = usePreferencesStore.getState();
+      setLastUsedEmail(email);
+      
+      set({ status: 'UNAUTHENTICATED', error: null });
+      logger.info('Magic link email sent successfully');
       return true;
     } catch (error) {
-      logger.error('Password reset error:', error);
+      logger.error('Magic link request error:', error);
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to send password reset email',
+        error: error instanceof Error ? error.message : 'Failed to send login link',
         lastError: error instanceof Error ? error : new Error('Unknown error')
       });
+      return false;
+    }
+  },
+
+  resetPassword: async (email: string) => {
+    // Update to use magic link instead of reset password
+    try {
+      return await get().signInWithMagicLink(email);
+    } catch (error) {
+      logger.error('Password reset (magic link) error:', error);
       return false;
     }
   },
