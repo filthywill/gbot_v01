@@ -86,8 +86,8 @@ const AuthCallback: React.FC = () => {
             // Update store
             if (data.session) setSession(data.session);
             if (data.user)    setUser(data.user);
-            setIsProcessing(false);
-            setMessage('Authentication successful! You should be logged in.');
+            // Redirect immediately now that session is set
+            window.location.href = redirect_to;
             return;
           } catch (err) {
             console.error('Error verifying OTP:', err);
@@ -103,8 +103,10 @@ const AuthCallback: React.FC = () => {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
             if (error) throw error;
             // Session is now set in store
-            setIsProcessing(false);
-            setMessage('Authentication successful! You should be logged in.');
+            if (data.session) setSession(data.session);
+            if (data.user)    setUser(data.user);
+            // Redirect immediately now that session is set
+            window.location.href = redirect_to;
             return;
           } catch (err) {
             console.error('Error exchanging code:', err);
@@ -125,8 +127,10 @@ const AuthCallback: React.FC = () => {
               const { data, error } = await supabase.auth.setSession({ access_token, refresh_token: refresh_token ?? '' });
               if (error) throw error;
               // Session is now set in store
-              setIsProcessing(false);
-              setMessage('Authentication successful! You should be logged in.');
+              if (data.session) setSession(data.session);
+              if (data.user)    setUser(data.user);
+              // Redirect immediately now that session is set
+              window.location.href = redirect_to;
               return;
             }
           } catch (err) {
