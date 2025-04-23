@@ -63,8 +63,8 @@ export default defineConfig({
     cssMinify: true,
     reportCompressedSize: false,
   },
-  // Add base URL configuration
-  base: './',
+  // Add base URL configuration for absolute asset loading
+  base: '/',
   // Add resolve configuration
   resolve: {
     alias: {
