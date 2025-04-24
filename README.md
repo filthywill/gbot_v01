@@ -50,6 +50,7 @@ src/
 - Google OAuth integration
 - Remember Me functionality
 - Password reset flow with email verification
+- Password reset flow with email-based magic link (OTP) handled by `/auth/callback`
 - Strong password requirements with strength meter
 - Persistent user preferences
 - Modern, responsive authentication UI
@@ -75,7 +76,8 @@ The application uses Supabase for authentication with a robust, type-safe implem
 1. **Client Initialization**: `supabase.ts` initializes the Supabase client with environment variables
 2. **State Management**: `useAuthStore.ts` manages authentication state with Zustand
 3. **UI Components**: Components in `components/Auth/` handle user interactions
-4. **Session Handling**: AuthProvider maintains session state throughout the app
+4. **Redirect Flows**: User clicks magic link or OAuth code, landing at `/auth/callback` handled by `AuthCallback`
+5. **Password Reset**: Users request a reset link via email; the email contains a magic link OTP to `/auth/callback?token_hash=…&type=magiclink` which verifies and signs them back in
 
 ### Authentication Methods
 
@@ -90,7 +92,7 @@ The application uses Supabase for authentication with a robust, type-safe implem
 - `src/components/Auth/AuthHeader.tsx`: Sign in/out UI
 - `src/components/Auth/AuthModal.tsx`: Authentication modal dialog
 - `src/components/Auth/GoogleSignInButton.tsx`: Google authentication integration
-- `src/components/Auth/AuthCallback.tsx`: Handles redirect-based auth flows
+- `src/components/Auth/AuthCallback.tsx`: Handles magic-link OTP and OAuth callbacks, verifying token and updating session
 
 ## Google Authentication Implementation
 

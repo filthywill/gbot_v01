@@ -7,6 +7,19 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "gbot-v01.vercel.app"
+        }
+      ],
+      "destination": "https://stizack.com/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
