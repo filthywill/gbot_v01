@@ -1,4 +1,4 @@
-# Password Reset Flow Setup for GraffitiSOFT
+# Password Reset Flow Setup for Stizack
 
 This document outlines how to correctly configure and test the password reset flow using Supabase Auth with the Direct Link approach.
 

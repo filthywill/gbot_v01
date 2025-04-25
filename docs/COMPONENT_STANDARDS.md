@@ -154,27 +154,83 @@ const applyPreset = (preset) => {
 
 ## Naming Conventions
 
+Our naming conventions ensure consistency, improved readability, and better maintainability across the codebase. Following these standards helps all team members understand the code more quickly and reduces cognitive load when working with different parts of the application.
+
 ### Component Names
 
-- Use PascalCase for all component names
-- Use descriptive names that indicate the component's purpose
-- Avoid prefixes like "Modern" that don't add semantic value
-- Use the "Control" suffix for components in the controls directory
-- Use consistent, clear names for related components (e.g., InputForm, StyleSelector)
+- Use **PascalCase** for all component names (e.g., `GraffitiDisplay`, `CustomizationToolbar`)
+- Use descriptive names that clearly indicate the component's purpose
+- Avoid generic prefixes like "Modern" that don't add semantic value
+- Use the "Control" suffix for components in the controls directory (e.g., `FillControl`, `OutlineControl`)
+- Use consistent, clear names for related components (e.g., `InputForm`, `StyleSelector`)
 
 ### Prop Names
 
-- Use camelCase for all prop names
-- Use boolean props with "is", "has", or "should" prefixes
+- Use **camelCase** for all prop names
+- Use boolean props with "is", "has", or "should" prefixes (e.g., `isLoading`, `hasColorPicker`, `shouldAutoFocus`)
 - Use consistent naming for callbacks: `on{Event}` (e.g., `onToggle`, `onValueChange`)
-- Use consistent naming for completion callbacks: `on{Event}Complete` (e.g., `onColorComplete`)
+- Use consistent naming for completion callbacks: `on{Event}Complete` (e.g., `onColorComplete`, `onSliderComplete`)
+- Use prop names that match their purpose (e.g., `inputText` for text input props)
 
 ### File Names
 
-- Use kebab-case for utility files
-- Use PascalCase for component files, matching the component name
-- Group related components in directories
-- Use index.ts files to simplify imports
+- Use **PascalCase** for component files, matching the component name (e.g., `GraffitiDisplay.tsx`)
+- Use **kebab-case** for utility files (e.g., `color-utils.ts`, `svg-processing.ts`)
+- Group related components in appropriate directories
+- Use `index.ts` files to simplify imports and create cleaner import statements
+
+### CSS Class Names
+
+- Use **kebab-case** for CSS class names
+- For Tailwind CSS, follow utility-first approach while maintaining readability
+- Use semantic class names that describe the purpose rather than appearance
+- For component-specific classes, use component name as prefix (e.g., `graffiti-container`, `color-picker-swatch`)
+
+### Variable Names
+
+- Use **camelCase** for variables and function names
+- Use descriptive names that explain what the variable contains or what the function does
+- Avoid abbreviations unless they are well-known (e.g., use `hexColor` not `hc`)
+- Use plural names for arrays (e.g., `letters`, `presets`, `colors`)
+- Use noun phrases for variables, verb phrases for functions
+- Prefix boolean variables with verbs like "is", "has", or "should" (e.g., `isLoading`, `hasError`)
+
+### Function Names
+
+- Use **camelCase** for function names
+- Use verb phrases that describe the action (e.g., `calculateOverlap`, `processLetter`)
+- Use consistent prefixes:
+  - `handle` for event handlers (e.g., `handleClick`, `handleChange`)
+  - `get` for functions that return values (e.g., `getContrastColor`)
+  - `set` for functions that update state (e.g., `setInitialState`)
+  - `create` for factory functions (e.g., `createHistoryEntry`)
+  - `compute` or `calculate` for computational functions (e.g., `calculateBounds`)
+
+### Store/State Management
+
+- Use consistent prefix `use` for custom hooks and Zustand stores (e.g., `useGraffitiStore`, `useAuthStore`)
+- Use descriptive action names in stores (e.g., `updateOptions`, `resetState`)
+- Group related state variables together
+
+### Constants
+
+- Use **UPPER_SNAKE_CASE** for true constants (e.g., `MAX_LETTERS`, `DEFAULT_OPACITY`)
+- Use **PascalCase** for enumerated values or constant collections (e.g., `ColorThemes`, `GraffitiStyles`)
+- Place app-wide constants in a dedicated constants file or directory
+
+### TypeScript Types and Interfaces
+
+- Use **PascalCase** for type names and interfaces
+- Use descriptive names that reflect the data structure
+- Use `Interface` suffix for interfaces that represent a behavior (e.g., `RenderableInterface`)
+- Use `Props` suffix for component props interfaces (e.g., `ButtonProps`, `ColorPickerProps`)
+- Use `Type` suffix for complex types (e.g., `ColorType`, `PositionType`)
+- Use prefixes consistently:
+  - `I` for interfaces (optional, e.g., `IUser`)
+  - `T` for type aliases (optional, e.g., `TConfig`)
+  - `E` for enums (e.g., `EDirection`)
+
+By adhering to these naming conventions, we maintain a codebase that is easier to navigate, understand, and maintain over time.
 
 ## Value Conversion
 

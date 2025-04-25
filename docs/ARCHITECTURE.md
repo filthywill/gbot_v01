@@ -1,8 +1,8 @@
-# gbot_v01 Architecture Documentation
+# Stizack Architecture Documentation
 
 ## Project Overview
 
-gbot_v01 is a React-based web application built with TypeScript, designed to create high-quality, customizable vector-based graffiti artwork. The application provides users with proprietary base artwork and extensive customization options, allowing for infinite creative possibilities while maintaining the authentic look and feel of traditional graffiti art.
+Stizack is a React-based web application built with TypeScript, designed to create high-quality, customizable vector-based graffiti artwork. The application provides users with proprietary base artwork and extensive customization options, allowing for infinite creative possibilities while maintaining the authentic look and feel of traditional graffiti art.
 
 ## Tech Stack
 
@@ -48,7 +48,8 @@ src/
 ├── hooks/         # Custom React hooks
 │   ├── useGraffitiGeneratorWithZustand.ts  # Main generator hook
 │   ├── useSvgCache.ts  # SVG caching mechanism
-│   └── useGraffitiGenerator.ts  # Legacy hook (unused)
+│   ├── useHistoryTracking.ts  # History tracking for undo/redo
+│   └── useTheme.ts  # Theme management hook
 ├── lib/           # Core libraries and utilities
 │   ├── logger.ts           # Centralized logging system
 │   ├── svgSecurity.ts      # SVG validation and sanitization

@@ -1,4 +1,4 @@
-# Supabase Setup Guide for GraffitiSOFT
+# Supabase Setup Guide for Stizack
 
 ## Prerequisites
 - A Supabase account (sign up at [supabase.com](https://supabase.com))
@@ -9,7 +9,7 @@
 
 1. Log in to your [Supabase Dashboard](https://app.supabase.com/)
 2. Click "New Project"
-3. Enter a name for your project (e.g., "graffitisoft")
+3. Enter a name for your project (e.g., "stizack")
 4. Set a secure database password (save this somewhere safe)
 5. Choose a region closest to your users
 6. Click "Create new project"
@@ -149,7 +149,7 @@ CREATE POLICY "Users can read their own feature access" ON public.user_feature_a
 1. In Google Cloud Console, go to "APIs & Services" > "OAuth consent screen"
 2. Select "External" user type (unless you have Google Workspace)
 3. Fill in the required information:
-   - App name: "GraffitiSOFT" (or your application name)
+   - App name: "Stizack" (or your application name)
    - User support email: Your email address
    - Developer contact information: Your email address
 4. Add the scopes you need:

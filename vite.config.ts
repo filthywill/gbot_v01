@@ -70,6 +70,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    // Add conditions for Vite 6 compatibility
+    conditions: ['import', 'module', 'browser', 'default']
   },
   // Configure static asset handling
   publicDir: 'public',

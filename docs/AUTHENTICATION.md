@@ -1,918 +1,718 @@
-# Authentication System Documentation
+# GraffitiSOFT Authentication System Documentation
 
-This document provides detailed information about the authentication system implemented in GraffitiSOFT using Supabase.
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Core Features](#core-features)
+3. [Architecture](#architecture)
+4. [Implementation](#implementation)
+5. [OTP Verification Flow](#otp-verification-flow)
+6. [Password Reset Flow](#password-reset-flow)
+7. [Form Validation](#form-validation)
+8. [UI Components](#ui-components)
+9. [Security Considerations](#security-considerations)
+10. [Testing](#testing)
+11. [Supabase Setup](#supabase-setup)
+12. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-The application uses Supabase for authentication with a direct token approach for Google sign-in and email/password authentication with OTP code-based verification. The implementation follows best practices for security, performance, and user experience.
+The GraffitiSOFT authentication system is built on top of Supabase, providing a secure and user-friendly authentication experience. It supports email/password authentication with OTP (One-Time Password) verification, Google OAuth, and comprehensive session management.
 
-## Features
+The system is designed to be:
+- **Secure**: Implements best practices for authentication security
+- **User-friendly**: Intuitive flows with proper error handling
+- **Responsive**: Works seamlessly across desktop and mobile devices
+- **Maintainable**: Well-structured code with clear separation of concerns
 
-### Core Authentication Features
-- Email/Password Authentication
-- OTP Code-Based Email Verification
-- Google OAuth Integration
-- Password Reset Flow
-- Remember Me Functionality
-- Verification State Persistence
-- Strong Password Requirements
-- Session Management
+## Core Features
 
-### User Experience
-- Responsive Modal Design
-- Form Validation with Visual Feedback
-- Password Strength Meter
-- Verification Status Banner
-- Persistent Verification State
-- Loading States and Error Handling
-- Seamless Modal Transitions
-- Persistent User Preferences
+- **Email/Password Authentication**: Traditional sign-up and sign-in with email and password
+- **OTP Code-based Verification**: Email verification using one-time password codes
+- **Google OAuth Integration**: Sign in with Google option
+- **Session Management**: Automatic session persistence and refresh
+- **Protected Routes**: Route-based access control for authenticated users
+- **Password Reset**: Secure password reset flow
+- **Responsive Design**: Mobile-friendly authentication forms
+- **Form Validation**: Comprehensive input validation with error messaging
+- **Error Handling**: User-friendly error messages for authentication failures
 
 ## Architecture
 
 ### Core Components
 
-1. **Supabase Client**: Configuration and initialization in `src/lib/supabase.ts`
-2. **Auth Store**: State management using Zustand in `src/store/useAuthStore.ts`
-3. **Preferences Store**: User preferences management in `src/store/usePreferencesStore.ts`
-4. **Google Auth Store**: Google OAuth management in `src/store/useGoogleAuthStore.ts`
-5. **Auth Provider**: React context in `src/components/Auth/AuthProvider.tsx`
-6. **Verification Components**: 
-   - `VerificationCodeInput.tsx`: Handles OTP code entry and verification
-   - `VerificationBanner.tsx`: Provides persistent verification status notification
-7. **UI Components**: Modal, header, and authentication buttons
+1. **Supabase Client**: Handles communication with Supabase Auth API
+2. **Auth Stores (Zustand)**: Manages authentication state and operations
+3. **Authentication Hooks**: Custom React hooks for auth operations
+4. **Auth Components**: UI components for authentication flows
+5. **Auth Middleware**: Route protection and session validation
+6. **Auth Services**: Helper functions for auth-related operations
 
-### State Management
-
-The application uses multiple Zustand stores for different concerns:
-
-1. **useAuthStore**: Manages core authentication state
-   - User session
-   - Authentication status
-   - Error handling
-   - Auth operations (sign in, sign up, sign out, verify OTP)
-
-2. **usePreferencesStore**: Manages user preferences
-   - Remember Me state
-   - Last used email
-   - Persistent preferences in localStorage
-
-3. **useGoogleAuthStore**: Manages Google OAuth
-   - SDK initialization
-   - Google sign-in button state
-   - OAuth flow handling
-
-### Authentication Flow
+### Data Flow
 
 ```
-┌───────────┐      ┌─────────────┐      ┌─────────────┐
-│ Auth UI   │ ───▶ │ Auth Store  │ ───▶ │  Supabase   │
-│Components │ ◀─── │ (Zustand)   │ ◀─── │   Client    │
-└───────────┘      └─────────────┘      └─────────────┘
-      │                   │                    ▲
-      │                   ▼                    │
-      │            ┌─────────────┐      ┌─────────────┐
-      │            │ Auth State  │ ───▶ │ Application │
-      │            │ Listeners   │      │  Features   │
-      ▼            └─────────────┘      └─────────────┘
-┌───────────┐      ┌─────────────┐
-│Preferences│      │Verification │
-│  Store    │      │  Banner     │
-└───────────┘      └─────────────┘
+User Action → UI Component → Auth Hook → Auth Store → Supabase Client → Supabase Auth API
+            ↑                                                                     |
+            |                                                                     |
+            └─────────────────────────── Response ────────────────────────────────┘
 ```
 
-## Implementation Details
+### Directory Structure
+
+```
+src/
+├── lib/
+│   ├── auth/
+│   │   ├── AuthContext.tsx        # Authentication context provider
+│   │   └── useAuth.ts             # Auth hook for components
+│   └── supabase/
+│       └── supabase.ts            # Supabase client initialization
+├── components/
+│   └── Auth/
+│       ├── flows/
+│       │   ├── SignIn.tsx         # Sign-in form and logic
+│       │   ├── SignUp.tsx         # Sign-up form and logic
+│       │   ├── VerifyOTP.tsx      # OTP verification component
+│       │   └── ResetPassword.tsx  # Password reset flow
+│       └── ui/
+│           ├── AuthForm.tsx       # Shared form component
+│           └── VerificationInput.tsx # OTP input component
+├── store/
+│   └── useAuthStore.ts            # Zustand store for auth state
+├── pages/
+│   └── auth/
+│       ├── signin.tsx             # Sign-in page
+│       ├── signup.tsx             # Sign-up page
+│       ├── verify.tsx             # Verification page
+│       └── reset-password.tsx     # Password reset page
+└── types/
+    └── supabase/
+        └── auth.ts                # TypeScript types for auth
+```
+
+## Implementation
 
 ### Supabase Client
 
-The Supabase client is initialized in `src/lib/supabase.ts` with environment variables:
+The Supabase client is initialized in `src/lib/supabase/supabase.ts`:
 
 ```typescript
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/supabase';
-import logger from './logger';
+import { Database } from '@/types/supabase';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  logger.error('Missing Supabase environment variables. Please check your .env file.');
+  throw new Error('Missing Supabase environment variables');
 }
 
-// Create Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
-
-// Helper to get current user
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-};
-```
-
-### Authentication Store (Zustand)
-
-The authentication state is managed by a Zustand store in `src/store/useAuthStore.ts`:
-
-```typescript
-type AuthState = {
-  user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  error: string | null;
-  status: 'LOADING' | 'UNAUTHENTICATED' | 'AUTHENTICATED' | 'ERROR';
-  
-  // Actions
-  initialize: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
-  verifyOtp: (email: string, token: string) => Promise<{user: User | null}>;
-  signOut: () => Promise<void>;
-  resetError: () => void;
-};
-```
-
-The store exposes methods for all authentication operations and maintains the current authentication state.
-
-### OTP Code-Based Email Verification
-
-The application uses Supabase's One-Time Password (OTP) verification flow instead of link-based verification. This approach provides a better user experience by keeping users within the application during the verification process.
-
-#### Sign-Up Process with OTP
-
-```typescript
-// In AuthModal.tsx, during signup
-try {
-  // Set loading state
-  useAuthStore.setState({ status: 'LOADING', error: null });
-  
-  // Call Supabase with OTP option
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: undefined, // Disable link-based verification 
-    }
-  });
-  
-  if (error) throw error;
-  
-  // For email confirmation flow using OTP code
-  logger.info('Signup successful, waiting for OTP verification', { 
-    user: data.user?.id,
-    identityConfirmed: data.user?.identities?.[0]?.identity_data?.email_verified
-  });
-  
-  // Switch to verification code input
-  setVerificationEmail(email);
-  
-  // Store email for later use
-  setLastUsedEmail(email);
-  setRememberMe(true);
-  
-  // Store verification state for persistence
-  const verificationState = {
-    email: email,
-    startTime: Date.now(),
-    attempted: true
-  };
-  localStorage.setItem('verificationState', JSON.stringify(verificationState));
-  
-  // Success state
-  useAuthStore.setState({ 
-    status: 'UNAUTHENTICATED',
-    error: null
-  });
-} catch (error) {
-  logger.error('Error during signup:', error);
-  setAuthError(error instanceof Error ? error.message : 'Failed to sign up');
-  useAuthStore.setState({ 
-    status: 'ERROR',
-    error: error instanceof Error ? error.message : 'Failed to sign up'
-  });
-}
-```
-
-#### OTP Verification Component
-
-The `VerificationCodeInput` component provides a user interface for entering the verification code sent via email:
-
-```typescript
-// VerificationCodeInput.tsx (key parts)
-const handleVerify = useCallback(async () => {
-  // Store the current code value to ensure we use the most up-to-date version
-  const currentCode = codeBeforeVerifyRef.current || code;
-  
-  if (!currentCode.trim()) {
-    setError('Please enter the verification code');
-    return;
-  }
-
-  // Ensure we only have digits
-  const cleanCode = currentCode.replace(/\D/g, '');
-  if (cleanCode.length !== 6) {
-    setError('Please enter a valid 6-digit verification code');
-    return;
-  }
-
-  setIsVerifying(true);
-  setError(null);
-
-  try {
-    logger.info('Verifying OTP code', { email, codeLength: cleanCode.length });
-    
-    // Use the auth store method to verify OTP
-    const result = await verifyOtp(email, cleanCode);
-
-    if (!result) {
-      throw new Error('Verification failed');
-    }
-
-    // Successfully verified
-    logger.info('Email verified successfully', { user: result.user?.id });
-    
-    // Clear verification state
-    localStorage.removeItem('verificationState');
-    
-    // Call success callback
-    onSuccess();
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('Verification error:', errorMessage);
-    
-    // Handle specific error cases
-    setError(`Failed to verify: ${errorMessage}`);
-  } finally {
-    setIsVerifying(false);
-  }
-}, [code, email, onSuccess, verifyOtp]);
-```
-
-#### Verification State Persistence
-
-To provide a seamless user experience, the verification state is persisted in localStorage. This allows users to close the verification modal or refresh the page without losing their verification progress:
-
-```typescript
-// When starting verification
-const verificationState = {
-  email: email,
-  startTime: Date.now(),
-  attempted: true
-};
-localStorage.setItem('verificationState', JSON.stringify(verificationState));
-
-// When closing the verification modal
-const handleVerificationClose = () => {
-  // Store verification state in localStorage before closing
-  if (verificationEmail) {
-    const verificationState = {
-      email: verificationEmail,
-      startTime: Date.now(),
-      attempted: true
-    };
-    
-    localStorage.setItem('verificationState', JSON.stringify(verificationState));
-    logger.info('Saved verification state', { email: verificationEmail, state: verificationState });
-  }
-  
-  // Close the modal
-  onClose();
-};
-```
-
-### Verification Banner
-
-The `VerificationBanner` component provides a persistent notification about pending verification:
-
-```typescript
-// VerificationBanner.tsx (key elements)
-const VerificationBanner: React.FC<VerificationBannerProps> = ({ 
-  onResumeVerification,
-  forceShow = false,
-  email,
-  isAuthenticated = false
-}) => {
-  const [storedEmail, setStoredEmail] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [dismissed, setDismissed] = useState(false);
-
-  // Verification state checks
-  useEffect(() => {
-    try {
-      // Don't show banner when dismissed or authenticated
-      if (dismissed || isAuthenticated) {
-        localStorage.removeItem('verificationState');
-        return;
-      }
-
-      // First check if we have an active verification
-      if (forceShow && email) {
-        setStoredEmail(email);
-        return;
-      }
-
-      // Then check localStorage as fallback
-      const storedState = localStorage.getItem('verificationState');
-      if (storedState) {
-        const parsedState = JSON.parse(storedState) as VerificationState;
-        
-        // Check if state is valid (less than 30 min old)
-        const currentTime = Date.now();
-        const expirationTime = parsedState.startTime + (30 * 60 * 1000); // 30 minutes
-        
-        if (currentTime < expirationTime) {
-          setStoredEmail(parsedState.email);
-          setTimeLeft(Math.floor((expirationTime - currentTime) / 1000));
-        } else {
-          // Clear expired state
-          localStorage.removeItem('verificationState');
-          setStoredEmail(null);
-        }
-      }
-    } catch (error) {
-      logger.error('Error processing verification state:', error);
-    }
-  }, [dismissed, isAuthenticated, forceShow, email]);
-
-  // Rendering logic
-  if (dismissed || isAuthenticated || (!forceShow && !storedEmail)) {
-    return null;
-  }
-  
-  // Banner display implementation
-  // ...
-};
-```
-
-The banner provides:
-- Persistent notification of pending verification
-- Countdown timer showing time remaining
-- Resume verification button
-- Dismissal option
-
-### Google Sign-In Implementation
-
-The application uses Google's Identity Services SDK for a direct token approach:
-
-1. **Loading the SDK**: The script is dynamically added to the document
-2. **Button Rendering**: Customizable Google sign-in button
-3. **Credential Handling**: Processing the Google response token
-4. **Token Validation**: Using Supabase to validate and create a session
-
-```typescript
-// GoogleSignInButton.tsx (key parts)
-useEffect(() => {
-  // Load the Google Identity Services SDK
-  const script = document.createElement('script');
-  script.src = 'https://accounts.google.com/gsi/client';
-  script.async = true;
-  script.defer = true;
-  document.body.appendChild(script);
-
-  script.onload = () => {
-    // Initialize Google Sign-In button
-    window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse,
-      // ...other options
-    });
-    
-    // Render button
-    window.google.accounts.id.renderButton(buttonRef.current, {
-      theme: 'outline',
-      size: 'large',
-      // ...other options
-    });
-  };
-  
-  // Cleanup
-  return () => {
-    // Remove script when component unmounts
-  };
-}, [handleCredentialResponse]);
-```
-
-The credential response is handled with a memoized callback function:
-
-```typescript
-const handleCredentialResponse = useCallback(async (response) => {
-  try {
-    // Validate credential
-    if (!response.credential) {
-      throw new Error('No credential received from Google');
-    }
-
-    // Sign in with Supabase using the ID token
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: response.credential,
-    });
-
-    // Handle response
-    if (error) {
-      logger.error('Supabase auth error', error);
-      onError?.(error);
-      return;
-    }
-
-    // Success handling
-    logger.info('Successfully signed in with Google', { userId: data.user?.id });
-    onSuccess?.();
-    
-    // Update auth state
-    if (data.user) {
-      useAuthStore.setState({
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null
-      });
-    }
-  } catch (error) {
-    logger.error('Error signing in with Google', error);
-    onError?.(error);
-  }
-}, [resetError, onSuccess, onError]);
-```
-
-### Email/Password Authentication
-
-Traditional email/password authentication is implemented with Supabase's methods:
-
-```typescript
-// Sign in with email/password
-signInWithEmail: async (email: string, password: string) => {
-  try {
-    set({ isLoading: true, error: null });
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-    
-    set({ 
-      user: data.user,
-      isAuthenticated: !!data.user,
-      isLoading: false,
-    });
-  } catch (error) {
-    console.error('Email sign-in error:', error);
-    set({ 
-      isLoading: false,
-      error: error instanceof Error ? error.message : 'Failed to sign in'
-    });
-  }
-},
-
-// Sign up with email/password and OTP verification
-signUpWithEmail: async (email: string, password: string) => {
-  try {
-    set({ status: 'LOADING', error: null });
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: undefined, // Disable link-based verification
-      }
-    });
-    
-    if (error) throw error;
-    
-    set({ 
-      status: 'UNAUTHENTICATED',
-      error: null
-    });
-    
-    return data;
-  } catch (error) {
-    set({ 
-      status: 'ERROR', 
-      error: error instanceof Error ? error.message : 'Failed to sign up'
-    });
-    throw error;
-  }
-}
-```
-
-### Auth State Listener
-
-The application maintains a global listener for authentication state changes:
-
-```typescript
-// Set up auth state change listener
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    const user = await getCurrentUser();
-    useAuthStore.setState({ 
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-      status: 'AUTHENTICATED'
-    });
-    
-    // Clear verification state if exists
-    localStorage.removeItem('verificationState');
-  } else if (event === 'SIGNED_OUT') {
-    useAuthStore.setState({ 
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      status: 'UNAUTHENTICATED'
-    });
-  }
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 });
 ```
 
-### Auth Provider Component
+### Authentication State Management
 
-A React provider component wraps the application to initialize authentication and provide session state:
-
-```typescript
-const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { initialize, isLoading, status } = useAuthStore();
-  
-  useEffect(() => {
-    // Initialize auth state when component mounts
-    initialize();
-  }, [initialize]);
-  
-  if (status === 'LOADING') {
-    return <LoadingSpinner />;
-  }
-  
-  return <>{children}</>;
-};
-```
-
-### Remember Me Functionality
-
-The Remember Me feature is implemented using the preferences store:
+The authentication state is managed through a Zustand store in `src/store/useAuthStore.ts`:
 
 ```typescript
-// src/store/usePreferencesStore.ts
-interface PreferencesState {
-  rememberMe: boolean;
-  lastUsedEmail: string;
-  setRememberMe: (value: boolean) => void;
-  setLastUsedEmail: (email: string) => void;
+import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
+import { User, AuthError } from '@supabase/supabase-js';
+
+interface AuthState {
+  user: User | null;
+  isLoading: boolean;
+  error: AuthError | null;
+  isAuthenticated: boolean;
+  isVerified: boolean;
+  pendingEmail: string | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  verifyOTP: (email: string, token: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  clearError: () => void;
 }
 
-const usePreferencesStore = create<PreferencesState>((set) => ({
-  rememberMe: localStorage.getItem('rememberMe') === 'true',
-  lastUsedEmail: localStorage.getItem('lastUsedEmail') || '',
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  isLoading: true,
+  error: null,
+  isAuthenticated: false,
+  isVerified: false,
+  pendingEmail: null,
   
-  setRememberMe: (value) => {
-    localStorage.setItem('rememberMe', String(value));
-    set({ rememberMe: value });
+  signIn: async (email, password) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isVerified: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+    }
   },
   
-  setLastUsedEmail: (email) => {
-    if (email) {
-      localStorage.setItem('lastUsedEmail', email);
-    } else {
-      localStorage.removeItem('lastUsedEmail');
+  signUp: async (email, password) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirect: `${window.location.origin}/auth/callback`,
+        }
+      });
+      
+      if (error) throw error;
+      
+      set({
+        pendingEmail: email,
+        isLoading: false,
+        isAuthenticated: false,
+        isVerified: false,
+      });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+      });
     }
-    set({ lastUsedEmail: email });
+  },
+  
+  signOut: async () => {
+    try {
+      set({ isLoading: true });
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      set({
+        user: null,
+        isAuthenticated: false,
+        isVerified: false,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+      });
+    }
+  },
+  
+  verifyOTP: async (email, token) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      
+      if (error) throw error;
+      
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isVerified: true,
+        pendingEmail: null,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+      });
+    }
+  },
+  
+  resetPassword: async (email) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      set({
+        pendingEmail: email,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+      });
+    }
+  },
+  
+  updatePassword: async (password) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
+      
+      if (error) throw error;
+      
+      set({ isLoading: false });
+    } catch (error) {
+      set({
+        error: error as AuthError,
+        isLoading: false,
+      });
+    }
+  },
+  
+  clearError: () => {
+    set({ error: null });
   },
 }));
 ```
 
 ## OTP Verification Flow
 
-### OTP Generation and Delivery
-1. User signs up with email and password
-2. Supabase generates a 6-digit OTP code
-3. Code is sent to the user's email address
-4. User receives email with verification code
+GraffitiSOFT uses OTP code-based email verification rather than link-based verification. This approach offers several advantages:
 
-### Code Entry and Validation
-1. User enters the code in the verification modal
-2. Input supports auto-validation with proper length
-3. Code is submitted to Supabase for verification
-4. User receives immediate feedback on verification status
+- **Better user experience**: Users can verify without switching contexts
+- **Reduced friction**: No need to open email client and click links
+- **Improved security**: Time-limited codes with expiration
+- **Lower abandonment rate**: Streamlined verification process
 
-### Verification State Persistence
-1. Verification state is stored in localStorage
-2. State includes email, timestamp, and attempt status
-3. 30-minute expiration time for security
-4. Verification banner displays when verification is pending
-5. Timer shows remaining time for verification
-6. Resume button allows reopening the verification modal
+### OTP Flow Implementation
 
-### Verification Success Handling
-1. Success confirmation is displayed
-2. User is automatically signed in
-3. Verification state is cleared
-4. Banner is hidden
-5. Session is established
+The OTP verification flow consists of the following steps:
 
-### Error Handling
-1. Invalid codes show clear error messages
-2. Network errors are handled gracefully
-3. Expired verification shows appropriate message
-4. Too many attempts are handled with rate limiting messages
+1. **User signs up**: Enters email and password
+2. **OTP generation**: System generates a one-time code
+3. **Email delivery**: Code is sent to user's email address
+4. **Code entry**: User enters code in the verification screen
+5. **Verification**: System validates the code
+6. **Account activation**: Account is activated upon successful verification
+
+### OTP Verification Code
+
+The sign-up component initiates the OTP flow:
+
+```tsx
+// components/Auth/flows/SignUp.tsx
+const SignUp = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const { signUp, isLoading, error } = useAuthStore();
+  const navigate = useNavigate();
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      // Handle password mismatch error
+      return;
+    }
+    
+    await signUp(email, password);
+    navigate('/auth/verify');
+  };
+  
+  // Form JSX
+};
+```
+
+After sign-up, the user is directed to the verification screen:
+
+```tsx
+// components/Auth/flows/VerifyOTP.tsx
+const VerifyOTP = () => {
+  const [otpCode, setOtpCode] = useState('');
+  const { verifyOTP, pendingEmail, isLoading, error } = useAuthStore();
+  const navigate = useNavigate();
+  
+  // Redirect if no pending email
+  useEffect(() => {
+    if (!pendingEmail) {
+      navigate('/auth/signin');
+    }
+  }, [pendingEmail, navigate]);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingEmail) return;
+    
+    await verifyOTP(pendingEmail, otpCode);
+    navigate('/dashboard');
+  };
+  
+  // Verification form JSX with VerificationCodeInput
+};
+```
+
+The `VerificationCodeInput` component handles the OTP code entry:
+
+```tsx
+// components/Auth/ui/VerificationCodeInput.tsx
+interface VerificationCodeInputProps {
+  length?: number;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+const VerificationCodeInput = ({
+  length = 6,
+  value,
+  onChange,
+  disabled = false,
+}: VerificationCodeInputProps) => {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  
+  // Initialize refs array
+  useEffect(() => {
+    inputRefs.current = inputRefs.current.slice(0, length);
+  }, [length]);
+  
+  // Split value into individual characters
+  const valueArray = value.split('').slice(0, length);
+  
+  // Handle input change
+  const handleChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const newChar = e.target.value.slice(-1);
+    
+    // Create new value array and update
+    const newValue = [...valueArray];
+    newValue[index] = newChar;
+    
+    // Call onChange with new string value
+    onChange(newValue.join(''));
+    
+    // Focus next input if value was entered
+    if (newChar && index < length - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+  
+  // Handle key press
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Focus previous input on backspace
+    if (e.key === 'Backspace' && !valueArray[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+  
+  // Handle paste
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text/plain').slice(0, length);
+    onChange(pastedData);
+  };
+  
+  return (
+    <div className="flex gap-2 items-center justify-center">
+      {Array.from({ length }).map((_, index) => (
+        <input
+          key={index}
+          ref={(el) => (inputRefs.current[index] = el)}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={1}
+          className="w-12 h-14 text-center text-xl border rounded-md focus:border-primary focus:ring-1 focus:ring-primary"
+          value={valueArray[index] || ''}
+          onChange={(e) => handleChange(index, e)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={handlePaste}
+          disabled={disabled}
+          aria-label={`Verification code digit ${index + 1}`}
+        />
+      ))}
+    </div>
+  );
+};
+```
 
 ## Password Reset Flow
 
-The password reset process follows these steps:
+The password reset flow follows these steps:
 
-1. User requests password reset
-2. Reset email is sent via Supabase
-3. User clicks reset link
-4. Password update form is displayed
-5. New password is validated and updated
+1. **User requests reset**: Enters email on reset password form
+2. **Reset email**: System sends email with reset link
+3. **Link access**: User clicks link in email
+4. **New password entry**: User enters new password
+5. **Password update**: System updates password
 
-```typescript
-// Password reset request
-const handleResetPassword = async (email: string) => {
-  try {
-    await supabase.auth.resetPasswordForEmail(email);
-    setResetEmailSent(true);
-  } catch (error) {
-    handleError(error);
+### Implementation
+
+The password reset request component:
+
+```tsx
+// components/Auth/flows/RequestPasswordReset.tsx
+const RequestPasswordReset = () => {
+  const [email, setEmail] = useState('');
+  const { resetPassword, isLoading, error } = useAuthStore();
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await resetPassword(email);
+    setIsSubmitted(true);
+  };
+  
+  if (isSubmitted) {
+    return (
+      <div className="text-center">
+        <h2>Check your email</h2>
+        <p>We've sent password reset instructions to {email}</p>
+      </div>
+    );
   }
+  
+  // Form JSX
 };
+```
 
-// Password update
-const handleUpdatePassword = async (newPassword: string) => {
-  try {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-    if (error) throw error;
-    onPasswordUpdateSuccess();
-  } catch (error) {
-    handleError(error);
+The password update component:
+
+```tsx
+// components/Auth/flows/UpdatePassword.tsx
+const UpdatePassword = () => {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const { updatePassword, isLoading, error } = useAuthStore();
+  const [isUpdated, setIsUpdated] = useState(false);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      // Handle password mismatch
+      return;
+    }
+    
+    await updatePassword(password);
+    setIsUpdated(true);
+  };
+  
+  if (isUpdated) {
+    return (
+      <div className="text-center">
+        <h2>Password Updated</h2>
+        <p>Your password has been successfully updated.</p>
+        <Button asChild>
+          <Link to="/auth/signin">Sign In</Link>
+        </Button>
+      </div>
+    );
   }
+  
+  // Form JSX
 };
 ```
 
 ## Form Validation
 
-The application implements comprehensive form validation:
+All authentication forms implement comprehensive validation:
 
-1. **Email Validation**:
-   - Format checking
-   - Real-time feedback
-   - Debounced validation
+1. **Email validation**: Proper email format checking
+2. **Password strength**: Minimum length, complexity requirements
+3. **Matching validation**: Password and confirm password match
+4. **Empty field validation**: Required field checking
+5. **Error messaging**: Clear user feedback on validation issues
 
-2. **Password Validation**:
-   - Minimum length
-   - Character requirements
-   - Password strength meter
-   - Match validation for confirmation
+Example validation implementation:
 
-```typescript
-// Email validation
-const validateEmail = (email: string): ValidationResult => {
+```tsx
+// utils/validation.ts
+export const validateEmail = (email: string): string | null => {
+  if (!email) return 'Email is required';
+  
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return {
-    isValid: emailRegex.test(email),
-    message: emailRegex.test(email) ? '' : 'Please enter a valid email address'
-  };
+  if (!emailRegex.test(email)) return 'Invalid email format';
+  
+  return null;
 };
 
-// Password validation
-const validatePassword = (password: string): ValidationResult => {
-  const minLength = 8;
+export const validatePassword = (password: string): string | null => {
+  if (!password) return 'Password is required';
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  
+  // Check for complexity requirements
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
+  const hasNumber = /[0-9]/.test(password);
   
-  // ... validation logic
+  if (!(hasUpperCase && hasLowerCase && hasNumber)) {
+    return 'Password must include uppercase, lowercase, and numbers';
+  }
+  
+  return null;
+};
+
+export const validatePasswordMatch = (password: string, confirmPassword: string): string | null => {
+  if (password !== confirmPassword) return 'Passwords do not match';
+  return null;
 };
 ```
 
 ## UI Components
 
-The authentication UI is built with modular components:
+The authentication UI is built with reusable components following these principles:
 
-1. **AuthModal**: Main authentication interface
-2. **AuthHeader**: Navigation and user status
-3. **GoogleSignInButton**: OAuth integration
-4. **PasswordStrengthMeter**: Password feedback
-5. **VerificationCodeInput**: OTP verification interface
-6. **VerificationBanner**: Persistent notification
+1. **Consistency**: Uniform styling across all auth forms
+2. **Responsiveness**: Mobile-friendly layouts
+3. **Accessibility**: ARIA attributes and keyboard navigation
+4. **Error Visibility**: Clear error presentation
+5. **Loading States**: Feedback during async operations
 
-Key features include:
-- Responsive design
-- Accessible components
-- Loading states
-- Error handling
-- Smooth transitions
-- Clear user feedback
+Key components include:
 
-## Security Considerations
-
-1. **Password Security**:
-   - Strong password requirements
-   - Secure password handling
-   - Password strength feedback
-
-2. **Session Management**:
-   - Secure token storage
-   - Automatic session refresh
-   - Proper logout handling
-
-3. **Error Handling**:
-   - Generic error messages
-   - Detailed logging
-   - Rate limiting
-
-4. **OTP Security**:
-   - 6-digit verification codes
-   - 30-minute expiration
-   - Limited verification attempts
-   - Secure verification process
-
-5. **Data Protection**:
-   - Secure storage of preferences
-   - Email validation
-   - Input sanitization
-
-## Usage
-
-To implement authentication in a component:
-
-```typescript
-import useAuthStore from '../store/useAuthStore';
-import usePreferencesStore from '../store/usePreferencesStore';
-
-const MyComponent = () => {
-  const { user, isAuthenticated } = useAuthStore();
-  const { rememberMe } = usePreferencesStore();
-  
-  // Component logic
-};
-```
-
-For protected routes:
-
-```typescript
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuthStore();
-  
-  if (isLoading) return <LoadingSpinner />;
-  if (!isAuthenticated) return <Navigate to="/login" />;
-  
-  return children;
-};
-```
-
-## Error Handling and Logging
-
-The authentication implementation includes robust error handling and logging:
-
-1. **Structured Logger**: Environment-aware logging with sensitive data sanitization
-2. **User-Friendly Error Messages**: Clear error messages in the UI
-3. **Detailed Error Logging**: Comprehensive error information for debugging
-
-```typescript
-try {
-  // Authentication operation
-} catch (error) {
-  logger.error('Authentication error', error);
-  set({ 
-    isLoading: false,
-    error: error instanceof Error ? error.message : 'Authentication failed'
-  });
-}
-```
+- **AuthLayout**: Consistent layout wrapper for all auth pages
+- **AuthForm**: Base form component with standard styling
+- **FormField**: Labeled input with validation and error display
+- **VerificationCodeInput**: Specialized input for OTP codes
+- **PasswordStrengthMeter**: Visual password strength indicator
+- **AuthButton**: Styled button with loading state
+- **AuthDivider**: "or" divider for alternative auth methods
+- **SocialAuthButton**: Button for OAuth providers
 
 ## Security Considerations
 
-1. **Environment Variables**: Sensitive keys stored in `.env` files
-2. **Token-Based Authentication**: Modern, secure authentication approach
-3. **Proper Cleanup**: Resources properly cleaned up on component unmount
-4. **Error Sanitization**: Sensitive data removed from error logs
-5. **Type Safety**: TypeScript types for increased security and reliability
-6. **OTP-Based Verification**: More secure than link-based verification for SPAs
+The authentication system implements several security measures:
 
-## Optimizations
+1. **Secure Password Storage**: Passwords are hashed and never stored in plaintext
+2. **Rate Limiting**: Protection against brute force attacks
+3. **Secure Session Management**: HTTP-only cookies for session tokens
+4. **OTP Expiry**: Time-limited verification codes
+5. **HTTPS**: All auth traffic occurs over secure connections
+6. **Input Sanitization**: Protection against injection attacks
+7. **CSRF Protection**: Cross-site request forgery mitigation
 
-The authentication implementation includes several performance optimizations:
+## Testing
 
-1. **Memoized Callbacks**: useCallback for event handlers
-2. **Single Source of Truth**: Zustand store for state management
-3. **Minimal Re-renders**: Efficient state updates and component structure
-4. **Proper Cleanup**: All resources properly disposed on unmount
-5. **Lazy Loading**: Google SDK loaded dynamically when needed
-6. **Verification Persistence**: LocalStorage for seamless user experience
+### Testing the OTP Flow
 
-## Testing Authentication
+To test the OTP verification flow:
 
-To test the authentication flow:
+1. **Setup test account**: Create a test email for verification purposes
+2. **Sign up**: Complete the sign-up process with test credentials
+3. **Check email**: Access the test email inbox to retrieve the OTP code
+4. **Verify code**: Enter the code in the verification screen
+5. **Confirm success**: Verify successful authentication and redirection
 
-1. Set up environment variables with valid Supabase and Google credentials
-2. Enable authentication providers in the Supabase dashboard
-3. Create test users via the Supabase dashboard or sign-up flow
-4. Verify login, logout, and authentication state persistence
-5. Test OTP verification with different email providers
-6. Verify banner functionality after closing the verification modal
+For development and testing, you can view OTP codes in the Supabase Auth logs:
+
+1. Go to the Supabase dashboard
+2. Navigate to Authentication → Logs
+3. Find the relevant sign-up event
+4. The OTP code will be visible in the event details
+
+### Testing Edge Cases
+
+Ensure to test these edge cases:
+
+1. **Invalid OTP**: Entering incorrect verification code
+2. **Expired OTP**: Attempting to use expired code
+3. **Resending OTP**: Requesting new verification code
+4. **Session expiry**: Testing behavior when session expires
+5. **Network issues**: Testing with intermittent connectivity
+6. **Multiple devices**: Verifying on different device than sign-up
+
+## Supabase Setup
+
+### Configuration
+
+1. **Create Supabase Project**:
+   - Sign up at [Supabase](https://supabase.com/)
+   - Create a new project
+   - Note your project URL and anon key
+
+2. **Configure Auth Settings**:
+   - Go to Authentication → Settings
+   - Set "Site URL" to your application URL
+   - Configure "Redirect URLs" for auth callbacks
+   - Enable "Email Auth" provider
+   - Set up "External OAuth Providers" if needed
+
+3. **Email Templates**:
+   - Customize verification and password reset email templates
+   - Ensure OTP code is clearly visible in the template
+
+4. **Environment Variables**:
+   - Create `.env.local` file in project root
+   - Add Supabase URL and anon key:
+     ```
+     VITE_SUPABASE_URL=https://your-project-id.supabase.co
+     VITE_SUPABASE_ANON_KEY=your-anon-key
+     ```
+
+### Enabling OTP Verification
+
+1. **Update Auth Settings**:
+   - In Supabase dashboard, go to Authentication → Settings
+   - Enable "Email Confirmations" in the Email Auth section
+
+2. **Configure OTP Settings**:
+   - Set "Confirmation Method" to "One-time password (OTP)"
+   - Configure OTP expiry time (default is 24 hours)
+
+3. **Customize Email Template**:
+   - Edit the "Confirm signup" email template
+   - Ensure the OTP code is prominently displayed
+   - Example template:
+     ```html
+     <h2>Welcome to GraffitiSOFT!</h2>
+     <p>Your verification code is: <strong>{{ .Token }}</strong></p>
+     <p>This code will expire in 24 hours.</p>
+     ```
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues and Solutions
 
-1. **OTP Code Not Received**: Check spam folder or verify email templates in Supabase
-2. **Verification Banner Not Showing**: Check localStorage and verification state persistence
-3. **Redirect URI Mismatch**: Ensure authorized origins in Google Cloud match your application URL
-4. **Missing Environment Variables**: Check that all environment variables are properly set
-5. **CORS Issues**: Verify Supabase CORS configuration
-6. **Token Validation Failures**: Check Google Client ID configuration
-7. **Network Errors**: Use browser developer tools to inspect network requests
+1. **OTP Not Received**:
+   - Check spam/junk folders
+   - Verify email address is correct
+   - Check Supabase logs for delivery issues
+   - Try resending the OTP
 
-### Debug Mode
+2. **Invalid OTP Error**:
+   - Ensure the code is entered correctly
+   - Check for spaces or special characters
+   - Verify the code hasn't expired
+   - Try requesting a new code
 
-Enable more detailed logging by setting the environment to development mode.
+3. **Session Issues**:
+   - Clear browser cookies/cache
+   - Check for proper session handling
+   - Verify Supabase configuration
 
-## Future Improvements
+4. **OAuth Errors**:
+   - Check OAuth provider configuration
+   - Verify redirect URLs are correct
+   - Ensure provider credentials are valid
 
-1. **Additional Providers**: Support for more OAuth providers (GitHub, Microsoft, etc.)
-2. **Two-Factor Authentication**: Enhanced security with 2FA
-3. **Role-Based Access Control**: More granular permissions system
-4. **Session Management**: UI for managing active sessions
-5. **Profile Management**: User profile editing capabilities
-6. **Verification Improvements**: Custom email templates and enhanced UX
-
-## Environment Setup and Debugging
-
-### Required Environment Variables
-```env
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Google OAuth Configuration
-VITE_GOOGLE_CLIENT_ID=your_google_client_id
-```
-
-### Common Authentication Issues
-
-1. **CORS Issues**:
-   - Ensure your domain is whitelisted in Supabase dashboard
-   - Check that redirect URLs match exactly in Google Cloud Console
-   - Verify SSL configuration for local development
-
-2. **Google OAuth Issues**:
-   - Verify Google Client ID is correct
-   - Ensure authorized domains are configured in Google Cloud Console
-   - Check that the OAuth consent screen is properly configured
-
-3. **OTP Verification Issues**:
-   - Verify email templates in Supabase dashboard
-   - Check that OTP codes are delivered properly
-   - Test with multiple email providers
-   - Verify that localStorage is working properly for state persistence
-
-4. **Session Management**:
-   - Clear localStorage if experiencing persistent session issues
-   - Check browser console for token-related errors
-   - Verify Supabase session handling in dev tools
-
-### Development Tools
-
-1. **Browser Developer Tools**:
-   - Network tab for API calls
-   - Application tab for localStorage inspection
-   - Console for authentication errors
-
-2. **Supabase Dashboard**:
-   - Authentication logs
-   - User management
-   - Email template configuration
-
-3. **Local Development**:
-   - Use HTTPS for OAuth functionality
-   - Configure hosts file if needed
-   - Monitor Vite server logs
-
-### Debugging Tips
-
-1. **Enable Debug Mode**:
-   ```typescript
-   const debugAuth = true; // Set in development
-   logger.setLevel('debug');
-   ```
-
-2. **Monitor Auth State**:
-   ```typescript
-   useEffect(() => {
-     const unsubscribe = supabase.auth.onAuthStateChange((event, session) => {
-       console.debug('Auth event:', event, session);
-     });
-     return () => unsubscribe.data.subscription.unsubscribe();
-   }, []);
-   ```
-
-3. **Test Different Scenarios**:
-   - Fresh session
-   - Expired token
-   - Network interruption
-   - Invalid credentials
-   - Password reset flow 
-   - OTP verification flow
-   - Verification persistence across page reloads 
+5. **Password Reset Links Not Working**:
+   - Check link expiration
+   - Verify correct redirect URL configuration
+   - Ensure link is opened in same browser as request

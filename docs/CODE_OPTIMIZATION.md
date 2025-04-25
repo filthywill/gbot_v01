@@ -1,6 +1,6 @@
-# Code Optimization Guide
+# Code Optimization Techniques
 
-This document outlines the optimization techniques applied to the GraffitiSOFT codebase to improve performance, maintainability, and security.
+This document outlines the optimization techniques applied to the Stizack codebase to improve performance, maintainability, and security.
 
 ## Recent Optimizations
 

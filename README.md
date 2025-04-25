@@ -1,10 +1,10 @@
-# GraffitiSOFT
+# Stizack
 
 A modern web application for creating and customizing graffiti text art with authentication using Supabase.
 
 ## Project Overview
 
-GraffitiSOFT is a React-based web application that allows users to generate customized graffiti text. The application features a robust authentication system, SVG processing for graffiti generation, and customization tools for personalizing the output.
+Stizack is a React-based web application that allows users to generate customized graffiti text. The application features a robust authentication system, SVG processing for graffiti generation, and customization tools for personalizing the output.
 
 ## Core Features
 
@@ -33,6 +33,7 @@ src/
 ├── components/       # React components
 │   ├── Auth/         # Authentication components
 │   ├── GraffitiDisplay/  # SVG rendering components
+│   ├── controls/     # Customization control components
 │   └── ui/           # Reusable UI components
 ├── data/             # Static data like style definitions
 ├── hooks/            # Custom React hooks
@@ -66,6 +67,28 @@ src/
   - Application features
 - Persistent storage where appropriate
 - Type-safe state management
+
+### Customization
+- Color customization for fill, outline, background, and effects
+- Width and size adjustments for various effects
+- Position and offset controls for shadow effects
+- Style presets for quick application of predefined styles
+- User-created custom presets
+- Real-time preview of all customization changes
+
+## Main Components
+
+### GraffitiDisplay
+Core component for displaying and exporting the generated graffiti art.
+
+### CustomizationToolbar 
+Provides all customization controls for styling the graffiti output.
+
+### StylePresetsPanel
+Displays and manages style presets, including both built-in and user-created options.
+
+### Authentication Components
+Components for user authentication, verification, and account management.
 
 ## Authentication Implementation
 
@@ -205,9 +228,9 @@ For details on environment configuration and how development/production modes wo
 
 Copyright © STIZAK. All rights reserved.
 
-# GraffitiSOFT OTP Verification Implementation
+# Stizack OTP Verification Implementation
 
-This document outlines the implementation of an OTP-based email verification system for GraffitiSOFT.
+This document outlines the implementation of an OTP-based email verification system for Stizack.
 
 ## 📋 Overview
 
@@ -274,11 +297,23 @@ We've implemented a code-based (OTP) verification system that replaces the link-
 
 ## 📄 Documentation
 
-New documentation has been added to support this implementation:
+Documentation for this implementation is included in:
 
-1. **`docs/AUTHENTICATION.md`**: Updated with OTP verification details
-2. **`docs/OTP_VERIFICATION_SETUP.md`**: Setup guide for Supabase
-3. **`docs/VERIFICATION_EMAIL_TEMPLATE.html`**: Email template for OTP delivery
+1. **`docs/AUTHENTICATION.md`**: Complete documentation of the OTP verification system
+
+## 🛠️ Supabase Setup
+
+To configure your Supabase project:
+
+1. Update the email template in Supabase dashboard
+   - Go to Authentication → Email Templates
+   - Replace "Confirm signup" template with our custom HTML
+
+2. Ensure proper URL configuration
+   - Set site URL to your production domain
+   - Add localhost to redirect URLs for local development
+
+See `docs/AUTHENTICATION.md` for detailed instructions.
 
 ## 🧪 Testing the OTP Flow
 
@@ -302,20 +337,6 @@ To test the new verification flow:
    - Test paste functionality
    - Test auto-verification when pasting a valid code
    - Verify that error messages are clear and helpful
-
-## 🛠️ Supabase Setup
-
-To configure your Supabase project:
-
-1. Update the email template in Supabase dashboard
-   - Go to Authentication → Email Templates
-   - Replace "Confirm signup" template with our custom HTML
-
-2. Ensure proper URL configuration
-   - Set site URL to your production domain
-   - Add localhost to redirect URLs for local development
-
-See `docs/OTP_VERIFICATION_SETUP.md` for detailed instructions.
 
 ## 🔧 Technical Challenges Solved
 

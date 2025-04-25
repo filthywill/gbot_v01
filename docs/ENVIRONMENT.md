@@ -1,10 +1,10 @@
-# Environment Configuration
+# Environment Configuration Guide
 
-This guide explains how environment configuration works in GraffitiSOFT, focusing on the management of development and production modes.
+This guide explains how environment configuration works in Stizack, focusing on the management of development and production modes.
 
 ## Overview
 
-GraffitiSOFT uses Vite's environment variable system which exposes variables with the `VITE_` prefix to the client-side code. We have implemented a custom environment detection system that:
+Stizack uses Vite's environment variable system which exposes variables with the `VITE_` prefix to the client-side code. We have implemented a custom environment detection system that:
 
 1. Uses `VITE_APP_ENV` to determine the current environment
 2. Controls debug features and overlays based on environment

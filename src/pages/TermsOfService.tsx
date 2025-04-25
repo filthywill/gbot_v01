@@ -10,7 +10,7 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Acceptance of Terms</h2>
             <p>
-              By accessing or using GraffitiSOFT's service, you agree to be bound by these Terms of Service and all applicable laws and regulations.
+              By accessing or using Stizack's service, you agree to be bound by these Terms of Service and all applicable laws and regulations.
               If you do not agree with any of these terms, you are prohibited from using or accessing this service.
             </p>
           </section>
@@ -28,7 +28,7 @@ const TermsOfService: React.FC = () => {
               <li>Transferring the materials to another person or "mirror" the materials on any other server</li>
             </ul>
             <p className="mt-2">
-              This license shall automatically terminate if you violate any of these restrictions and may be terminated by GraffitiSOFT at any time.
+              This license shall automatically terminate if you violate any of these restrictions and may be terminated by Stizack at any time.
             </p>
           </section>
           
@@ -48,7 +48,7 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">4. Disclaimer</h2>
             <p>
-              The materials on GraffitiSOFT's application are provided on an 'as is' basis. GraffitiSOFT makes no warranties, expressed or implied,
+              The materials on Stizack's application are provided on an 'as is' basis. Stizack makes no warranties, expressed or implied,
               and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability,
               fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
             </p>
@@ -57,16 +57,16 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">5. Limitations</h2>
             <p>
-              In no event shall GraffitiSOFT or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit,
-              or due to business interruption) arising out of the use or inability to use the materials on GraffitiSOFT's application,
-              even if GraffitiSOFT or a GraffitiSOFT authorized representative has been notified orally or in writing of the possibility of such damage.
+              In no event shall Stizack or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit,
+              or due to business interruption) arising out of the use or inability to use the materials on Stizack's application,
+              even if Stizack or a Stizack authorized representative has been notified orally or in writing of the possibility of such damage.
             </p>
           </section>
           
           <section>
             <h2 className="text-xl font-semibold mb-3">6. Account Terms</h2>
             <p>
-              You are responsible for maintaining the security of your account and password. GraffitiSOFT cannot and will not be liable
+              You are responsible for maintaining the security of your account and password. Stizack cannot and will not be liable
               for any loss or damage from your failure to comply with this security obligation.
             </p>
           </section>
@@ -82,7 +82,7 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">8. Changes to Terms</h2>
             <p>
-              GraffitiSOFT reserves the right, at its sole discretion, to modify or replace these Terms at any time.
+              Stizack reserves the right, at its sole discretion, to modify or replace these Terms at any time.
               If a revision is material, we will provide at least 30 days' notice prior to any new terms taking effect.
               What constitutes a material change will be determined at our sole discretion.
             </p>
@@ -91,7 +91,7 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">9. Contact Us</h2>
             <p>
-              If you have any questions about these Terms, please contact us at: terms@graffitisoft.com
+              If you have any questions about these Terms, please contact us at: terms@stizack.com
             </p>
           </section>
           

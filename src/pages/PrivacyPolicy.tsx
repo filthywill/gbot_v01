@@ -10,7 +10,7 @@ const PrivacyPolicy: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
             <p>
-              This Privacy Policy explains how GraffitiSOFT ("we", "our", or "us") collects, uses, and shares your information when you use our service.
+              This Privacy Policy explains how Stizack ("we", "our", or "us") collects, uses, and shares your information when you use our service.
               This Privacy Policy applies to all users of our application.
             </p>
           </section>
@@ -77,7 +77,7 @@ const PrivacyPolicy: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold mb-3">8. Contact Us</h2>
             <p>
-              If you have any questions about this Privacy Policy, please contact us at: privacy@graffitisoft.com
+              If you have any questions about this Privacy Policy, please contact us at: privacy@stizack.com
             </p>
           </section>
           
