@@ -4,6 +4,7 @@ import logger from '../../lib/logger';
 import { AlertCircle } from 'lucide-react';
 import useAuthStore from '../../store/useAuthStore';
 import usePreferencesStore from '../../store/usePreferencesStore';
+import { clearAllVerificationState } from '../../lib/auth/utils';
 
 // This component handles all Supabase auth callbacks
 const AuthCallback: React.FC = () => {
@@ -86,6 +87,11 @@ const AuthCallback: React.FC = () => {
             // Update store
             if (data.session) setSession(data.session);
             if (data.user)    setUser(data.user);
+            
+            // Clear any verification state to prevent verification modal from showing
+            clearAllVerificationState();
+            logger.info('Auth callback: Cleared verification state after magic link authentication');
+            
             // Redirect immediately now that session is set
             window.location.href = redirect_to;
             return;
@@ -105,6 +111,11 @@ const AuthCallback: React.FC = () => {
             // Session is now set in store
             if (data.session) setSession(data.session);
             if (data.user)    setUser(data.user);
+            
+            // Clear any verification state to prevent verification modal from showing
+            clearAllVerificationState();
+            logger.info('Auth callback: Cleared verification state after OAuth authentication');
+            
             // Redirect immediately now that session is set
             window.location.href = redirect_to;
             return;
@@ -129,6 +140,11 @@ const AuthCallback: React.FC = () => {
               // Session is now set in store
               if (data.session) setSession(data.session);
               if (data.user)    setUser(data.user);
+              
+              // Clear any verification state to prevent verification modal from showing
+              clearAllVerificationState();
+              logger.info('Auth callback: Cleared verification state after implicit flow authentication');
+              
               // Redirect immediately now that session is set
               window.location.href = redirect_to;
               return;

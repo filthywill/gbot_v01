@@ -4,6 +4,7 @@ import { supabase, getCurrentUser } from '../lib/supabase';
 import usePreferencesStore from './usePreferencesStore';
 import logger from '../lib/logger';
 import { clearAllVerificationState } from '../lib/auth/utils';
+import { checkVerificationState, saveVerificationState } from '../lib/auth/verification';
 
 // Auth states that represent the full lifecycle of authentication
 export type AuthStatus = 
@@ -38,6 +39,14 @@ type AuthState = {
   isAuthenticated: () => boolean;
   isLoading: () => boolean;
   hasInitialized: () => boolean;
+  
+  // Verification helpers
+  getVerificationTimeRemaining: () => {
+    email: string | null;
+    remainingMs: number;
+    remainingMinutes: number;
+    expiresAt: Date;
+  } | null;
 };
 
 const useAuthStore = create<AuthState>((set, get) => ({
@@ -82,6 +91,11 @@ const useAuthStore = create<AuthState>((set, get) => ({
         
         if (user) {
           logger.debug('User authenticated', { userId: user.id });
+          
+          // Clear any verification state since user is already authenticated
+          clearAllVerificationState();
+          logger.debug('Cleared verification state for authenticated user during initialization');
+          
           set({ 
             user,
             session,
@@ -155,10 +169,54 @@ const useAuthStore = create<AuthState>((set, get) => ({
       return data;
     } catch (error) {
       logger.error('Email sign-in error:', error);
+      
+      // Log the complete error object for debugging
+      if (import.meta.env.DEV) {
+        console.log('Sign-in error structure:', JSON.stringify(error, null, 2));
+      }
+      
+      // Set more user-friendly error messages based on error codes
+      let userFriendlyError = error instanceof Error ? error.message : 'Failed to sign in';
+      
+      // Check for error code first (more reliable)
+      if (error && typeof error === 'object') {
+        // Check for Supabase structured error format
+        const errorCode = 
+          // Check for error.code directly
+          ('code' in error && typeof error.code === 'string') ? error.code :
+          // Check for error.error.code (nested structure)
+          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+            error.error.code : null;
+        
+        if (errorCode) {
+          logger.debug('Sign-in error code detected:', errorCode);
+          
+          switch (errorCode) {
+            case 'invalid_credentials':
+            case 'invalid_login_credentials':
+              userFriendlyError = 'Incorrect email or password. Please try again.';
+              break;
+            case 'email_not_confirmed':
+              userFriendlyError = 'Please verify your email before signing in.';
+              break;
+            case 'user_not_found':
+              userFriendlyError = 'No account found with this email address.';
+              break;
+            case 'too_many_attempts':
+            case 'over_request_rate_limit':
+              userFriendlyError = 'Too many sign-in attempts. Please try again later.';
+              break;
+            default:
+              // Keep default error message for unrecognized codes
+              break;
+          }
+        }
+      }
+      
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to sign in',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
       });
       throw error;
     }
@@ -168,48 +226,29 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
-      // First, use our direct check method
+      // Use our improved checkUserExists function which now uses OTP exclusively
       const userExists = await checkUserExists(email);
       if (userExists) {
         logger.warn('Attempted to sign up with existing email:', email);
         throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
       }
       
-      // Additional checks for thoroughness
-      // Method 1: Check if we can sign in with OTP
-      const { data: existingUserData, error: existingUserError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        }
-      });
-      
-      // Method 2: Try to check email verification status
+      // Method 2: Try to check email verification status as a backup check
       const { verified, error: verificationError } = await checkEmailVerificationStatus(email);
       
       // Log detailed information for debugging
       logger.debug('Email existence check results:', { 
-        directCheck: userExists,
-        otpCheck: { 
-          hasUser: !!existingUserData?.user,
-          error: existingUserError?.message
-        },
+        otpCheck: userExists,
         verificationCheck: {
           verified,
           error: verificationError
         }
       });
       
-      // Comprehensive check for existing email
-      const emailExists = 
-        userExists ||
-        !!existingUserData?.user || 
-        verified !== null || 
-        (verificationError && verificationError.includes('Invalid login credentials')) ||
-        (existingUserError && existingUserError.message.toLowerCase().includes('already registered'));
-        
-      if (emailExists) {
-        logger.warn('Attempted to sign up with existing email:', email);
+      // Check for existing email with verification status
+      if (verified !== null || 
+          (verificationError && verificationError.includes('Invalid login credentials'))) {
+        logger.warn('Attempted to sign up with existing email (verification check):', email);
         throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
       }
       
@@ -234,6 +273,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
         throw error;
       }
       
+      // Save verification state to track the 30-minute window
+      saveVerificationState(email, false);
+      
       // For email confirmation flow, user won't be authenticated immediately
       set({ 
         user: data.user,
@@ -245,10 +287,61 @@ const useAuthStore = create<AuthState>((set, get) => ({
       return data;
     } catch (error) {
       logger.error('Email sign-up error:', error);
+      
+      // Log the complete error object for debugging
+      if (import.meta.env.DEV) {
+        console.log('Sign-up error structure:', JSON.stringify(error, null, 2));
+      }
+      
+      // Set more user-friendly error messages based on error codes
+      let userFriendlyError = error instanceof Error ? error.message : 'Failed to sign up';
+      
+      // First check if this is our own custom error about existing email
+      if (error instanceof Error && 
+          (error.message.includes('already registered') || 
+           error.message.includes('previously used'))) {
+        // Keep our custom error message
+        userFriendlyError = error.message;
+      } 
+      // Then check for Supabase error codes
+      else if (error && typeof error === 'object') {
+        // Check for Supabase structured error format
+        const errorCode = 
+          // Check for error.code directly
+          ('code' in error && typeof error.code === 'string') ? error.code :
+          // Check for error.error.code (nested structure)
+          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+            error.error.code : null;
+        
+        if (errorCode) {
+          logger.debug('Sign-up error code detected:', errorCode);
+          
+          switch (errorCode) {
+            case 'email_exists':
+            case 'user_exists':
+              userFriendlyError = 'This email is already registered. Please use a different email address or sign in instead.';
+              break;
+            case 'weak_password':
+              userFriendlyError = 'Password is too weak. Please use a stronger password.';
+              break;
+            case 'invalid_email':
+              userFriendlyError = 'Please enter a valid email address.';
+              break;
+            case 'over_request_rate_limit':
+            case 'over_email_send_rate_limit':
+              userFriendlyError = 'Too many requests. Please try again later.';
+              break;
+            default:
+              // Keep default error message for unrecognized codes
+              break;
+          }
+        }
+      }
+      
       set({ 
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to sign up',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
       });
       return null;
     }
@@ -291,6 +384,11 @@ const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (email: string) => {
     try {
       set({ status: 'LOADING', error: null });
+      
+      // Clear any existing verification state before starting a new password reset flow
+      clearAllVerificationState();
+      logger.info('Cleared existing verification state before password reset', { email });
+      
       // Use Magic Link (OTP) for passwordless sign-in
       const origin = window.location.origin;
       const redirectTo = `${origin}/auth/callback`;
@@ -304,16 +402,61 @@ const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
       if (error) throw error;
+      
+      // Save the verification state for tracking
+      saveVerificationState(email, false);
+      
       set({ status: 'UNAUTHENTICATED' });
       logger.info('Magic link sent successfully');
       return true;
     } catch (error) {
       // Log error when sending magic link
       logger.error('Magic link send error', error);
+      
+      // Log the complete error object for debugging
+      if (import.meta.env.DEV) {
+        console.log('Magic link error structure:', JSON.stringify(error, null, 2));
+      }
+      
+      // Set more user-friendly error messages based on error codes
+      let userFriendlyError = error instanceof Error ? error.message : 'Failed to send magic link';
+      
+      // Check for error code first (more reliable)
+      if (error && typeof error === 'object') {
+        // Check for Supabase structured error format
+        const errorCode = 
+          // Check for error.code directly
+          ('code' in error && typeof error.code === 'string') ? error.code :
+          // Check for error.error.code (nested structure)
+          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+            error.error.code : null;
+        
+        if (errorCode) {
+          logger.debug('Magic link error code detected:', errorCode);
+          
+          switch (errorCode) {
+            case 'email_not_found':
+            case 'user_not_found':
+              userFriendlyError = 'We couldn\'t find an account with that email address.';
+              break;
+            case 'over_request_rate_limit':
+            case 'over_email_send_rate_limit':
+              userFriendlyError = 'Too many requests. Please try again later.';
+              break;
+            case 'invalid_email':
+              userFriendlyError = 'Please enter a valid email address.';
+              break;
+            default:
+              // Keep default error message for unrecognized codes
+              break;
+          }
+        }
+      }
+      
       set({
         status: 'ERROR',
-        error: error instanceof Error ? error.message : 'Failed to send magic link',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        error: userFriendlyError,
+        lastError: error instanceof Error ? error : new Error(userFriendlyError)
       });
       return false;
     }
@@ -324,6 +467,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       logger.info('Verifying OTP code', { email });
+      
+      // Check verification state to determine if we're within the verification window
+      const verificationState = checkVerificationState();
       
       // Create a timeout promise to handle potential hanging requests
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -374,15 +520,106 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to verify code';
       logger.error('OTP verification error:', error);
       
-      // Set more user-friendly error messages based on error type
-      let userFriendlyError = errorMessage;
-      if (errorMessage.includes('timeout')) {
-        userFriendlyError = 'Verification timed out. Please try again.';
-      } else if (errorMessage.includes('expired')) {
-        userFriendlyError = 'This verification code has expired. Please request a new one.';
-      } else if (errorMessage.includes('invalid')) {
-        userFriendlyError = 'Invalid verification code. Please check and try again.';
+      // Log the complete error object for debugging
+      if (import.meta.env.DEV) {
+        console.log('Supabase auth error structure:', JSON.stringify(error, null, 2));
       }
+      
+      // Get verification state to determine if we're within the verification window
+      const verificationState = checkVerificationState();
+      
+      // Set more user-friendly error messages based on error code or message
+      let userFriendlyError = errorMessage;
+      
+      // Check for error code first (more reliable)
+      if (error && typeof error === 'object') {
+        // Check for Supabase structured error format
+        const errorCode = 
+          // Check for error.code directly
+          ('code' in error && typeof error.code === 'string') ? error.code :
+          // Check for error.error.code (nested structure)
+          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+            error.error.code : null;
+        
+        if (errorCode) {
+          logger.debug('Authentication error code detected:', errorCode);
+          
+          switch (errorCode) {
+            case 'invalid_code':
+            case 'invalid_otp':
+            case 'invalid_token':
+              userFriendlyError = 'Incorrect verification code. Please check and try again.';
+              break;
+            case 'otp_expired':
+              userFriendlyError = 'This verification code has expired. Please request a new one.';
+              break;
+            case 'over_request_rate_limit':
+            case 'over_email_send_rate_limit':
+              userFriendlyError = 'Too many attempts. Please try again later.';
+              break;
+            case 'request_timeout':
+              userFriendlyError = 'Verification timed out. Please try again.';
+              break;
+            default:
+              // Fall back to message pattern matching if code is not recognized
+              break;
+          }
+        }
+      }
+      
+      // Special case for "Token has expired or is invalid" message
+      // This requires special handling since it contains both "expired" and "invalid"
+      if (errorMessage === 'Token has expired or is invalid') {
+        // Use verification state to improve error message accuracy
+        if (verificationState.exists && verificationState.isValid && verificationState.email === email) {
+          // If we're still within the verification window, it's more likely the code is incorrect
+          userFriendlyError = 'Incorrect verification code. Please check and try again.';
+        } else {
+          // If the verification window has expired, it's more likely the code is expired
+          userFriendlyError = 'This verification code has expired. Please request a new one.';
+        }
+      } 
+      // Fall back to message pattern matching for other cases
+      else if (userFriendlyError === errorMessage) {
+        // If verification state is valid, prioritize "incorrect" over "expired" for ambiguous errors
+        if (verificationState.exists && verificationState.isValid && verificationState.email === email) {
+          if (
+            errorMessage.toLowerCase().includes('invalid') || 
+            errorMessage.toLowerCase().includes('incorrect') ||
+            errorMessage.toLowerCase().includes('not found') ||
+            errorMessage.toLowerCase().includes('expired') // Treat "expired" as "incorrect" if within time window
+          ) {
+            userFriendlyError = 'Incorrect verification code. Please check and try again.';
+          } else if (errorMessage.includes('timeout')) {
+            userFriendlyError = 'Verification timed out. Please try again.';
+          }
+        } else {
+          // If verification state is invalid or expired, use standard error classification
+          if (
+            errorMessage.toLowerCase().includes('invalid') || 
+            errorMessage.toLowerCase().includes('incorrect') ||
+            errorMessage.toLowerCase().includes('not found')
+          ) {
+            userFriendlyError = 'Incorrect verification code. Please check and try again.';
+          } else if (errorMessage.includes('timeout')) {
+            userFriendlyError = 'Verification timed out. Please try again.';
+          } else if (errorMessage.toLowerCase().includes('expired')) {
+            userFriendlyError = 'This verification code has expired. Please request a new one.';
+          }
+        }
+      }
+      
+      // Log the verification state and decision for debugging
+      logger.debug('Verification error context:', {
+        errorMessage,
+        userFriendlyError,
+        verificationState: {
+          exists: verificationState.exists,
+          isValid: verificationState.isValid,
+          isExpired: verificationState.isExpired,
+          matchesEmail: verificationState.email === email
+        }
+      });
       
       set({ 
         status: 'ERROR',
@@ -400,7 +637,22 @@ const useAuthStore = create<AuthState>((set, get) => ({
   // Computed helpers
   isAuthenticated: () => get().status === 'AUTHENTICATED',
   isLoading: () => get().status === 'LOADING' || get().status === 'INITIAL',
-  hasInitialized: () => get().status !== 'INITIAL'
+  hasInitialized: () => get().status !== 'INITIAL',
+  
+  // Verification helpers
+  getVerificationTimeRemaining: () => {
+    const verificationState = checkVerificationState();
+    if (!verificationState.exists || !verificationState.isValid) {
+      return null;
+    }
+    
+    return {
+      email: verificationState.email,
+      remainingMs: verificationState.remainingMs ?? 0,
+      remainingMinutes: Math.floor((verificationState.remainingMs ?? 0) / (60 * 1000)),
+      expiresAt: verificationState.expiresAt ?? new Date()
+    };
+  }
 }));
 
 // Set up auth state change listener
@@ -474,11 +726,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 export const checkEmailVerificationStatus = async (email: string) => {
   try {
     // We can't directly get a user by email, so we'll need to use the current session
-    // and additional checks to determine verification status
     const { data: sessionData } = await supabase.auth.getSession();
     
     if (sessionData && sessionData.session) {
-      // If we have a session, check if the user is the same as the email we're checking
       const { data: userData } = await supabase.auth.getUser();
       
       if (userData?.user && userData.user.email === email) {
@@ -494,32 +744,62 @@ export const checkEmailVerificationStatus = async (email: string) => {
       }
     }
     
-    // If we don't have a session or the emails don't match,
-    // we can't directly check verification status, so we'll try to sign in
-    // with a dummy password to see if there's a verification error
-    const { error } = await supabase.auth.signInWithPassword({
+    // Instead of using a fake password, use OTP to check if the email is registered
+    // This is more reliable and doesn't affect auth state or cause side effects
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password: 'dummy_password_for_verification_check'
+      options: { shouldCreateUser: false }
     });
     
     if (error) {
-      // If the error is about unverified email, then we know the user exists but isn't verified
-      if (error.message.includes('Email not confirmed')) {
-        return { verified: false, error: 'Email not confirmed' };
+      // Log the complete error object for debugging
+      if (import.meta.env.DEV) {
+        console.log('Email verification check error structure:', JSON.stringify(error, null, 2));
       }
       
-      // If it's an invalid credentials error, the user likely exists but the password is wrong
-      // which means they have an account that may or may not be verified
-      if (error.message.includes('Invalid login credentials')) {
-        return { verified: null, error: 'Cannot determine verification status' };
+      // Check for error code first (more reliable)
+      if (typeof error === 'object') {
+        const errorCode = 
+          // Check for error.code directly
+          ('code' in error && typeof error.code === 'string') ? error.code :
+          // Check for error.error.code (nested structure)
+          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+            error.error.code : null;
+            
+        if (errorCode) {
+          logger.debug('Email verification check error code:', errorCode);
+          
+          switch(errorCode) {
+            case 'user_not_found':
+            case 'email_not_found':
+              return { verified: false, error: 'Email not found' };
+            case 'over_request_rate_limit':
+            case 'over_email_send_rate_limit':
+              logger.warn('Rate limit reached during email verification check:', error);
+              return { verified: null, error: 'Too many requests' };
+            default:
+              return { verified: null, error: error.message };
+          }
+        }
+      }
+      
+      // Fall back to string matching if no code is found
+      if (error.message.includes("Email not found")) {
+        return { verified: false, error: 'Email not found' };
+      }
+      
+      // Handle rate limiting
+      if (error.message.includes("Too many requests") || error.status === 429) {
+        logger.warn('Rate limit reached during email verification check:', error);
+        return { verified: null, error: 'Too many requests' };
       }
       
       // Other errors
-      return { verified: false, error: error.message };
+      return { verified: null, error: error.message };
     }
     
-    // If we get here, something unexpected happened
-    return { verified: null, error: 'Unexpected outcome when checking verification' };
+    // If no error from OTP request, the email exists but we can't determine if it's verified
+    return { verified: null, error: 'Email exists but verification status unknown' };
   } catch (error) {
     logger.error('Exception checking verification status:', error);
     return { verified: false, error: String(error) };
@@ -529,41 +809,83 @@ export const checkEmailVerificationStatus = async (email: string) => {
 // Add a function to directly check if a user exists by email
 export const checkUserExists = async (email: string): Promise<boolean> => {
   try {
+    // For development environment, skip these checks to allow any email
+    if (import.meta.env.VITE_APP_ENV === 'development') {
+      logger.debug('Development mode: Bypassing email existence check for:', email);
+      return false;
+    }
+    
     logger.debug('Checking if user exists:', email);
     
-    // Method 1: Try to sign in with a fake password
-    // This will tell us if the user exists but not give away the password
-    const { error } = await supabase.auth.signInWithPassword({
+    // Using the official OTP method with shouldCreateUser: false
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password: 'ThisIsAFakePasswordToCheckIfUserExists12345!',
-    });
-    
-    // If we get "Invalid login credentials", the user likely exists
-    // If we get "Email not confirmed", the user definitely exists
-    if (error) {
-      if (error.message.includes('Invalid login credentials') || 
-          error.message.includes('Email not confirmed')) {
-        logger.debug('User exists check: User exists based on auth error');
-        return true;
+      options: {
+        shouldCreateUser: false,
       }
-    }
-    
-    // Method 2: Try OTP which is less reliable but provides another signal
-    const { data: otpData, error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false }
     });
-    
-    if (otpData?.user) {
-      logger.debug('User exists check: User exists based on OTP response');
+
+    // Log the complete error object for debugging
+    if (import.meta.env.DEV && error) {
+      console.log('User exists check error structure:', JSON.stringify(error, null, 2));
+    }
+
+    // If no error, the email exists and can receive OTP
+    if (!error) {
+      logger.debug('User exists check: User exists (OTP check successful)');
       return true;
     }
+
+    // Check for error codes first (more reliable)
+    if (error && typeof error === 'object') {
+      const errorCode = 
+        // Check for error.code directly
+        ('code' in error && typeof error.code === 'string') ? error.code :
+        // Check for error.error.code (nested structure)
+        ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
+          error.error.code : null;
+          
+      if (errorCode) {
+        logger.debug('User exists check error code:', errorCode);
+        
+        switch(errorCode) {
+          case 'user_not_found':
+          case 'email_not_found':
+            logger.debug('User exists check: User does not exist (Email not found)');
+            return false;
+          case 'over_request_rate_limit':
+          case 'over_email_send_rate_limit':
+            logger.warn('Rate limit reached during email existence check:', error);
+            useAuthStore.getState().setError("Too many sign-in attempts. Please try again later.");
+            return false;
+          default:
+            // Fall through to string-based checks
+            break;
+        }
+      }
+    }
+
+    // Fall back to string pattern matching if no code found or recognized
+    // If error contains "Email not found", the user doesn't exist
+    if (error.message.includes("Email not found")) {
+      logger.debug('User exists check: User does not exist (Email not found)');
+      return false;
+    }
+
+    // Handle rate limiting
+    if (error.message.includes("Too many requests") || error.status === 429) {
+      logger.warn('Rate limit reached during email existence check:', error);
+      useAuthStore.getState().setError("Too many sign-in attempts. Please try again later.");
+      return false;
+    }
+
+    // Log any unexpected errors but don't expose to user
+    logger.error("Error checking if user exists:", error);
     
-    // If we get here, the user probably doesn't exist
-    logger.debug('User exists check: User likely does not exist');
+    // Default to false for other errors
     return false;
   } catch (error) {
-    logger.error('Error checking if user exists:', error);
+    logger.error('Exception checking if user exists:', error);
     return false; // Assume user doesn't exist if there's an error
   }
 };
