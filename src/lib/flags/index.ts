@@ -4,9 +4,6 @@ let initialFlags = {
   // Controls whether to use new auth hook implementation
   USE_NEW_AUTH_HOOKS: process.env.NODE_ENV === 'development',
   
-  // Controls whether to use new component structure
-  USE_NEW_COMPONENTS: process.env.NODE_ENV === 'development',
-  
   // Controls debugging of auth state transitions
   DEBUG_AUTH_STATE: false
 };

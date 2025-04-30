@@ -20,20 +20,34 @@ import {
   VerificationLoadingModal 
 } from './components/modals';
 
+/**
+ * Main Application Component
+ * 
+ * App structure follows a modular component architecture:
+ * - AppHeader: Contains logo and authentication header
+ * - AppMainContent: Holds the main graffiti generator UI
+ * - AppFooter: Contains copyright and links
+ * - AppDevTools: Developer tools (only visible in development)
+ * 
+ * Authentication flows use modals and banners to guide users through
+ * registration, verification, login, and account management.
+ */
 function App() {
-   // Add this debugging code at the top of your App component
-   useEffect(() => {
-    console.log('SUPABASE URL BEING USED:', import.meta.env.VITE_SUPABASE_URL);
-    // You can also check other environment variables
-    console.log('APP ENV:', import.meta.env.VITE_APP_ENV);
-    console.log('NODE ENV:', process.env.NODE_ENV);
+  // Log essential environment information in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL);
+      console.log('APP ENV:', import.meta.env.VITE_APP_ENV);
+      console.log('NODE ENV:', process.env.NODE_ENV);
+    }
   }, []);
  
+  // Get developer tools state from store
   const { showValueOverlays, toggleValueOverlays, showColorPanel, toggleColorPanel } = useDevStore();
   const isDev = isDevelopment();
   const { user } = useAuthStore();
   
-  // Use auth hooks
+  // Authentication and verification state management
   const {
     showVerificationModal,
     setShowVerificationModal,
@@ -53,7 +67,7 @@ function App() {
     checkUrlParams
   } = useAuthModalState();
 
-  // Get all state and actions from our Zustand-powered hook
+  // Graffiti generator state from Zustand store
   const {
     displayInputText,
     isGenerating,
@@ -77,21 +91,23 @@ function App() {
   // Flag to track if we've had at least one successful generation
   const hasInitialGeneration = React.useRef(false);
 
-  // Effect to update the hasInitialGeneration ref when we have processed SVGs
+  // Update hasInitialGeneration ref when we have processed SVGs
   useEffect(() => {
     if (processedSvgs.length > 0) {
       hasInitialGeneration.current = true;
     }
   }, [processedSvgs]);
 
-  // Update debug logging to use secure logger
+  // Debug logging for history state
   useEffect(() => {
-    debugLog('App history state:', {
-      historyLength: history.length,
-      currentHistoryIndex,
-      hasHistory: history.length > 0
-    });
-  }, [history.length, currentHistoryIndex]);
+    if (isDev) {
+      debugLog('App history state:', {
+        historyLength: history.length,
+        currentHistoryIndex,
+        hasHistory: history.length > 0
+      });
+    }
+  }, [history.length, currentHistoryIndex, isDev]);
 
   // Log errors when they occur
   useEffect(() => {
@@ -100,17 +116,10 @@ function App() {
     }
   }, [error]);
 
-  // Environment variable logging
-  console.log('Environment:', {
-    NODE_ENV: process.env.NODE_ENV,
-    isProd: process.env.NODE_ENV === 'production',
-    isDev
-  });
-
   return (
     <AuthProvider>
       <div className="min-h-screen bg-app text-primary">
-        {/* Verification Banner */}
+        {/* Email verification banner - appears when a user is in the verification process */}
         <VerificationBanner 
           onResumeVerification={handleResumeVerification} 
           forceShow={!!verificationEmail} 
@@ -118,14 +127,14 @@ function App() {
           isAuthenticated={!!user} 
         />
         
-        {/* Main App Content */}
+        {/* Main Application Layout */}
         <div className={cn("min-h-screen", (!!verificationEmail || pendingVerification) && "pt-14")}>
-          {/* Header */}
+          {/* Application Header - contains authentication controls and logo */}
           <AppHeader 
             hasVerificationBanner={!!verificationEmail || pendingVerification}
           />
           
-          {/* Main Content */}
+          {/* Main Content Area - contains graffiti generator UI */}
           <AppMainContent 
             displayInputText={displayInputText}
             setInputText={handleInputTextChange}
@@ -148,10 +157,10 @@ function App() {
             handleCustomizationChange={handleCustomizationChange}
           />
           
-          {/* Footer */}
+          {/* Application Footer - contains copyright and links */}
           <AppFooter />
           
-          {/* Developer Tools */}
+          {/* Developer Tools - only visible in development mode */}
           <AppDevTools
             isDev={isDev}
             showValueOverlays={showValueOverlays}
