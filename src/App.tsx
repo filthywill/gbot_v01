@@ -9,7 +9,6 @@ import logger from './lib/logger';
 import { AuthProvider, VerificationBanner } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
 import { AuthModal } from './components/Auth';
-import { FeatureFlagControls } from './components/dev/FeatureFlagControls';
 import { useEmailVerification } from './hooks/auth/useEmailVerification';
 import { useAuthModalState } from './hooks/auth/useAuthModalState';
 import { AppHeader, AppFooter, AppDevTools, AppMainContent } from './components/app';
@@ -200,9 +199,6 @@ function App() {
             verificationEmail={verificationEmail}
           />
         )}
-
-        {/* Feature Flag Controls - Only visible in development */}
-        {process.env.NODE_ENV === 'development' && <FeatureFlagControls />}
       </div>
     </AuthProvider>
   );

@@ -3,7 +3,6 @@ import { showSuccess, showError } from '../../lib/toast';
 import logger from '../../lib/logger';
 import { AUTH_VIEWS } from '../../lib/auth/constants';
 import { logStateTransition } from '../../lib/auth/stateSync';
-import { FLAGS } from '../../lib/flags';
 
 /**
  * Interface for the return value of useAuthModalState hook
@@ -35,10 +34,8 @@ export function useAuthModalState(): UseAuthModalStateReturn {
 
   // Function to check URL parameters and set modal state accordingly
   const checkUrlParams = () => {
-    // Log state transitions if debug flag is enabled
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logger.debug('Checking URL parameters for auth modal state');
-    }
+    // Log debugging information
+    logger.debug('Checking URL parameters for auth modal state');
     
     // Check for URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -109,15 +106,11 @@ export function useAuthModalState(): UseAuthModalStateReturn {
   
   // Log state changes when debug flag is enabled
   useEffect(() => {
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logStateTransition('useAuthModalState', 'showAuthModal', null, showAuthModal);
-    }
+    logStateTransition('useAuthModalState', 'showAuthModal', null, showAuthModal);
   }, [showAuthModal]);
   
   useEffect(() => {
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logStateTransition('useAuthModalState', 'authModalMode', null, authModalMode);
-    }
+    logStateTransition('useAuthModalState', 'authModalMode', null, authModalMode);
   }, [authModalMode]);
 
   return {

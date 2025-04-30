@@ -5,7 +5,6 @@ import usePreferencesStore from '../../store/usePreferencesStore';
 import logger from '../../lib/logger';
 import { clearAllVerificationState } from '../../lib/auth/utils';
 import { logStateTransition } from '../../lib/auth/stateSync';
-import { FLAGS } from '../../lib/flags';
 
 /**
  * Custom hook for managing email verification flow
@@ -145,10 +144,8 @@ export function useEmailVerification(): UseEmailVerificationReturn {
   const handleResumeVerification = (email: string) => {
     console.log('Resuming verification for email:', email);
     
-    // Log state transitions if debug flag is enabled
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logStateTransition('useEmailVerification', 'resumeVerification', { verificationEmail, pendingVerification }, { email, pendingVerification: true });
-    }
+    // Log state transitions for debugging
+    logStateTransition('useEmailVerification', 'resumeVerification', { verificationEmail, pendingVerification }, { email, pendingVerification: true });
     
     // Save the verification state in localStorage
     const verificationState = {
@@ -197,9 +194,7 @@ export function useEmailVerification(): UseEmailVerificationReturn {
       setPendingVerification(false);
     }
     
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logStateTransition('useEmailVerification', 'verificationEmail', null, verificationEmail);
-    }
+    logStateTransition('useEmailVerification', 'verificationEmail', null, verificationEmail);
   }, [verificationEmail]);
 
   // Add this effect to clear verificationEmail when user becomes authenticated
@@ -223,9 +218,7 @@ export function useEmailVerification(): UseEmailVerificationReturn {
       logger.info('Cleared all verification state when success modal was shown');
     }
     
-    if (FLAGS.DEBUG_AUTH_STATE) {
-      logStateTransition('useEmailVerification', 'showVerificationModal', null, showVerificationModal);
-    }
+    logStateTransition('useEmailVerification', 'showVerificationModal', null, showVerificationModal);
   }, [showVerificationModal]);
 
   return {

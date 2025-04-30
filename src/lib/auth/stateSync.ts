@@ -1,5 +1,4 @@
 import logger from '../logger';
-import { FLAGS } from '../flags';
 
 /**
  * Helper for logging state transitions in development mode
