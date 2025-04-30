@@ -13,8 +13,12 @@ import { FeatureFlagControls } from './components/dev/FeatureFlagControls';
 import { useEmailVerification } from './hooks/auth/useEmailVerification';
 import { useAuthModalState } from './hooks/auth/useAuthModalState';
 import { AppHeader, AppFooter, AppDevTools, AppMainContent } from './components/app';
-// Import modals from the modals directory
-import { VerificationSuccessModal, VerificationErrorModal, VerificationLoadingModal } from './components/modals';
+// Import all modals from the centralized modals directory
+import { 
+  VerificationSuccessModal, 
+  VerificationErrorModal, 
+  VerificationLoadingModal 
+} from './components/modals';
 
 function App() {
    // Add this debugging code at the top of your App component
@@ -157,10 +161,16 @@ function App() {
           />
         </div>
         
-        {/* Email Verification Success Modal */}
-        {showVerificationModal && <VerificationSuccessModal isOpen={showVerificationModal} onClose={() => setShowVerificationModal(false)} />}
+        {/* ===== Modal Components ===== */}
+        {/* Verification Success Modal - Shown after successful email verification */}
+        {showVerificationModal && (
+          <VerificationSuccessModal 
+            isOpen={showVerificationModal} 
+            onClose={() => setShowVerificationModal(false)} 
+          />
+        )}
         
-        {/* Verification Error Modal */}
+        {/* Verification Error Modal - Shown when verification fails */}
         {verificationError && (
           <VerificationErrorModal 
             isOpen={!!verificationError} 
@@ -169,10 +179,10 @@ function App() {
           />
         )}
         
-        {/* Verification Loading Modal */}
+        {/* Verification Loading Modal - Shown during verification process */}
         <VerificationLoadingModal isOpen={isVerifying} />
         
-        {/* Auth Modal */}
+        {/* Authentication Modal - Used for login, signup, and password reset */}
         {showAuthModal && (
           <AuthModal
             isOpen={showAuthModal}
@@ -182,7 +192,7 @@ function App() {
           />
         )}
 
-        {/* Feature Flag Controls */}
+        {/* Feature Flag Controls - Only visible in development */}
         {process.env.NODE_ENV === 'development' && <FeatureFlagControls />}
       </div>
     </AuthProvider>
