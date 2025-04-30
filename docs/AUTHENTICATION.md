@@ -44,9 +44,11 @@ The system is designed to be:
 1. **Supabase Client**: Handles communication with Supabase Auth API
 2. **Auth Stores (Zustand)**: Manages authentication state and operations
 3. **Authentication Hooks**: Custom React hooks for auth operations
+   - `useEmailVerification`: Manages email verification state and process
+   - `useAuthModalState`: Controls authentication modal state and views
 4. **Auth Components**: UI components for authentication flows
-5. **Auth Middleware**: Route protection and session validation
-6. **Auth Services**: Helper functions for auth-related operations
+5. **Modal Components**: Dedicated components for auth-related modals
+6. **Auth Middleware**: Route protection and session validation
 
 ### Data Flow
 
@@ -63,34 +65,144 @@ User Action → UI Component → Auth Hook → Auth Store → Supabase Client �
 src/
 ├── lib/
 │   ├── auth/
-│   │   ├── AuthContext.tsx        # Authentication context provider
-│   │   └── useAuth.ts             # Auth hook for components
+│   │   ├── verification.ts        # Verification utilities
+│   │   └── stateSync.ts           # State synchronization utilities
 │   └── supabase/
 │       └── supabase.ts            # Supabase client initialization
 ├── components/
-│   └── Auth/
-│       ├── flows/
-│       │   ├── SignIn.tsx         # Sign-in form and logic
-│       │   ├── SignUp.tsx         # Sign-up form and logic
-│       │   ├── VerifyOTP.tsx      # OTP verification component
-│       │   └── ResetPassword.tsx  # Password reset flow
-│       └── ui/
-│           ├── AuthForm.tsx       # Shared form component
-│           └── VerificationInput.tsx # OTP input component
+│   ├── app/                       # Core application components
+│   │   ├── AppHeader.tsx          # Header with auth controls
+│   │   └── ...                    # Other app components
+│   ├── Auth/
+│   │   ├── flows/
+│   │   │   ├── SignIn.tsx         # Sign-in form and logic
+│   │   │   ├── SignUp.tsx         # Sign-up form and logic
+│   │   │   └── ResetPassword.tsx  # Password reset flow
+│   │   ├── ui/
+│   │   │   ├── AuthForm.tsx       # Shared form component
+│   │   │   └── VerificationInput.tsx # OTP input component
+│   │   ├── AuthProvider.tsx       # Authentication provider component
+│   │   ├── AuthModal.tsx          # Main authentication modal
+│   │   └── VerificationBanner.tsx # Verification notification banner
+│   └── modals/
+│       ├── VerificationSuccessModal.tsx  # Success feedback modal
+│       ├── VerificationErrorModal.tsx    # Error handling modal
+│       └── VerificationLoadingModal.tsx  # Loading state modal
+├── hooks/
+│   └── auth/
+│       ├── useEmailVerification.ts # Email verification hook
+│       └── useAuthModalState.ts    # Auth modal state hook
 ├── store/
 │   └── useAuthStore.ts            # Zustand store for auth state
-├── pages/
-│   └── auth/
-│       ├── signin.tsx             # Sign-in page
-│       ├── signup.tsx             # Sign-up page
-│       ├── verify.tsx             # Verification page
-│       └── reset-password.tsx     # Password reset page
 └── types/
     └── supabase/
         └── auth.ts                # TypeScript types for auth
 ```
 
 ## Implementation
+
+### Authentication Hooks
+
+#### useEmailVerification
+
+The `useEmailVerification` hook manages the full email verification process:
+
+```typescript
+// src/hooks/auth/useEmailVerification.ts
+import { useState, useEffect, useCallback } from 'react';
+import { useAuthStore } from '@/store/useAuthStore';
+import { logStateTransition } from '@/lib/auth/stateSync';
+
+export function useEmailVerification() {
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  
+  // ...verification logic
+
+  useEffect(() => {
+    // Load verification state from localStorage
+    const savedEmail = localStorage.getItem('verificationEmail');
+    if (savedEmail) {
+      setVerificationEmail(savedEmail);
+      setPendingVerification(true);
+    }
+    
+    // Check URL parameters for verification
+    checkForVerification();
+  }, []);
+  
+  const handleResumeVerification = useCallback(() => {
+    // Resume verification logic
+  }, []);
+  
+  return {
+    showVerificationModal,
+    setShowVerificationModal,
+    verificationEmail,
+    verificationError,
+    setVerificationError,
+    isVerifying,
+    pendingVerification,
+    handleResumeVerification
+  };
+}
+```
+
+#### useAuthModalState
+
+The `useAuthModalState` hook manages the authentication modal state:
+
+```typescript
+// src/hooks/auth/useAuthModalState.ts
+import { useState, useEffect, useCallback } from 'react';
+import { FLAGS } from '@/lib/flags';
+import { logStateTransition } from '@/lib/auth/stateSync';
+
+export type AuthModalView = 'sign_in' | 'sign_up' | 'forgotten_password';
+
+export function useAuthModalState() {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalView>('sign_in');
+  
+  // Check URL parameters for auth-related actions
+  const checkUrlParams = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('auth');
+    
+    if (action === 'signin') {
+      setAuthModalMode('sign_in');
+      setShowAuthModal(true);
+    } else if (action === 'signup') {
+      setAuthModalMode('sign_up');
+      setShowAuthModal(true);
+    } else if (action === 'reset') {
+      setAuthModalMode('forgotten_password');
+      setShowAuthModal(true);
+    }
+    
+    // Clean URL after processing
+    if (action) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, []);
+  
+  useEffect(() => {
+    checkUrlParams();
+  }, [checkUrlParams]);
+  
+  return {
+    showAuthModal,
+    setShowAuthModal,
+    authModalMode,
+    setAuthModalMode,
+    checkUrlParams
+  };
+}
+```
 
 ### Supabase Client
 

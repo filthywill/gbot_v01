@@ -35,7 +35,7 @@ export function useAuthModalState(): UseAuthModalStateReturn {
   // Function to check URL parameters and set modal state accordingly
   const checkUrlParams = () => {
     // Log debugging information
-    logger.debug('Checking URL parameters for auth modal state');
+      logger.debug('Checking URL parameters for auth modal state');
     
     // Check for URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -106,11 +106,11 @@ export function useAuthModalState(): UseAuthModalStateReturn {
   
   // Log state changes when debug flag is enabled
   useEffect(() => {
-    logStateTransition('useAuthModalState', 'showAuthModal', null, showAuthModal);
+      logStateTransition('useAuthModalState', 'showAuthModal', null, showAuthModal);
   }, [showAuthModal]);
   
   useEffect(() => {
-    logStateTransition('useAuthModalState', 'authModalMode', null, authModalMode);
+      logStateTransition('useAuthModalState', 'authModalMode', null, authModalMode);
   }, [authModalMode]);
 
   return {

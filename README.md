@@ -27,48 +27,48 @@ Stizack is a React-based web application that allows users to generate customize
 
 ## Project Structure
 
+The project follows a modular component architecture with clear separation of concerns:
+
 ```
 src/
 ├── assets/           # Static assets (images, logos, etc.)
 ├── components/       # React components
+│   ├── app/          # Core application components (AppHeader, AppFooter, etc.)
 │   ├── Auth/         # Authentication components
 │   ├── GraffitiDisplay/  # SVG rendering components
 │   ├── controls/     # Customization control components
-│   └── ui/           # Reusable UI components
-├── data/             # Static data like style definitions
+│   └── modals/       # Modal dialog components
 ├── hooks/            # Custom React hooks
+│   ├── auth/         # Authentication-related hooks
+│   └── ...           # Other custom hooks
 ├── lib/              # Utility libraries and configurations
-├── services/         # API service integrations
 ├── store/            # Zustand state management
 ├── types/            # TypeScript type definitions
 └── utils/            # Helper functions
 ```
 
-## Features
+For detailed information on the project architecture, see [Architecture Documentation](./docs/ARCHITECTURE.md).
+
+## Key Features
 
 ### Authentication
-- Secure email/password authentication
-- Google OAuth integration
-- Remember Me functionality
-- Password reset flow with email verification
-- Password reset flow with email-based magic link (OTP) handled by `/auth/callback`
-- Strong password requirements with strength meter
-- Persistent user preferences
-- Modern, responsive authentication UI
-- Real-time form validation
-- Comprehensive error handling
 
-### State Management
-- Zustand for efficient state management
-- Separate stores for different concerns:
-  - Authentication state
-  - User preferences
-  - Google OAuth
-  - Application features
-- Persistent storage where appropriate
-- Type-safe state management
+The application uses a modular authentication system built on Supabase Auth with:
+
+- Email/password authentication with OTP verification
+- Google OAuth integration
+- Session management and persistence
+- Comprehensive security measures
+
+Authentication is implemented through dedicated components and hooks:
+- Custom hooks for email verification and modal state management
+- Reusable UI components for auth flows
+- Centralized state management with Zustand
+
+For comprehensive details on the authentication system, see [Authentication Documentation](./docs/AUTHENTICATION.md).
 
 ### Customization
+
 - Color customization for fill, outline, background, and effects
 - Width and size adjustments for various effects
 - Position and offset controls for shadow effects
@@ -76,90 +76,13 @@ src/
 - User-created custom presets
 - Real-time preview of all customization changes
 
-## Main Components
-
-### GraffitiDisplay
-Core component for displaying and exporting the generated graffiti art.
-
-### CustomizationToolbar 
-Provides all customization controls for styling the graffiti output.
-
-### StylePresetsPanel
-Displays and manages style presets, including both built-in and user-created options.
-
-### Authentication Components
-Components for user authentication, verification, and account management.
-
-## Authentication Implementation
-
-The application uses Supabase for authentication with a robust, type-safe implementation.
-
-### Authentication Flow
-
-1. **Client Initialization**: `supabase.ts` initializes the Supabase client with environment variables
-2. **State Management**: `useAuthStore.ts` manages authentication state with Zustand
-3. **UI Components**: Components in `components/Auth/` handle user interactions
-4. **Redirect Flows**: User clicks magic link or OAuth code, landing at `/auth/callback` handled by `AuthCallback`
-5. **Password Reset**: Users request a reset link via email; the email contains a magic link OTP to `/auth/callback?token_hash=…&type=magiclink` which verifies and signs them back in
-
-### Authentication Methods
-
-- **Google Sign-In**: Direct token approach using Google Identity Services
-- **Email/Password**: Traditional email and password authentication
-
-### Key Authentication Files
-
-- `src/lib/supabase.ts`: Supabase client configuration
-- `src/store/useAuthStore.ts`: Authentication state management
-- `src/components/Auth/AuthProvider.tsx`: Context provider for auth state
-- `src/components/Auth/AuthHeader.tsx`: Sign in/out UI
-- `src/components/Auth/AuthModal.tsx`: Authentication modal dialog
-- `src/components/Auth/GoogleSignInButton.tsx`: Google authentication integration
-- `src/components/Auth/AuthCallback.tsx`: Handles magic-link OTP and OAuth callbacks, verifying token and updating session
-
-## Google Authentication Implementation
-
-The application uses a direct token approach for Google authentication:
-
-1. Load Google Identity Services script
-2. Initialize button with client ID from environment variables
-3. Handle credential response by validating token with Supabase
-4. Update authentication state in Zustand store
-
-```tsx
-// GoogleSignInButton.tsx (simplified)
-const handleCredentialResponse = useCallback(async (response) => {
-  if (!response.credential) throw new Error('No credential');
-  
-  const { data, error } = await supabase.auth.signInWithIdToken({
-    provider: 'google',
-    token: response.credential,
-  });
-  
-  if (error) {
-    logger.error('Supabase auth error', error);
-    return;
-  }
-  
-  // Authentication successful
-}, []);
-```
-
-## State Management
+### State Management
 
 The application uses Zustand for state management with dedicated stores:
 
 - `useAuthStore`: Manages authentication state
 - `useGraffitiStore`: Controls graffiti generation and customization
 - `useDevStore`: Development mode utilities and toggles
-
-## Logging System
-
-A structured logging system is implemented in `src/lib/logger.ts` with environment-aware behavior:
-
-- **Development**: Full logging with detailed information
-- **Production**: Minimal logging with sensitive data sanitization
-- **Log Levels**: ERROR, WARN, INFO, DEBUG
 
 ## Environment Configuration
 
@@ -182,28 +105,9 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 4. Follow the steps in `SUPABASE_SETUP.md` to configure Supabase
 5. Run the development server with `npm run dev`
 
-## Supabase Setup
-
-See `SUPABASE_SETUP.md` for detailed instructions on setting up Supabase, including:
-
-- Creating a Supabase project
-- Configuring authentication providers
-- Setting up database tables and security policies
-- Obtaining and configuring API keys
-
 ## Development
 
-### Development Mode
-
-The application includes helpful debug features in development mode:
-
-- debug panel with dynamic data visualization
-- value overlays for quick verification 
-- development mode is automatically enabled for local development
-
-### Environment Configuration
-
-For details on environment configuration and how development/production modes work, see [Environment Documentation](./docs/ENVIRONMENT.md).
+The application includes helpful debug features in development mode with dynamic data visualization and value overlays. For details on environment configuration, see [Environment Documentation](./docs/ENVIRONMENT.md).
 
 ## Deployment
 
@@ -211,11 +115,7 @@ For details on environment configuration and how development/production modes wo
 
 1. Push your code to GitHub
 2. Import your repository in Vercel dashboard
-3. Set the following environment variables in Vercel:
-   - `VITE_APP_ENV=production` (Ensures debug overlays are disabled)
-   - `VITE_SUPABASE_URL` (Your Supabase URL)
-   - `VITE_SUPABASE_ANON_KEY` (Your Supabase anonymous key)
-   - `VITE_GOOGLE_CLIENT_ID` (If using Google authentication)
+3. Set environment variables in Vercel (see Environment Configuration)
 4. Deploy using the default Vite framework preset
 
 ### Manual Deployment
@@ -224,124 +124,13 @@ For details on environment configuration and how development/production modes wo
 2. Set environment variables in your hosting platform
 3. Deploy the `dist` directory to your hosting provider
 
+## Documentation
+
+- [Architecture Documentation](./docs/ARCHITECTURE.md) - Detailed technical architecture
+- [Authentication Documentation](./docs/AUTHENTICATION.md) - Authentication system details
+- [Environment Documentation](./docs/ENVIRONMENT.md) - Environment configuration
+- [Supabase Setup](./SUPABASE_SETUP.md) - Supabase configuration guide
+
 ## License
 
 Copyright © STIZAK. All rights reserved.
-
-# Stizack OTP Verification Implementation
-
-This document outlines the implementation of an OTP-based email verification system for Stizack.
-
-## 📋 Overview
-
-We've implemented a code-based (OTP) verification system that replaces the link-based verification approach. This enhances user experience by keeping users within the application during the verification process.
-
-## 🆕 New Components and Features
-
-### 1. OTP-Based Verification Flow
-
-- **Verification Code Input Component** (`src/components/Auth/VerificationCodeInput.tsx`):
-  - Collects and validates a 6-digit OTP code
-  - Includes paste functionality for easier code entry
-  - Provides clear error messages and loading states
-  - Auto-verification when pasting a valid code
-
-- **Verification Banner** (`src/components/Auth/VerificationBanner.tsx`):
-  - Persistent notification for pending verifications
-  - Displays a countdown timer for verification expiration
-  - Allows resuming the verification process
-  - Automatically hides when user is authenticated
-
-### 2. Verification State Management
-
-- **localStorage Persistence**:
-  - Verification state stored in `localStorage` for persistence
-  - State includes email, timestamp, and attempt status
-  - 30-minute expiration for security
-  - Automatically cleared upon successful verification
-
-- **Auth Store Integration**:
-  - New `verifyOtp` method for code validation
-  - Integration with existing auth state management
-  - Proper error handling and user feedback
-
-### 3. Email Template
-
-- **Custom Email Template**:
-  - Clear, easily copyable verification code
-  - Modern design with visual hierarchy
-  - Mobile-responsive layout
-  - Matches application branding
-
-## 🚀 Implementation Details
-
-### Authentication Flow
-
-1. **Sign Up**:
-   - User enters email and password
-   - Supabase API called with `emailRedirectTo: undefined` to disable link redirection
-   - Verification state saved to localStorage
-   - User presented with verification code input screen
-
-2. **Verification**:
-   - User receives email with 6-digit code
-   - Code entered in the verification screen
-   - Supabase API verifies the code
-   - User automatically signed in upon success
-
-3. **Persistence**:
-   - If user closes modal/browser before verifying
-   - Banner appears on next visit
-   - User can resume verification process
-   - State expires after 30 minutes
-
-## 📄 Documentation
-
-Documentation for this implementation is included in:
-
-1. **`docs/AUTHENTICATION.md`**: Complete documentation of the OTP verification system
-
-## 🛠️ Supabase Setup
-
-To configure your Supabase project:
-
-1. Update the email template in Supabase dashboard
-   - Go to Authentication → Email Templates
-   - Replace "Confirm signup" template with our custom HTML
-
-2. Ensure proper URL configuration
-   - Set site URL to your production domain
-   - Add localhost to redirect URLs for local development
-
-See `docs/AUTHENTICATION.md` for detailed instructions.
-
-## 🧪 Testing the OTP Flow
-
-To test the new verification flow:
-
-1. **Local Testing**:
-   - Sign up with a valid email
-   - Check your email for the verification code
-   - Enter the code in the verification modal
-   - You should be automatically logged in upon success
-
-2. **Testing Banner Persistence**:
-   - Sign up with a valid email
-   - Close the verification modal without verifying
-   - Refresh the page
-   - Banner should appear at the top of the page
-   - Click "Resume Verification" to continue
-
-3. **Testing Code Entry**:
-   - Verify that only digits are accepted in the code field
-   - Test paste functionality
-   - Test auto-verification when pasting a valid code
-   - Verify that error messages are clear and helpful
-
-## 🔧 Technical Challenges Solved
-
-1. **Persistent Verification State**: Implemented localStorage-based state persistence
-2. **Banner Visibility Logic**: Created reliable banner display/hide logic
-3. **Clipboard Integration**: Added secure paste functionality
-4. **Auto-verification**: Implemented auto-verify on valid paste
-5. **Seamless User Experience**: Maintained user context throughout verification

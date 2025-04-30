@@ -140,7 +140,8 @@ All implemented effects include:
 - **Shadow Effect**: Offset controls for depth
 - **Shine**: Basic implementation with opacity control
 
-### State Management
+## State Management
+
 The application uses Zustand for efficient state management with:
 - Centralized state store for all customization options
 - History tracking for undo/redo functionality
@@ -148,6 +149,15 @@ The application uses Zustand for efficient state management with:
 - Real-time preview updates
 - Preset management system
 - Optimized rendering with fine-grained state updates
+
+### Authentication State
+Authentication state is now managed through dedicated hooks and stores:
+
+- **useAuthStore**: Central Zustand store for authentication state
+- **useEmailVerification**: Hook for email verification process
+- **useAuthModalState**: Hook for modal visibility and view state
+
+This separation allows for more granular control over authentication flows and improves code maintainability.
 
 ### Control Component Hierarchy
 The application features a three-tier control component system:
@@ -165,6 +175,35 @@ The application features an optimized color selection system:
 - Global state for recently used and custom colors
 
 ## Component Architecture
+
+The application follows a modular component architecture with clear separation of concerns:
+
+### Core Application Components
+
+#### App Container Structure
+The main App component has been refactored to use a modular approach:
+
+- **AppHeader**: Contains application logo and authentication controls
+- **AppMainContent**: Contains the main graffiti generator UI and customization tools
+- **AppFooter**: Contains copyright information and application links
+- **AppDevTools**: Contains development-only tools and visualizations (only in development mode)
+
+This modular structure improves maintainability and allows for better component reuse.
+
+### Authentication Components
+
+The authentication system has been completely refactored into dedicated components and hooks:
+
+#### Authentication Architecture
+
+The authentication system follows a modular design with the following key components:
+
+- **Custom Authentication Hooks**: Extracted authentication logic into reusable hooks
+- **Dedicated UI Components**: Separate components for different authentication views
+- **Modal Management**: Centralized modal control for authentication flows
+- **State Persistence**: Robust state handling for interrupted authentication flows
+
+For detailed information on the authentication system implementation, including hook details, component structures, and code examples, see [Authentication Documentation](./AUTHENTICATION.md).
 
 ### UI Components
 The application uses a comprehensive UI system built with:

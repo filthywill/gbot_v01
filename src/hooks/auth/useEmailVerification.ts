@@ -145,7 +145,7 @@ export function useEmailVerification(): UseEmailVerificationReturn {
     console.log('Resuming verification for email:', email);
     
     // Log state transitions for debugging
-    logStateTransition('useEmailVerification', 'resumeVerification', { verificationEmail, pendingVerification }, { email, pendingVerification: true });
+      logStateTransition('useEmailVerification', 'resumeVerification', { verificationEmail, pendingVerification }, { email, pendingVerification: true });
     
     // Save the verification state in localStorage
     const verificationState = {
@@ -194,7 +194,7 @@ export function useEmailVerification(): UseEmailVerificationReturn {
       setPendingVerification(false);
     }
     
-    logStateTransition('useEmailVerification', 'verificationEmail', null, verificationEmail);
+      logStateTransition('useEmailVerification', 'verificationEmail', null, verificationEmail);
   }, [verificationEmail]);
 
   // Add this effect to clear verificationEmail when user becomes authenticated
@@ -218,7 +218,7 @@ export function useEmailVerification(): UseEmailVerificationReturn {
       logger.info('Cleared all verification state when success modal was shown');
     }
     
-    logStateTransition('useEmailVerification', 'showVerificationModal', null, showVerificationModal);
+      logStateTransition('useEmailVerification', 'showVerificationModal', null, showVerificationModal);
   }, [showVerificationModal]);
 
   return {

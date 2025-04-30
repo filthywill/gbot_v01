@@ -48,7 +48,7 @@ function App() {
   const {
     showAuthModal,
     setShowAuthModal,
-    authModalMode,
+    authModalMode, 
     setAuthModalMode
   } = useAuthModalState();
 
@@ -104,46 +104,46 @@ function App() {
         {/* Main Application Layout */}
         <div className={cn("min-h-screen", (!!verificationEmail || pendingVerification) && "pt-14")}>
           {/* Application Header - contains authentication controls and logo */}
-          <AppHeader 
-            hasVerificationBanner={!!verificationEmail || pendingVerification}
-          />
+            <AppHeader 
+              hasVerificationBanner={!!verificationEmail || pendingVerification}
+            />
           
           {/* Main Content Area - contains graffiti generator UI */}
-          <AppMainContent 
-            displayInputText={displayInputText}
-            setInputText={handleInputTextChange}
-            isGenerating={isGenerating}
-            generateGraffiti={generateGraffiti}
-            error={error}
-            styles={GRAFFITI_STYLES}
-            selectedStyle={selectedStyle}
-            handleStyleChange={handleStyleChange}
-            processedSvgs={processedSvgs}
-            positions={positions}
-            contentWidth={contentWidth}
-            contentHeight={contentHeight}
-            containerScale={containerScale}
-            customizationOptions={customizationOptions}
-            history={history}
-            currentHistoryIndex={currentHistoryIndex}
-            handleUndoRedo={handleUndoRedo}
-            hasInitialGeneration={hasInitialGeneration}
-            handleCustomizationChange={handleCustomizationChange}
-          />
+            <AppMainContent 
+              displayInputText={displayInputText}
+              setInputText={handleInputTextChange}
+              isGenerating={isGenerating}
+              generateGraffiti={generateGraffiti}
+              error={error}
+              styles={GRAFFITI_STYLES}
+              selectedStyle={selectedStyle}
+              handleStyleChange={handleStyleChange}
+              processedSvgs={processedSvgs}
+              positions={positions}
+              contentWidth={contentWidth}
+              contentHeight={contentHeight}
+              containerScale={containerScale}
+              customizationOptions={customizationOptions}
+              history={history}
+              currentHistoryIndex={currentHistoryIndex}
+              handleUndoRedo={handleUndoRedo}
+              hasInitialGeneration={hasInitialGeneration}
+              handleCustomizationChange={handleCustomizationChange}
+            />
           
           {/* Application Footer - contains copyright and links */}
-          <AppFooter />
+            <AppFooter />
           
           {/* Developer Tools - only visible in development mode */}
-          <AppDevTools
-            isDev={isDev}
-            showValueOverlays={showValueOverlays}
-            showColorPanel={showColorPanel}
-            toggleValueOverlays={toggleValueOverlays}
-            toggleColorPanel={toggleColorPanel}
-          />
+            <AppDevTools
+              isDev={isDev}
+              showValueOverlays={showValueOverlays}
+              showColorPanel={showColorPanel}
+              toggleValueOverlays={toggleValueOverlays}
+              toggleColorPanel={toggleColorPanel}
+            />
         </div>
-        
+
         {/* ===== Modal Components ===== */}
         {/* Verification Success Modal - Shown after successful email verification */}
         {showVerificationModal && (
