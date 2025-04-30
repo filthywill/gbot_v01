@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
 import { cn } from './lib/utils';
 import { useDevStore } from './store/useDevStore';
 import { isDevelopment } from './lib/env';
-import { debugLog } from './lib/debug';
 import logger from './lib/logger';
 import { AuthProvider, VerificationBanner } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
@@ -27,20 +26,8 @@ import {
  * - AppMainContent: Holds the main graffiti generator UI
  * - AppFooter: Contains copyright and links
  * - AppDevTools: Developer tools (only visible in development)
- * 
- * Authentication flows use modals and banners to guide users through
- * registration, verification, login, and account management.
  */
 function App() {
-  // Log essential environment information in development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL);
-      console.log('APP ENV:', import.meta.env.VITE_APP_ENV);
-      console.log('NODE ENV:', process.env.NODE_ENV);
-    }
-  }, []);
- 
   // Get developer tools state from store
   const { showValueOverlays, toggleValueOverlays, showColorPanel, toggleColorPanel } = useDevStore();
   const isDev = isDevelopment();
@@ -61,9 +48,8 @@ function App() {
   const {
     showAuthModal,
     setShowAuthModal,
-    authModalMode, 
-    setAuthModalMode,
-    checkUrlParams
+    authModalMode,
+    setAuthModalMode
   } = useAuthModalState();
 
   // Graffiti generator state from Zustand store
@@ -87,29 +73,18 @@ function App() {
     handleUndoRedo
   } = useGraffitiGeneratorWithZustand();
   
-  // Flag to track if we've had at least one successful generation
+  // Track if we've had at least one successful generation
   const hasInitialGeneration = React.useRef(false);
 
-  // Update hasInitialGeneration ref when we have processed SVGs
-  useEffect(() => {
+  // Update ref when we have processed SVGs
+  React.useEffect(() => {
     if (processedSvgs.length > 0) {
       hasInitialGeneration.current = true;
     }
   }, [processedSvgs]);
 
-  // Debug logging for history state
-  useEffect(() => {
-    if (isDev) {
-      debugLog('App history state:', {
-        historyLength: history.length,
-        currentHistoryIndex,
-        hasHistory: history.length > 0
-      });
-    }
-  }, [history.length, currentHistoryIndex, isDev]);
-
   // Log errors when they occur
-  useEffect(() => {
+  React.useEffect(() => {
     if (error) {
       logger.error('Application error occurred:', error);
     }
