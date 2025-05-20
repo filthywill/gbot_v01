@@ -49,6 +49,45 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setupAuth();
   }, [initialize, initializeSDK]);
   
+  // Add visibility change listener to handle tab switching
+  useEffect(() => {
+    // Handle visibilitychange events (tab switching)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        logger.debug('AuthProvider: Page became visible, reinitializing auth');
+        
+        // Use a small delay to ensure browser has fully restored state
+        setTimeout(() => {
+          initialize().catch(err => {
+            logger.error('AuthProvider: Error reinitializing after visibility change', err);
+          });
+        }, 100);
+      }
+    };
+    
+    // Add focus event as a backup strategy
+    const handleFocus = () => {
+      logger.debug('AuthProvider: Window focused, checking auth state');
+      
+      // Use a small delay to ensure browser has fully restored state
+      setTimeout(() => {
+        initialize().catch(err => {
+          logger.error('AuthProvider: Error reinitializing after window focus', err);
+        });
+      }, 100);
+    };
+    
+    // Register event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    // Clean up event listeners on unmount
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [initialize]);
+  
   // Add detailed logging for loading states
   useEffect(() => {
     if (isSessionLoading) {
