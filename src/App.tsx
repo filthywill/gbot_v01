@@ -26,12 +26,37 @@ import {
  * - AppMainContent: Holds the main graffiti generator UI
  * - AppFooter: Contains copyright and links
  * - AppDevTools: Developer tools (only visible in development)
+ * 
+ * Protected Routes Usage Example:
+ * When using React Router, protect auth-required routes like:
+ * 
+ * import { ProtectedRoute } from './components/Auth';
+ * 
+ * <Routes>
+ *   <Route path="/" element={<PublicPage />} />
+ *   <Route 
+ *     path="/dashboard" 
+ *     element={
+ *       <ProtectedRoute redirectTo="/auth/login">
+ *         <DashboardPage />
+ *       </ProtectedRoute>
+ *     } 
+ *   />
+ * </Routes>
  */
 function App() {
   // Get developer tools state from store
   const { showValueOverlays, toggleValueOverlays, showColorPanel, toggleColorPanel } = useDevStore();
   const isDev = isDevelopment();
   const { user } = useAuthStore();
+  
+  // Authentication and modal state management
+  const {
+    showAuthModal,
+    setShowAuthModal,
+    authModalMode, 
+    setAuthModalMode
+  } = useAuthModalState();
   
   // Authentication and verification state management
   const {
@@ -43,14 +68,11 @@ function App() {
     isVerifying,
     pendingVerification,
     handleResumeVerification
-  } = useEmailVerification();
-
-  const {
-    showAuthModal,
+  } = useEmailVerification({
+    // Pass the auth modal control functions to enable the resume verification feature
     setShowAuthModal,
-    authModalMode, 
     setAuthModalMode
-  } = useAuthModalState();
+  });
 
   // Graffiti generator state from Zustand store
   const {

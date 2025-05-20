@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, getCurrentUser } from '../lib/supabase';
 import usePreferencesStore from './usePreferencesStore';
 import logger from '../lib/logger';
 import { clearAllVerificationState } from '../lib/auth/utils';
 import { checkVerificationState, saveVerificationState } from '../lib/auth/verification';
+import AUTH_CONFIG from '../lib/auth/config';
 
 // Auth states that represent the full lifecycle of authentication
 export type AuthStatus = 
@@ -20,6 +21,10 @@ type AuthState = {
   status: AuthStatus;
   error: string | null;
   lastError: Error | null;
+  
+  // Add specific loading states
+  isSessionLoading: boolean;
+  isUserDataLoading: boolean;
   
   // Actions
   initialize: () => Promise<void>;
@@ -55,6 +60,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
   status: 'INITIAL',
   error: null,
   lastError: null,
+  isSessionLoading: false,
+  isUserDataLoading: false,
 
   initialize: async () => {
     // Only initialize if we're in the initial state to prevent duplicate initializations
@@ -65,7 +72,12 @@ const useAuthStore = create<AuthState>((set, get) => ({
     
     try {
       logger.debug('Starting auth initialization');
-      set({ status: 'LOADING', error: null });
+      set({ 
+        status: 'LOADING', 
+        error: null,
+        isSessionLoading: true,
+        isUserDataLoading: false
+      });
       
       // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -74,20 +86,31 @@ const useAuthStore = create<AuthState>((set, get) => ({
         throw sessionError;
       }
       
+      // Update session loading state
+      set({ isSessionLoading: false });
+      
       // No session means user is not authenticated
       if (!session) {
         logger.debug('No active session found, user is not authenticated');
         set({ 
           status: 'UNAUTHENTICATED',
           user: null,
-          session: null 
+          session: null,
+          isUserDataLoading: false
         });
         return;
       }
       
+      // Session found, update session state before fetching user
+      set({
+        session,
+        isUserDataLoading: true
+      });
+      
       // We have a session, get the user data
       try {
-        const user = await getCurrentUser();
+        // Use the configurable retry count from AUTH_CONFIG
+        const user = await getCurrentUser(AUTH_CONFIG.maxUserFetchRetries);
         
         if (user) {
           logger.debug('User authenticated', { userId: user.id });
@@ -98,9 +121,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
           
           set({ 
             user,
-            session,
             status: 'AUTHENTICATED',
-            error: null
+            error: null,
+            isUserDataLoading: false
           });
         } else {
           // Session exists but no user found
@@ -109,7 +132,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
             user: null,
             session: null,
             status: 'UNAUTHENTICATED',
-            error: 'Unable to retrieve user data'
+            error: 'Unable to retrieve user data',
+            isUserDataLoading: false
           });
         }
       } catch (error) {
@@ -117,7 +141,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
         set({ 
           status: 'ERROR',
           error: error instanceof Error ? error.message : 'Failed to get user information',
-          lastError: error instanceof Error ? error : new Error('Unknown error')
+          lastError: error instanceof Error ? error : new Error('Unknown error'),
+          isUserDataLoading: false
         });
       }
     } catch (error) {
@@ -125,7 +150,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
       set({ 
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Authentication initialization failed',
-        lastError: error instanceof Error ? error : new Error('Unknown error')
+        lastError: error instanceof Error ? error : new Error('Unknown error'),
+        isSessionLoading: false,
+        isUserDataLoading: false
       });
     }
   },
@@ -362,6 +389,17 @@ const useAuthStore = create<AuthState>((set, get) => ({
         error: null
       });
       
+      // Clear verification state when logging out
+      clearAllVerificationState();
+      
+      // Also clear password recovery state
+      try {
+        localStorage.removeItem('passwordRecoveryState');
+        logger.debug('Cleared password recovery state on sign out');
+      } catch (err) {
+        logger.error('Error clearing password recovery state:', err);
+      }
+      
       logger.info('User signed out successfully');
     } catch (error) {
       logger.error('Sign out error:', error);
@@ -389,6 +427,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
       clearAllVerificationState();
       logger.info('Cleared existing verification state before password reset', { email });
       
+      // Create a password recovery state instead of verification state
+      try {
+        localStorage.setItem('passwordRecoveryState', JSON.stringify({
+          active: true,
+          startTime: Date.now(),
+          email: email
+        }));
+        logger.debug('Created password recovery state for email:', email);
+      } catch (err) {
+        logger.error('Error setting password recovery state:', err);
+      }
+      
       // Use Magic Link (OTP) for passwordless sign-in
       const origin = window.location.origin;
       const redirectTo = `${origin}/auth/callback`;
@@ -402,9 +452,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
       if (error) throw error;
-      
-      // Save the verification state for tracking
-      saveVerificationState(email, false);
       
       set({ status: 'UNAUTHENTICATED' });
       logger.info('Magic link sent successfully');
@@ -636,7 +683,10 @@ const useAuthStore = create<AuthState>((set, get) => ({
   
   // Computed helpers
   isAuthenticated: () => get().status === 'AUTHENTICATED',
-  isLoading: () => get().status === 'LOADING' || get().status === 'INITIAL',
+  isLoading: () => {
+    const state = get();
+    return state.status === 'LOADING' || state.isSessionLoading || state.isUserDataLoading;
+  },
   hasInitialized: () => get().status !== 'INITIAL',
   
   // Verification helpers
@@ -671,16 +721,20 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         try {
           // Mark as loading while we fetch the user data
-          useAuthStore.setState({ status: 'LOADING' });
+          useAuthStore.setState({ 
+            status: 'LOADING', 
+            isUserDataLoading: true
+          });
           
-          const user = await getCurrentUser();
+          const user = await getCurrentUser(AUTH_CONFIG.maxUserFetchRetries);
           
           if (user) {
             useAuthStore.setState({ 
               user,
               session,
               status: 'AUTHENTICATED',
-              error: null
+              error: null,
+              isUserDataLoading: false
             });
             
             logger.info('User authenticated via state change', { userId: user.id, event });
@@ -690,7 +744,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
               status: 'UNAUTHENTICATED',
               user: null,
               session: null,
-              error: 'Failed to retrieve user information'
+              error: 'Failed to retrieve user information',
+              isUserDataLoading: false
             });
           }
         } catch (error) {
@@ -698,7 +753,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
           useAuthStore.setState({ 
             status: 'ERROR',
             error: 'Authentication state error',
-            lastError: error instanceof Error ? error : new Error('Unknown error')
+            lastError: error instanceof Error ? error : new Error('Unknown error'),
+            isUserDataLoading: false
           });
         }
       }
@@ -707,9 +763,33 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         user: null,
         session: null,
         status: 'UNAUTHENTICATED',
-        error: null
+        error: null,
+        isSessionLoading: false,
+        isUserDataLoading: false
       });
       logger.info('User signed out via state change');
+    } else if (event === 'TOKEN_REFRESH_FAILED' as AuthChangeEvent) {
+      logger.warn('Token refresh failed, forcing user to re-authenticate');
+      
+      useAuthStore.setState({
+        user: null,
+        session: null,
+        status: 'UNAUTHENTICATED',
+        error: 'Your session has expired. Please sign in again.',
+        isSessionLoading: false,
+        isUserDataLoading: false
+      });
+      
+      // Dispatch a custom event for UI components to show a notification
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('auth:session-expired', {
+          detail: {
+            message: 'Your session has expired. Please sign in again.'
+          }
+        }));
+      }
+      
+      logger.info('User was signed out due to expired refresh token');
     }
   } catch (error) {
     logger.error('Unhandled error in auth state change listener:', error);

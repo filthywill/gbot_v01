@@ -39,6 +39,8 @@ export const Dialog: React.FC<DialogProps> = ({
     // Only trigger if the click was directly on the backdrop element
     if (e.target === e.currentTarget && onOpenChange) {
       onOpenChange(false);
+      // Stop propagation to prevent further click handling
+      e.stopPropagation();
     }
   };
 
@@ -67,12 +69,19 @@ export const DialogContent: React.FC<DialogContentProps> = ({
   onClose,
   showCloseButton = true
 }) => {
+  // Prevent clicks inside the content from closing the modal
+  const handleContentClick = (e: React.MouseEvent) => {
+    // Stop propagation to prevent the backdrop's click handler from firing
+    e.stopPropagation();
+  };
+
   return (
     <div 
       className={cn(
         "bg-white rounded-lg shadow-lg max-w-md w-full p-4 mx-4 animate-in fade-in duration-200 relative",
         className
       )}
+      onClick={handleContentClick}
     >
       {showCloseButton && onClose && (
         <button

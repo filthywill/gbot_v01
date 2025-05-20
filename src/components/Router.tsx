@@ -5,6 +5,9 @@ import TermsOfService from '../pages/TermsOfService';
 import ResetPasswordPage from '../pages/auth/reset-password';
 import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
+import VerifyRedirect from '../pages/auth/verify-redirect';
+import AccountSettings from '../pages/AccountSettings';
+import { ProtectedRoute } from './Auth';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -196,6 +199,13 @@ const Router: React.FC = () => {
   } else if (pathStartsWith('/token-debug')) {
     logger.info('Rendering TokenDebugPage component');
     return <TokenDebugPage />;
+  } else if (pathStartsWith('/account-settings')) {
+    logger.info('Rendering protected AccountSettings component');
+    return (
+      <ProtectedRoute redirectTo="/auth/login">
+        <AccountSettings />
+      </ProtectedRoute>
+    );
   } else if (pathStartsWith('/auth/reset-password')) {
     // Direct link reset password route
     console.log('RENDERING RESET PASSWORD COMPONENT', {
@@ -227,6 +237,9 @@ const Router: React.FC = () => {
         </div>
       );
     }
+  } else if (pathStartsWith('/auth/verify-redirect')) {
+    logger.info('Rendering VerifyRedirect component');
+    return <VerifyRedirect />;
   } else if (pathStartsWith('/auth/verification-success')) {
     logger.info('Rendering EmailVerificationSuccess component');
     return (

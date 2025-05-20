@@ -64,6 +64,18 @@ const AuthHeader: React.FC = () => {
             {user?.email}
           </span>
           <button
+            onClick={() => (window as any).navigateTo('/account-settings')}
+            className={cn(
+              "px-4 py-1.5 text-sm font-medium rounded-md",
+              "bg-zinc-800 text-zinc-300 border border-zinc-700",
+              "hover:bg-zinc-700 hover:border-zinc-600",
+              "transition-all duration-200 ease-in-out",
+              "focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+            )}
+          >
+            Account Settings
+          </button>
+          <button
             onClick={handleSignOut}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-md",
