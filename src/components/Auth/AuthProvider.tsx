@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import useAuthStore from '../../store/useAuthStore';
 import useGoogleAuthStore from '../../store/useGoogleAuthStore';
 import logger from '../../lib/logger';
 import AUTH_CONFIG from '../../lib/auth/config';
+import { supabase, getCurrentUser } from '../../lib/supabase';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -15,6 +16,8 @@ interface AuthProviderProps {
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { initialize, error, status, isSessionLoading, isUserDataLoading } = useAuthStore();
   const { initializeSDK } = useGoogleAuthStore();
+  // Add ref to cache the last known good session
+  const lastKnownSessionRef = useRef<any>(null);
   
   // Initialize authentication on mount
   useEffect(() => {
@@ -49,45 +52,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setupAuth();
   }, [initialize, initializeSDK]);
   
-  // Add visibility change listener to handle tab switching
-  useEffect(() => {
-    // Handle visibilitychange events (tab switching)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        logger.debug('AuthProvider: Page became visible, reinitializing auth');
-        
-        // Use a small delay to ensure browser has fully restored state
-        setTimeout(() => {
-          initialize().catch(err => {
-            logger.error('AuthProvider: Error reinitializing after visibility change', err);
-          });
-        }, 100);
-      }
-    };
-    
-    // Add focus event as a backup strategy
-    const handleFocus = () => {
-      logger.debug('AuthProvider: Window focused, checking auth state');
-      
-      // Use a small delay to ensure browser has fully restored state
-      setTimeout(() => {
-        initialize().catch(err => {
-          logger.error('AuthProvider: Error reinitializing after window focus', err);
-        });
-      }, 100);
-    };
-    
-    // Register event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    
-    // Clean up event listeners on unmount
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [initialize]);
-  
   // Add detailed logging for loading states
   useEffect(() => {
     if (isSessionLoading) {
@@ -112,6 +76,74 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       isUserDataLoading
     });
   }, [status, isSessionLoading, isUserDataLoading]);
+  
+  // Update the cached session when it changes
+  useEffect(() => {
+    const authState = useAuthStore.getState();
+    if (authState.session) {
+      lastKnownSessionRef.current = authState.session;
+      logger.debug('Updated cached session reference');
+    }
+  }, [useAuthStore.getState().session]);
+  
+  // Handle tab visibility changes to refresh auth state
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        logger.debug('Tab became visible, refreshing auth state');
+        try {
+          // Force refresh the session when tab becomes visible
+          const { data, error } = await supabase.auth.getSession();
+          
+          // Fall back to cached session if there's an error or no session
+          if (error || !data.session) {
+            logger.debug('Using cached session after visibility change');
+            if (lastKnownSessionRef.current) {
+              const currentState = useAuthStore.getState();
+              // Only update if there's no current session
+              if (!currentState.session) {
+                currentState.setSession(lastKnownSessionRef.current);
+                logger.debug('Restored session from cache');
+                
+                // Also try to refresh user data
+                const user = await getCurrentUser();
+                if (user) {
+                  currentState.setUser(user);
+                  logger.debug('User data refreshed after restoring cached session');
+                }
+              }
+            }
+          } else if (data.session) {
+            // Update store if needed
+            const currentState = useAuthStore.getState();
+            if (!currentState.session || currentState.session.expires_at !== data.session.expires_at) {
+              logger.debug('Refreshing auth state after tab visibility change');
+              currentState.setSession(data.session);
+              lastKnownSessionRef.current = data.session;
+              
+              // Also refresh user data
+              const user = await getCurrentUser();
+              if (user) currentState.setUser(user);
+            }
+          }
+        } catch (err) {
+          logger.error('Error refreshing session on visibility change:', err);
+          
+          // Attempt recovery with cached session
+          if (lastKnownSessionRef.current) {
+            logger.debug('Attempting recovery with cached session');
+            const currentState = useAuthStore.getState();
+            if (!currentState.session) {
+              currentState.setSession(lastKnownSessionRef.current);
+            }
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
   
   // Render children without waiting for auth to complete
   return <>{children}</>;
