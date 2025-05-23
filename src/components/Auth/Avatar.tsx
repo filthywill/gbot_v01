@@ -5,6 +5,9 @@ import { cn } from '../../lib/utils';
 
 interface AvatarProps {
   user: User;
+  profile?: {
+    avatar_url: string | null;
+  } | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   showFallback?: boolean;
@@ -16,6 +19,7 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ 
   user, 
+  profile,
   size = 'sm', 
   className = '',
   showFallback = true,
@@ -46,16 +50,22 @@ const Avatar: React.FC<AvatarProps> = ({
       setIsLoading(true);
       setImageError(false);
       
-      // Try to get avatar from social provider metadata
-      const socialAvatar = getSocialProviderAvatar(user);
+      // Priority 1: Uploaded avatar from profile
+      if (profile?.avatar_url) {
+        setImageUrl(profile.avatar_url);
+        setIsLoading(false);
+        return;
+      }
       
+      // Priority 2: Social provider avatar
+      const socialAvatar = getSocialProviderAvatar(user);
       if (socialAvatar) {
         setImageUrl(socialAvatar);
         setIsLoading(false);
         return;
       }
 
-      // Fallback to Gravatar if no social avatar
+      // Priority 3: Gravatar fallback
       if (user.email && showFallback) {
         const gravatarUrl = await getGravatarUrl(user.email);
         setImageUrl(gravatarUrl);
@@ -65,7 +75,7 @@ const Avatar: React.FC<AvatarProps> = ({
     };
 
     loadAvatar();
-  }, [user, showFallback]);
+  }, [user, profile, showFallback]);
 
   // Extract avatar URL from social provider metadata
   const getSocialProviderAvatar = (user: User): string | null => {
