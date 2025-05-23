@@ -1,30 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { UserIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
-
-// Constants moved outside component to prevent recreation
-const SIZE_CLASSES = {
-  sm: 'w-8 h-8',
-  md: 'w-12 h-12', 
-  lg: 'w-16 h-16'
-} as const;
-
-const ICON_SIZES = {
-  sm: 'h-4 w-4',
-  md: 'h-6 w-6',
-  lg: 'h-8 w-8'
-} as const;
-
-// Avatar field priority for social providers (most common first)
-const AVATAR_FIELDS = [
-  'picture',        // Google primary
-  'avatar_url',     // Google/GitHub secondary  
-  'profile_image_url', // Twitter/X
-  'image',          // Generic fallback
-  'photo',          // Generic fallback
-  'profilePicture'  // LinkedIn
-] as const;
 
 interface AvatarProps {
   user: User;
@@ -37,7 +14,7 @@ interface AvatarProps {
   'aria-expanded'?: boolean;
 }
 
-const Avatar: React.FC<AvatarProps> = React.memo(({ 
+const Avatar: React.FC<AvatarProps> = ({ 
   user, 
   size = 'sm', 
   className = '',
@@ -51,8 +28,18 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Memoize user metadata extraction
-  const socialAvatar = useMemo(() => getSocialProviderAvatar(user), [user]);
+  // Size configurations
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12', 
+    lg: 'w-16 h-16'
+  };
+
+  const iconSizes = {
+    sm: 'h-4 w-4',
+    md: 'h-6 w-6',
+    lg: 'h-8 w-8'
+  };
 
   useEffect(() => {
     const loadAvatar = async () => {
@@ -60,6 +47,8 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
       setImageError(false);
       
       // Try to get avatar from social provider metadata
+      const socialAvatar = getSocialProviderAvatar(user);
+      
       if (socialAvatar) {
         setImageUrl(socialAvatar);
         setIsLoading(false);
@@ -76,24 +65,52 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
     };
 
     loadAvatar();
-  }, [user, showFallback, socialAvatar]);
+  }, [user, showFallback]);
 
   // Extract avatar URL from social provider metadata
   const getSocialProviderAvatar = (user: User): string | null => {
     const metadata = user.user_metadata;
     
-    if (!metadata) return null;
-
-    // Check each field in priority order
-    for (const field of AVATAR_FIELDS) {
-      if (metadata[field]) {
-        return metadata[field];
-      }
+    if (!metadata) {
+      return null;
     }
 
-    // Special case for Discord (requires both avatar and id)
+    // Handle different social providers
+    // Google
+    if (metadata.avatar_url) {
+      return metadata.avatar_url;
+    }
+    if (metadata.picture) {
+      return metadata.picture;
+    }
+    
+    // GitHub
+    if (metadata.avatar_url) {
+      return metadata.avatar_url;
+    }
+    
+    // Twitter/X (future)
+    if (metadata.profile_image_url) {
+      return metadata.profile_image_url;
+    }
+    
+    // Discord (future)
     if (metadata.avatar && metadata.id) {
-      return `https://cdn.discordapp.com/avatars/${metadata.id}/${metadata.avatar}.png`;
+      const discordUrl = `https://cdn.discordapp.com/avatars/${metadata.id}/${metadata.avatar}.png`;
+      return discordUrl;
+    }
+    
+    // LinkedIn (future)
+    if (metadata.profilePicture) {
+      return metadata.profilePicture;
+    }
+    
+    // Generic fallback for any provider that uses these common fields
+    if (metadata.image) {
+      return metadata.image;
+    }
+    if (metadata.photo) {
+      return metadata.photo;
     }
     
     return null;
@@ -124,7 +141,7 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
   if (isLoading && imageUrl) {
     return (
       <div className={cn(
-        SIZE_CLASSES[size],
+        sizeClasses[size],
         "rounded-full bg-zinc-700 animate-pulse",
         className
       )} />
@@ -138,7 +155,7 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
         src={imageUrl}
         alt={`${user.email || 'User'} avatar`}
         className={cn(
-          SIZE_CLASSES[size],
+          sizeClasses[size],
           "rounded-full object-cover border border-zinc-600",
           isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer",
           className
@@ -169,12 +186,12 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
   // Fallback to default icon
   const fallbackElement = (
     <div className={cn(
-      SIZE_CLASSES[size],
+      sizeClasses[size],
       "rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center",
       isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer hover:bg-zinc-600",
       className
     )}>
-      <UserIcon className={cn(ICON_SIZES[size], "text-zinc-400")} />
+      <UserIcon className={cn(iconSizes[size], "text-zinc-400")} />
     </div>
   );
 
@@ -192,8 +209,6 @@ const Avatar: React.FC<AvatarProps> = React.memo(({
   }
 
   return fallbackElement;
-});
-
-Avatar.displayName = 'Avatar';
+};
 
 export default Avatar; 
