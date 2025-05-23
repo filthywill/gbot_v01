@@ -27,7 +27,7 @@ interface AppHeaderProps {
   onBackClick?: () => void;
 }
 
-export function AppHeader({ 
+export const AppHeader = React.memo<AppHeaderProps>(({ 
   hasVerificationBanner = false,
   className,
   customLogo,
@@ -36,7 +36,7 @@ export function AppHeader({
   showBackButton = false,
   backButtonText = "← Back to App",
   onBackClick
-}: AppHeaderProps) {
+}) => {
   const logoSrc = customLogo || stizakLogo;
   
   const handleLogoClick = () => {
@@ -100,8 +100,10 @@ export function AppHeader({
                   alt={logoAlt}
                   className="h-[120px] w-auto" 
                   onError={(e) => {
-                    // Fallback if image fails to load
-                    console.error('Failed to load logo image', e);
+                    // Only log in development
+                    if (process.env.NODE_ENV === 'development') {
+                      console.error('Failed to load logo image');
+                    }
                     e.currentTarget.style.display = 'none';
                   }}
                 />
@@ -112,6 +114,8 @@ export function AppHeader({
       </div>
     </header>
   );
-}
+});
+
+AppHeader.displayName = 'AppHeader';
 
 export default AppHeader; 

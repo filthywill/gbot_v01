@@ -10,7 +10,7 @@ interface ProfileMenuProps {
   onSignOut: () => Promise<void>;
 }
 
-const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut }) => {
+const ProfileMenu: React.FC<ProfileMenuProps> = React.memo(({ user, onSignOut }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +138,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut }) => {
       </div>
     </div>
   );
-};
+});
+
+ProfileMenu.displayName = 'ProfileMenu';
 
 export default ProfileMenu; 
