@@ -8,13 +8,21 @@ interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   showFallback?: boolean;
+  onClick?: () => void;
+  isClickable?: boolean;
+  'aria-label'?: string;
+  'aria-expanded'?: boolean;
 }
 
 const Avatar: React.FC<AvatarProps> = ({ 
   user, 
   size = 'sm', 
   className = '',
-  showFallback = true 
+  showFallback = true,
+  onClick,
+  isClickable = false,
+  'aria-label': ariaLabel,
+  'aria-expanded': ariaExpanded
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -38,14 +46,8 @@ const Avatar: React.FC<AvatarProps> = ({
       setIsLoading(true);
       setImageError(false);
       
-      // Debug logging to see what metadata we have
-      console.log('🔍 Avatar Debug - Full user object:', user);
-      console.log('🔍 Avatar Debug - User metadata:', user.user_metadata);
-      console.log('🔍 Avatar Debug - User email:', user.email);
-      
       // Try to get avatar from social provider metadata
       const socialAvatar = getSocialProviderAvatar(user);
-      console.log('🔍 Avatar Debug - Social avatar URL:', socialAvatar);
       
       if (socialAvatar) {
         setImageUrl(socialAvatar);
@@ -56,7 +58,6 @@ const Avatar: React.FC<AvatarProps> = ({
       // Fallback to Gravatar if no social avatar
       if (user.email && showFallback) {
         const gravatarUrl = await getGravatarUrl(user.email);
-        console.log('🔍 Avatar Debug - Gravatar URL:', gravatarUrl);
         setImageUrl(gravatarUrl);
       }
       
@@ -70,60 +71,48 @@ const Avatar: React.FC<AvatarProps> = ({
   const getSocialProviderAvatar = (user: User): string | null => {
     const metadata = user.user_metadata;
     
-    console.log('🔍 getSocialProviderAvatar - Checking metadata:', metadata);
-    
     if (!metadata) {
-      console.log('🔍 getSocialProviderAvatar - No metadata found');
       return null;
     }
 
     // Handle different social providers
     // Google
     if (metadata.avatar_url) {
-      console.log('🔍 getSocialProviderAvatar - Found avatar_url:', metadata.avatar_url);
       return metadata.avatar_url;
     }
     if (metadata.picture) {
-      console.log('🔍 getSocialProviderAvatar - Found picture:', metadata.picture);
       return metadata.picture;
     }
     
     // GitHub
     if (metadata.avatar_url) {
-      console.log('🔍 getSocialProviderAvatar - Found GitHub avatar_url:', metadata.avatar_url);
       return metadata.avatar_url;
     }
     
     // Twitter/X (future)
     if (metadata.profile_image_url) {
-      console.log('🔍 getSocialProviderAvatar - Found profile_image_url:', metadata.profile_image_url);
       return metadata.profile_image_url;
     }
     
     // Discord (future)
     if (metadata.avatar && metadata.id) {
       const discordUrl = `https://cdn.discordapp.com/avatars/${metadata.id}/${metadata.avatar}.png`;
-      console.log('🔍 getSocialProviderAvatar - Found Discord avatar:', discordUrl);
       return discordUrl;
     }
     
     // LinkedIn (future)
     if (metadata.profilePicture) {
-      console.log('🔍 getSocialProviderAvatar - Found profilePicture:', metadata.profilePicture);
       return metadata.profilePicture;
     }
     
     // Generic fallback for any provider that uses these common fields
     if (metadata.image) {
-      console.log('🔍 getSocialProviderAvatar - Found image:', metadata.image);
       return metadata.image;
     }
     if (metadata.photo) {
-      console.log('🔍 getSocialProviderAvatar - Found photo:', metadata.photo);
       return metadata.photo;
     }
     
-    console.log('🔍 getSocialProviderAvatar - No avatar found in metadata');
     return null;
   };
 
@@ -140,22 +129,11 @@ const Avatar: React.FC<AvatarProps> = ({
   };
 
   const handleImageError = () => {
-    console.log('🔍 Avatar Debug - Image failed to load:', imageUrl);
-    console.log('🔍 Avatar Debug - Current hostname:', window.location.hostname);
-    console.log('🔍 Avatar Debug - Is localhost?', window.location.hostname === 'localhost');
-    
-    // Check if this might be a Google profile picture CORS issue
-    if (imageUrl && imageUrl.includes('googleusercontent.com')) {
-      console.log('🚨 Avatar Debug - Google profile picture failed! This is likely due to localhost CORS restrictions');
-      console.log('💡 Avatar Debug - Try using 127.0.0.1:3000 instead of localhost:3000');
-    }
-    
     setImageError(true);
     setImageUrl(null);
   };
 
   const handleImageLoad = () => {
-    console.log('🔍 Avatar Debug - Image loaded successfully:', imageUrl);
     setIsLoading(false);
   };
 
@@ -172,13 +150,14 @@ const Avatar: React.FC<AvatarProps> = ({
 
   // Show avatar image if available and not errored
   if (imageUrl && !imageError) {
-    return (
+    const imageElement = (
       <img
         src={imageUrl}
         alt={`${user.email || 'User'} avatar`}
         className={cn(
           sizeClasses[size],
           "rounded-full object-cover border border-zinc-600",
+          isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer",
           className
         )}
         onError={handleImageError}
@@ -187,18 +166,49 @@ const Avatar: React.FC<AvatarProps> = ({
         crossOrigin="anonymous"
       />
     );
+
+    if (isClickable && onClick) {
+      return (
+        <button
+          onClick={onClick}
+          className="focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded-full"
+          aria-label={ariaLabel}
+          aria-expanded={ariaExpanded}
+        >
+          {imageElement}
+        </button>
+      );
+    }
+
+    return imageElement;
   }
 
   // Fallback to default icon
-  return (
+  const fallbackElement = (
     <div className={cn(
       sizeClasses[size],
       "rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center",
+      isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer hover:bg-zinc-600",
       className
     )}>
       <UserIcon className={cn(iconSizes[size], "text-zinc-400")} />
     </div>
   );
+
+  if (isClickable && onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded-full"
+        aria-label={ariaLabel}
+        aria-expanded={ariaExpanded}
+      >
+        {fallbackElement}
+      </button>
+    );
+  }
+
+  return fallbackElement;
 };
 
 export default Avatar; 

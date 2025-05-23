@@ -71,25 +71,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut }) => {
         {user.email?.split('@')[0] || 'User'}
       </span>
 
-      {/* DEBUG: Avatar component displayed separately for testing */}
-      <Avatar user={user} size="sm" />
-
       {/* Profile Menu */}
       <div className="relative" ref={menuRef}>
-        {/* UserIcon Menu Button (keeping original for menu functionality) */}
-        <button
+        {/* Avatar Menu Button - Using Avatar component as the button */}
+        <Avatar 
+          user={user} 
+          size="sm" 
+          isClickable={true}
           onClick={toggleMenu}
-          className={cn(
-            "flex items-center justify-center rounded-full transition-all duration-200",
-            "bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 hover:border-zinc-500",
-            "focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900",
-            "w-8 h-8"
-          )}
           aria-label="Open user menu"
           aria-expanded={isOpen}
-        >
-          <UserIcon className="h-4 w-4 text-zinc-300" />
-        </button>
+        />
 
         {/* Dropdown Menu */}
         {isOpen && (
