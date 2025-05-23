@@ -4,6 +4,22 @@
 
 This document outlines how to implement a `profiles` table in Supabase to support the Account Settings functionality, and how to manage it across development and production environments.
 
+The document includes:
+
+1. The basic database structure with the profiles table schema
+2. Security implementation with Row Level Security (RLS) policies
+3. Automatic profile creation using triggers
+4. Two approaches for managing environments:
+   - Using basic SQL migration files
+   - Using the Supabase CLI (recommended)
+5. Instructions for modifying the schema later
+6. Data backup and restoration best practices
+7. Troubleshooting common issues
+8. General best practices for database management
+9. A complete example implementation
+
+This markdown document can be checked into your repository as a reference for your team or future development. If you need to make any modifications to the profiles table structure or add additional fields later, you can follow the approach outlined in section 5 of the guide.
+
 ## 1. Database Structure
 
 ### Basic Profiles Table Schema

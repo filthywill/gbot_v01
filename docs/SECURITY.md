@@ -1,7 +1,7 @@
 # GBot Security Documentation
 
 ## Overview
-This document outlines the security measures implemented in the GBot project, focusing on SVG processing, rate limiting, Content Security Policy (CSP), and user protection. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
+This document outlines the security measures implemented in the GBot project, focusing on SVG processing, rate limiting, Content Security Policy (CSP), user protection, and password security. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
 
 ## Security Architecture
 
@@ -382,4 +382,152 @@ try {
 - Document security changes in commit messages
 - Tag security-related releases
 - Maintain security changelog
-- Track security dependencies 
+- Track security dependencies
+
+## Password Security Implementation
+
+### 1. Enhanced Password Validation
+The application implements comprehensive password validation to ensure user passwords are strong and resistant to attacks:
+
+- Minimum length of 8 characters
+- Requires at least one uppercase letter
+- Requires at least one lowercase letter
+- Requires at least one number
+- Requires at least one special character
+- Checks against commonly used/leaked passwords
+
+Implementation:
+```typescript
+// Password validation in passwordUtils.ts
+export const validatePassword = (password: string): ValidationResult => {
+  if (password.length < 8) {
+    return { isValid: false, message: 'Password must be at least 8 characters long' };
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one uppercase letter' };
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one lowercase letter' };
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one number' };
+  }
+  
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one special character' };
+  }
+  
+  return { isValid: true };
+};
+```
+
+### 2. Current Password Verification
+Before allowing password changes, the system verifies the user's current password:
+
+- Prevents unauthorized password changes even with a compromised session
+- Uses secure verification that doesn't expose password hashes
+- Provides clear feedback on verification failures
+
+### 3. Password Strength Meter
+The application provides real-time feedback on password strength:
+
+- Visual strength meter showing password quality
+- Color-coded feedback (red/orange/yellow/green)
+- Specific improvement suggestions
+- Real-time requirement checklist showing which criteria are met
+
+### 4. Session Security Enhancements
+Enhanced session security after sensitive operations:
+
+- Token rotation after password changes
+- Session refresh after sensitive operations
+- Secure sign-out with proper cleanup
+- Protection against session hijacking
+
+Implementation:
+```typescript
+// Session refresh after sensitive operations
+export const refreshSessionAfterSensitiveOperation = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (error) {
+      return false;
+    }
+    
+    if (data.session) {
+      // Update auth store with new session
+      const authStore = useAuthStore.getState();
+      authStore.setSession(data.session);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    return false;
+  }
+};
+```
+
+### 5. Secure Password Management
+Centralized password management with clean separation of concerns:
+
+- Dedicated `usePasswordManagement` hook for password-related operations
+- Proper form state management
+- Comprehensive validation
+- Secure token handling
+- Proper error handling and user feedback
+
+### 6. Server-side Security Measures
+Additional security measures implemented on the server side:
+
+- Row Level Security (RLS) enabled on all tables
+- Security audit logging for sensitive operations
+- Monitoring of password change events
+- Protection against brute force attempts
+- Secure token handling
+
+## Security Monitoring
+
+### Security Audit Logging
+The application logs security-relevant events for monitoring:
+
+- Password changes
+- Email changes
+- Login attempts
+- Failed authentication
+- Account creation
+
+The security audit log schema:
+```sql
+CREATE TABLE "security_audit_log" (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id),
+  action TEXT NOT NULL,
+  ip_address TEXT,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  details JSONB
+);
+```
+
+### Monitoring Views
+Dedicated views for security monitoring:
+
+- `password_change_events`: Tracks all password changes
+- `email_change_events`: Monitors email address changes
+- `user_creation_events`: Logs new user registrations
+- `failed_login_attempts`: Tracks potential brute force attempts
+
+## Password Security Best Practices for Users
+
+To maintain a secure account, users should:
+
+1. **Use Strong, Unique Passwords**: Create passwords that are long, complex, and different for each service.
+2. **Enable Multi-Factor Authentication**: When available, enable MFA for an additional layer of security.
+3. **Update Passwords Regularly**: Change passwords periodically, especially for high-security accounts.
+4. **Use a Password Manager**: Consider using a trusted password manager to generate and store strong passwords.
+5. **Check for Password Leaks**: Periodically check if your accounts have been involved in data breaches.
+6. **Be Cautious of Phishing**: Never enter passwords on untrusted or suspicious websites. 

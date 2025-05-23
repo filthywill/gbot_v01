@@ -8,6 +8,7 @@ import VerificationDebug from '../pages/VerificationDebug';
 import VerifyRedirect from '../pages/auth/verify-redirect';
 import AccountSettings from '../pages/AccountSettings';
 import { ProtectedRoute } from './Auth';
+import NotificationProvider from './ui/NotificationProvider';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -191,20 +192,38 @@ const Router: React.FC = () => {
   if (isAuthCallback()) {
     console.log('RENDERING AUTH CALLBACK COMPONENT');
     logger.info('Rendering AuthCallback component');
-    return <AuthCallback />;
+    return (
+      <NotificationProvider>
+        <AuthCallback />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/privacy-policy')) {
-    return <PrivacyPolicy />;
+    return (
+      <NotificationProvider>
+        <PrivacyPolicy />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/terms-of-service')) {
-    return <TermsOfService />;
+    return (
+      <NotificationProvider>
+        <TermsOfService />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/token-debug')) {
     logger.info('Rendering TokenDebugPage component');
-    return <TokenDebugPage />;
+    return (
+      <NotificationProvider>
+        <TokenDebugPage />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/account-settings')) {
     logger.info('Rendering protected AccountSettings component');
     return (
+      <NotificationProvider>
       <ProtectedRoute redirectTo="/auth/login">
         <AccountSettings />
       </ProtectedRoute>
+      </NotificationProvider>
     );
   } else if (pathStartsWith('/auth/reset-password')) {
     // Direct link reset password route
@@ -222,10 +241,15 @@ const Router: React.FC = () => {
     });
     
     try {
-      return <ResetPasswordPage />;
+      return (
+        <NotificationProvider>
+          <ResetPasswordPage />
+        </NotificationProvider>
+      );
     } catch (error) {
       logger.error('Error rendering ResetPasswordPage:', error);
       return (
+        <NotificationProvider>
         <div className="p-4 flex flex-col items-center justify-center min-h-screen bg-zinc-900">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
             <p className="font-bold">Error rendering Reset Password page</p>
@@ -235,24 +259,39 @@ const Router: React.FC = () => {
             Return to Home
           </a>
         </div>
+        </NotificationProvider>
       );
     }
   } else if (pathStartsWith('/auth/verify-redirect')) {
     logger.info('Rendering VerifyRedirect component');
-    return <VerifyRedirect />;
+    return (
+      <NotificationProvider>
+        <VerifyRedirect />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/auth/verification-success')) {
     logger.info('Rendering EmailVerificationSuccess component');
     return (
+      <NotificationProvider>
       <Suspense fallback={<div>Loading verification page...</div>}>
         <EmailVerificationSuccess />
       </Suspense>
+      </NotificationProvider>
     );
   } else if (pathStartsWith('/verification-debug')) {
-    logger.info('Rendering VerificationDebug component');
-    return <VerificationDebug />;
+    return (
+      <NotificationProvider>
+        <VerificationDebug />
+      </NotificationProvider>
+    );
   } else {
-    // Default route
-    return <App />;
+    // Default case - render the main App component
+    logger.info('Rendering main App component');
+    return (
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
+    );
   }
 };
 

@@ -5,6 +5,7 @@ import PasswordStrengthMeter from '../../components/Auth/PasswordStrengthMeter';
 import logger from '../../lib/logger';
 import { supabase } from '../../lib/supabase';
 import { validatePassword, checkPasswordStrength } from '../../utils/passwordUtils';
+import { refreshSessionAfterSensitiveOperation } from '../../lib/auth/sessionUtils';
 
 const ResetPasswordPage: React.FC = () => {
   // Temporarily comment out state and effects for debugging
@@ -99,6 +100,9 @@ const ResetPasswordPage: React.FC = () => {
         logger.error('Supabase returned error during password update:', result.error);
         throw result.error;
       }
+      
+      // Refresh session after password reset for enhanced security
+      await refreshSessionAfterSensitiveOperation();
       
       if (!result.data?.user) {
         logger.warn('Password update succeeded but no user data returned');

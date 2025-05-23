@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
 import AuthModal from './AuthModal';
 import { cn } from '../../lib/utils';
+import { AUTH_VIEWS, AuthView } from '../../lib/auth/constants';
+import ProfileMenu from './ProfileMenu';
 
 /**
  * Authentication header component that displays the current authentication state
@@ -18,7 +20,7 @@ const AuthHeader: React.FC = () => {
   } = useAuthStore();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authView, setAuthView] = useState<AuthView>(AUTH_VIEWS.SIGN_IN);
   
   // Create a memoized signOut handler
   const handleSignOut = useCallback(async () => {
@@ -27,13 +29,13 @@ const AuthHeader: React.FC = () => {
   
   // Handle opening the modal for sign in
   const handleOpenSignInModal = useCallback(() => {
-    setAuthMode('signin');
+    setAuthView(AUTH_VIEWS.SIGN_IN);
     setShowAuthModal(true);
   }, []);
   
   // Handle opening the modal for sign up
   const handleOpenSignUpModal = useCallback(() => {
-    setAuthMode('signup');
+    setAuthView(AUTH_VIEWS.SIGN_UP);
     setShowAuthModal(true);
   }, []);
   
@@ -58,36 +60,8 @@ const AuthHeader: React.FC = () => {
           <div className="w-16 h-5 rounded-md bg-zinc-800 animate-pulse"></div>
         </div>
       ) : isAuthenticated() && user ? (
-        // User is authenticated, show profile and sign out button
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-zinc-400">
-            {user?.email}
-          </span>
-          <button
-            onClick={() => (window as any).navigateTo('/account-settings')}
-            className={cn(
-              "px-4 py-1.5 text-sm font-medium rounded-md",
-              "bg-zinc-800 text-zinc-300 border border-zinc-700",
-              "hover:bg-zinc-700 hover:border-zinc-600",
-              "transition-all duration-200 ease-in-out",
-              "focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
-            )}
-          >
-            Account Settings
-          </button>
-          <button
-            onClick={handleSignOut}
-            className={cn(
-              "px-4 py-1.5 text-sm font-medium rounded-md",
-              "bg-zinc-800 text-zinc-300 border border-zinc-700",
-              "hover:bg-zinc-700 hover:border-zinc-600",
-              "transition-all duration-200 ease-in-out",
-              "focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
-            )}
-          >
-            Sign Out
-          </button>
-        </div>
+        // User is authenticated, show profile menu dropdown
+        <ProfileMenu user={user} onSignOut={handleSignOut} />
       ) : hasInitialized() ? (
         // User is definitely not authenticated, show sign in button only
         <div className="flex space-x-2">
@@ -116,7 +90,7 @@ const AuthHeader: React.FC = () => {
         <AuthModal 
           isOpen={showAuthModal} 
           onClose={handleCloseModal}
-          initialMode={authMode}
+          initialView={authView}
         />
       )}
     </div>

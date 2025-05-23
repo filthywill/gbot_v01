@@ -6,6 +6,7 @@ import useAuthStore from '../store/useAuthStore';
 import logger from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { checkEmailVerification, forceVerifyEmail, signInDirectlyAfterVerification } from '../components/Auth/AuthWrapper';
+import { secureSignOut } from '../lib/auth/sessionUtils';
 
 const EmailVerificationSuccess: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
@@ -297,7 +298,7 @@ const EmailVerificationSuccess: React.FC = () => {
         console.log('AUTO-LOGIN FAILED:', result.error);
         
         // Clear any existing session to be safe
-        await supabase.auth.signOut();
+        await secureSignOut();
         
         // Check if we need to re-verify the email
         if (result.needsVerification) {

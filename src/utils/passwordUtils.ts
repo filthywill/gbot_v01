@@ -1,4 +1,5 @@
 import { PasswordStrength } from '../components/Auth/PasswordStrengthMeter';
+import logger from '../lib/logger';
 
 /**
  * Checks password strength and returns a score and feedback.
@@ -127,4 +128,35 @@ export function validatePassword(password: string): { isValid: boolean; message?
  */
 export function maskPassword(password: string): string {
   return '•'.repeat(password.length);
+}
+
+/**
+ * Verifies if the provided password is the current password for the given email
+ * @param email - The user's email
+ * @param password - The password to verify
+ * @returns Promise resolving to true if password is valid, false otherwise
+ */
+export async function verifyCurrentPassword(email: string, password: string): Promise<boolean> {
+  try {
+    // Import supabase here to avoid circular dependencies
+    const { supabase } = await import('../lib/supabase');
+    
+    // Attempt to sign in with the provided credentials
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    // If there's an error or no session, the password is incorrect
+    if (error || !data.session) {
+      logger.debug('Password verification failed:', error?.message || 'No session returned');
+      return false;
+    }
+    
+    // Password is correct if we got a valid session
+    return true;
+  } catch (error) {
+    console.error('Error during password verification:', error);
+    return false;
+  }
 } 

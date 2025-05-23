@@ -14,6 +14,9 @@
 10. [Testing](#testing)
 11. [Supabase Setup](#supabase-setup)
 12. [Troubleshooting](#troubleshooting)
+13. [Tab Visibility Solution](#tab-visibility-solution)
+14. [Future Considerations](#future-considerations)
+15. [Password Security Features](#password-security-features)
 
 ## Overview
 
@@ -24,6 +27,7 @@ The system is designed to be:
 - **User-friendly**: Intuitive flows with proper error handling
 - **Responsive**: Works seamlessly across desktop and mobile devices
 - **Maintainable**: Well-structured code with clear separation of concerns
+- **Resilient**: Handles browser tab switching and network issues gracefully
 
 ## Core Features
 
@@ -31,11 +35,13 @@ The system is designed to be:
 - **OTP Code-based Verification**: Email verification using one-time password codes
 - **Google OAuth Integration**: Sign in with Google option
 - **Session Management**: Automatic session persistence and refresh
+- **Tab Visibility Handling**: Maintains authentication when switching browser tabs
 - **Protected Routes**: Route-based access control for authenticated users
 - **Password Reset**: Secure password reset flow
 - **Responsive Design**: Mobile-friendly authentication forms
 - **Form Validation**: Comprehensive input validation with error messaging
 - **Error Handling**: User-friendly error messages for authentication failures
+- **Retry Logic**: Resilient authentication with automatic retry mechanisms
 
 ## Architecture
 
@@ -47,8 +53,10 @@ The system is designed to be:
    - `useEmailVerification`: Manages email verification state and process
    - `useAuthModalState`: Controls authentication modal state and views
 4. **Auth Components**: UI components for authentication flows
+   - `AuthProvider`: Manages authentication initialization and tab visibility
 5. **Modal Components**: Dedicated components for auth-related modals
 6. **Auth Middleware**: Route protection and session validation
+7. **Auth Configuration**: Centralized configuration via `AUTH_CONFIG`
 
 ### Data Flow
 
@@ -65,24 +73,25 @@ User Action → UI Component → Auth Hook → Auth Store → Supabase Client �
 src/
 ├── lib/
 │   ├── auth/
-│   │   ├── verification.ts        # Verification utilities
-│   │   └── stateSync.ts           # State synchronization utilities
+│   │   ├── config.ts             # Centralized auth configuration
+│   │   ├── verification.ts       # Verification utilities
+│   │   └── stateSync.ts          # State synchronization utilities
 │   └── supabase/
-│       └── supabase.ts            # Supabase client initialization
+│       └── supabase.ts           # Supabase client initialization
 ├── components/
-│   ├── app/                       # Core application components
-│   │   ├── AppHeader.tsx          # Header with auth controls
-│   │   └── ...                    # Other app components
+│   ├── app/                      # Core application components
+│   │   ├── AppHeader.tsx         # Header with auth controls
+│   │   └── ...                   # Other app components
 │   ├── Auth/
 │   │   ├── flows/
-│   │   │   ├── SignIn.tsx         # Sign-in form and logic
-│   │   │   ├── SignUp.tsx         # Sign-up form and logic
-│   │   │   └── ResetPassword.tsx  # Password reset flow
+│   │   │   ├── SignIn.tsx        # Sign-in form and logic
+│   │   │   ├── SignUp.tsx        # Sign-up form and logic
+│   │   │   └── ResetPassword.tsx # Password reset flow
 │   │   ├── ui/
-│   │   │   ├── AuthForm.tsx       # Shared form component
+│   │   │   ├── AuthForm.tsx      # Shared form component
 │   │   │   └── VerificationInput.tsx # OTP input component
-│   │   ├── AuthProvider.tsx       # Authentication provider component
-│   │   ├── AuthModal.tsx          # Main authentication modal
+│   │   ├── AuthProvider.tsx      # Authentication provider with tab visibility handling
+│   │   ├── AuthModal.tsx         # Main authentication modal
 │   │   └── VerificationBanner.tsx # Verification notification banner
 │   └── modals/
 │       ├── VerificationSuccessModal.tsx  # Success feedback modal
@@ -100,6 +109,80 @@ src/
 ```
 
 ## Implementation
+
+### Authentication Configuration
+
+The `AUTH_CONFIG` module centralizes authentication-related configuration settings:
+
+```typescript
+// src/lib/auth/config.ts
+export const AUTH_CONFIG = {
+  // Delays for state transitions (longer in production for stability)
+  stateTransitionDelay: import.meta.env.PROD ? 200 : 100,
+  
+  // Retry intervals for init and token operations
+  retryDelay: import.meta.env.PROD ? 5000 : 3000,
+  tokenExchangeRetryDelay: 1000,
+  
+  // Timeout for user fetch operations
+  userFetchTimeout: 4000,
+  
+  // Maximum number of retries for various operations
+  maxInitRetries: 2,
+  maxTokenExchangeRetries: 2,
+  maxUserFetchRetries: 2,
+  
+  // Session duration settings
+  sessionDuration: 60 * 60 * 24 * 7, // 7 days in seconds
+};
+```
+
+This configuration makes it easy to tune authentication behaviors for different environments.
+
+### Authentication Provider
+
+The `AuthProvider` component initializes authentication services and handles tab visibility:
+
+```typescript
+// src/components/Auth/AuthProvider.tsx
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const { initialize, error, status, isSessionLoading, isUserDataLoading } = useAuthStore();
+  const { initializeSDK } = useGoogleAuthStore();
+  // Cache the last known good session
+  const lastKnownSessionRef = useRef<any>(null);
+  
+  // Initialize authentication on mount
+  useEffect(() => {
+    // Initialization logic with retry mechanism
+    // ...
+  }, [initialize, initializeSDK]);
+  
+  // Cache the session when it changes
+  useEffect(() => {
+    const authState = useAuthStore.getState();
+    if (authState.session) {
+      lastKnownSessionRef.current = authState.session;
+      logger.debug('Updated cached session reference');
+    }
+  }, [useAuthStore.getState().session]);
+  
+  // Handle tab visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        // Refresh authentication state when tab becomes visible
+        // With fallback to cached session if needed
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+  
+  // Render children without waiting for auth to complete
+  return <>{children}</>;
+};
+```
 
 ### Authentication Hooks
 
@@ -828,3 +911,364 @@ Ensure to test these edge cases:
    - Check link expiration
    - Verify correct redirect URL configuration
    - Ensure link is opened in same browser as request
+
+6. **Authentication Lost When Switching Tabs**:
+   - Make sure you're using the latest version of the codebase with tab visibility handling
+   - Verify that visibilitychange event listener is properly registered
+   - Check network connectivity when tab becomes visible again
+   - Try refreshing the page if session restoration fails
+
+7. **Remember Me Not Working**:
+   - Ensure user preferences are correctly saved
+   - Check localStorage access/permissions
+   - Verify the custom storage implementation in Supabase client
+
+## Tab Visibility Solution
+
+We've implemented a multi-layered approach to handle authentication persistence when switching between browser tabs, addressing a common issue where users would be logged out when switching tabs:
+
+### Architecture
+
+The tab visibility solution uses several techniques to maintain session state:
+
+1. **Session Reference Caching**: 
+   - The `AuthProvider` component maintains a reference to the last known good session
+   - This reference is used to restore session state when a tab becomes visible again
+   - Implementation using React's `useRef` hook preserves session data between renders
+
+2. **User Data Caching**:
+   - In-memory cache for user data with a configurable TTL (Time-To-Live)
+   - Avoids unnecessary API calls when switching tabs
+   - Provides fallback data when network requests fail
+
+3. **Visibility Event Handler**:
+   - Listens to the browser's `visibilitychange` event
+   - Refreshes authentication state when a tab becomes visible again
+   - Implemented in `AuthProvider.tsx`
+
+4. **Enhanced Storage Implementation**:
+   - Customized Supabase storage adapter that prioritizes valid sessions
+   - Handles edge cases for background tabs and token refreshes
+   - Respects user preferences for "Remember Me" functionality
+
+5. **Token Refresh Optimization**:
+   - Special handling for background tabs during token refreshes
+   - Retry logic with exponential backoff for failed refresh attempts
+   - Fallback to cached data when refreshes fail
+
+### Implementation
+
+The solution is implemented across several files:
+
+1. **AuthProvider.tsx**:
+   ```typescript
+   // Session reference caching
+   const lastKnownSessionRef = useRef<any>(null);
+   
+   // Cache updating
+   useEffect(() => {
+     const authState = useAuthStore.getState();
+     if (authState.session) {
+       lastKnownSessionRef.current = authState.session;
+       logger.debug('Updated cached session reference');
+     }
+   }, [useAuthStore.getState().session]);
+   
+   // Tab visibility handler
+   useEffect(() => {
+     const handleVisibilityChange = async () => {
+       if (!document.hidden) {
+         // Implementation details for refreshing auth on tab visibility change
+         // ...
+       }
+     };
+     
+     document.addEventListener('visibilitychange', handleVisibilityChange);
+     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+   }, []);
+   ```
+
+2. **supabase.ts**:
+   ```typescript
+   // User data caching
+   let lastKnownUserCache: any = null;
+   let lastUserFetchTime = 0;
+   const USER_CACHE_TTL = 30 * 1000; // 30 seconds
+   
+   // Enhanced storage implementation
+   storage: {
+     async getItem(key: string) {
+       // Logic to prioritize valid sessions and handle "Remember Me" preference
+       // ...
+     },
+     // Additional methods
+   }
+   
+   // Token refresh handling with retries
+   if (event === 'TOKEN_REFRESHED') {
+     // Implementation details for token refresh with retries
+     // ...
+   }
+   ```
+
+## Future Considerations
+
+While our current client-side authentication implementation with enhanced tab visibility handling meets our immediate needs, it's worth noting that Supabase is evolving toward server-side authentication approaches:
+
+> **Future Migration Note**: Consider migrating to Supabase's server-side authentication approach using the `@supabase/ssr` package if transitioning to a server-rendered framework (like Next.js). The server-side approach offers improved security by using HTTP-only cookies instead of localStorage and provides better integration with server components.
+
+This migration would be appropriate when:
+- Moving to a server-rendered framework like Next.js, SvelteKit, etc.
+- Looking to improve security by using HTTP-only cookies instead of localStorage
+- Needing to access authentication data directly in server components
+
+### Server-Side Authentication Benefits
+
+1. **Enhanced Security**: 
+   - HTTP-only cookies cannot be accessed by JavaScript, protecting against XSS attacks
+   - Reduced risk of token theft compared to localStorage
+
+2. **Improved Performance**:
+   - Authentication can be verified on the server before sending data to the client
+   - Eliminates "flickering" issues when authentication state loads
+
+3. **Better Integration**:
+   - Direct access to authentication data in server components
+   - Simplified data fetching with authenticated requests
+
+### Migration Approach
+
+If migrating to a server-rendered framework, follow these steps:
+
+1. Install `@supabase/ssr` package instead of the client-side SDK
+2. Implement cookie-based session handling
+3. Set up middleware for automatic session refresh
+4. Update authentication logic to use server components/actions where appropriate
+5. Modify client components to work with the server-authenticated state
+
+## Password Security Features
+
+The GraffitiSOFT authentication system includes comprehensive password security features to protect user accounts:
+
+### Password Management Hook
+
+The `usePasswordManagement` hook provides a centralized way to handle password-related operations:
+
+```typescript
+// src/hooks/auth/usePasswordManagement.ts
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { validatePassword, checkPasswordStrength, verifyCurrentPassword } from '../../utils/passwordUtils';
+import { PasswordStrength } from '../../components/Auth/PasswordStrengthMeter';
+import { refreshSessionAfterSensitiveOperation } from '../../lib/auth/sessionUtils';
+
+export const usePasswordManagement = ({ userEmail }: UsePasswordManagementProps = {}): UsePasswordManagementReturn => {
+  // State management for password fields, visibility, validation, and feedback
+  // ...
+  
+  // Change password with current password verification and session refresh
+  const changePassword = useCallback(async () => {
+    if (!validateForm()) {
+      return false;
+    }
+    
+    setIsChangingPassword(true);
+    
+    try {
+      // Verify current password
+      if (!userEmail) {
+        throw new Error('User email not available');
+      }
+      
+      const isCurrentPasswordValid = await verifyCurrentPassword(userEmail, currentPassword);
+      
+      if (!isCurrentPasswordValid) {
+        setPasswordError('Current password is incorrect');
+        return false;
+      }
+      
+      // Update password
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      
+      if (error) throw error;
+      
+      // Refresh session after password change for enhanced security
+      await refreshSessionAfterSensitiveOperation();
+      
+      // Reset form and show success message
+      // ...
+      
+      return true;
+    } catch (error) {
+      setPasswordError(error.message || 'Error changing password');
+      return false;
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }, [/* dependencies */]);
+  
+  // Other password management functions
+  // ...
+  
+  return {
+    // Password states, validation results, and methods
+    // ...
+  };
+};
+```
+
+This hook encapsulates all password-related functionality, making it easy to implement consistent password management across the application.
+
+### Enhanced Session Security
+
+After sensitive operations like password changes, the application refreshes the user's session to enhance security:
+
+```typescript
+// src/lib/auth/sessionUtils.ts
+export const refreshSessionAfterSensitiveOperation = async (): Promise<boolean> => {
+  try {
+    console.info('Refreshing session after sensitive operation');
+    
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (error) {
+      console.error('Failed to refresh session:', error);
+      return false;
+    }
+    
+    if (data.session) {
+      // Update auth store with new session
+      const authStore = useAuthStore.getState();
+      authStore.setSession(data.session);
+      console.info('Session successfully refreshed after sensitive operation');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Exception refreshing session:', error);
+    return false;
+  }
+};
+```
+
+This session refresh rotates tokens after password changes, reducing the risk of session hijacking.
+
+### Secure Sign-Out
+
+The application implements a secure sign-out process that properly cleans up sensitive data:
+
+```typescript
+export const secureSignOut = async (): Promise<boolean> => {
+  try {
+    // Sign out from Supabase
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Error during sign-out:', error);
+      return false;
+    }
+    
+    // Clear auth store and session data
+    const authStore = useAuthStore.getState();
+    authStore.clearSession();
+    
+    // Clear any session storage items that may contain sensitive data
+    sessionStorage.clear();
+    
+    // Clear sensitive data from localStorage
+    const sensitiveKeys = [
+      'supabase.auth.token',
+      'supabase.auth.refreshToken',
+      'supabase.auth.user',
+      'userSession',
+      'authUser'
+    ];
+    
+    sensitiveKeys.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Exception during secure sign-out:', error);
+    return false;
+  }
+};
+```
+
+### Password Validation
+
+The application enforces strong password requirements:
+
+```typescript
+// src/utils/passwordUtils.ts
+export const validatePassword = (password: string): ValidationResult => {
+  if (password.length < 8) {
+    return { isValid: false, message: 'Password must be at least 8 characters long' };
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one uppercase letter' };
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one lowercase letter' };
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one number' };
+  }
+  
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { isValid: false, message: 'Password must include at least one special character' };
+  }
+  
+  return { isValid: true };
+};
+```
+
+### Password Strength Feedback
+
+The `PasswordStrengthMeter` component provides visual feedback about password strength:
+
+```tsx
+// Usage in a form
+{newPassword && (
+  <div className="mt-2">
+    <PasswordStrengthMeter strength={passwordStrength} />
+    
+    {/* Password requirements checklist */}
+    <div className="mt-2 space-y-1 text-sm">
+      <div className={`flex items-center ${requirements.minLength ? 'text-green-500' : 'text-gray-400'}`}>
+        <CheckIcon className="w-4 h-4 mr-1" />
+        <span>At least 8 characters</span>
+      </div>
+      <div className={`flex items-center ${requirements.hasUppercase ? 'text-green-500' : 'text-gray-400'}`}>
+        <CheckIcon className="w-4 h-4 mr-1" />
+        <span>At least 1 uppercase letter</span>
+      </div>
+      {/* Other requirements */}
+    </div>
+  </div>
+)}
+```
+
+### Security Audit Logging
+
+Security-relevant events are logged to the `security_audit_log` table:
+
+```sql
+CREATE TABLE "security_audit_log" (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id),
+  action TEXT NOT NULL,
+  ip_address TEXT,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  details JSONB
+);
+```
+
+This enables monitoring of sensitive operations like password changes, login attempts, and account creations.

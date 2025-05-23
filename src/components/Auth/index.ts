@@ -4,4 +4,6 @@ export { default as AuthProvider } from './AuthProvider';
 export { default as GoogleSignInButton } from './GoogleSignInButton';
 export { default as VerificationCodeInput } from './VerificationCodeInput';
 export { default as VerificationBanner } from './VerificationBanner';
-export { default as ProtectedRoute } from './ProtectedRoute'; 
+export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as ProfileMenu } from './ProfileMenu';
+export { default as Avatar } from './Avatar'; 

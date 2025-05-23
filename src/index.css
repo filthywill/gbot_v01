@@ -284,10 +284,27 @@
   }
 }
 
-/* Add custom animations */
+/* Animation utilities */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 @keyframes slideUp {
@@ -302,8 +319,12 @@
 }
 
 /* Apply animations to components */
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-in-out;
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fadeOut {
+  animation: fadeOut 0.3s ease-out forwards;
 }
 
 .animate-slide-up {
@@ -564,4 +585,9 @@
 
 .border-brand-neutral-950 {
   border-color: var(--brand-neutral-950);
+}
+
+/* Animation for feedback messages */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out forwards;
 }

@@ -88,61 +88,77 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   // Handle tab visibility changes to refresh auth state
   useEffect(() => {
+    let visibilityChangeTimeout: NodeJS.Timeout;
+    
     const handleVisibilityChange = async () => {
+      // Clear any pending visibility change operations
+      if (visibilityChangeTimeout) {
+        clearTimeout(visibilityChangeTimeout);
+      }
+      
       if (!document.hidden) {
         logger.debug('Tab became visible, refreshing auth state');
-        try {
-          // Force refresh the session when tab becomes visible
-          const { data, error } = await supabase.auth.getSession();
-          
-          // Fall back to cached session if there's an error or no session
-          if (error || !data.session) {
-            logger.debug('Using cached session after visibility change');
-            if (lastKnownSessionRef.current) {
-              const currentState = useAuthStore.getState();
-              // Only update if there's no current session
-              if (!currentState.session) {
-                currentState.setSession(lastKnownSessionRef.current);
-                logger.debug('Restored session from cache');
-                
-                // Also try to refresh user data
-                const user = await getCurrentUser();
-                if (user) {
-                  currentState.setUser(user);
-                  logger.debug('User data refreshed after restoring cached session');
+        
+        // Add a small delay to prevent race conditions with ongoing token refresh
+        visibilityChangeTimeout = setTimeout(async () => {
+          try {
+            // Force refresh the session when tab becomes visible
+            const { data, error } = await supabase.auth.getSession();
+            
+            // Fall back to cached session if there's an error or no session
+            if (error || !data.session) {
+              logger.debug('Using cached session after visibility change');
+              if (lastKnownSessionRef.current) {
+                const currentState = useAuthStore.getState();
+                // Only update if there's no current session
+                if (!currentState.session) {
+                  currentState.setSession(lastKnownSessionRef.current);
+                  logger.debug('Restored session from cache');
+                  
+                  // Also try to refresh user data
+                  const user = await getCurrentUser();
+                  if (user) {
+                    currentState.setUser(user);
+                    logger.debug('User data refreshed after restoring cached session');
+                  }
                 }
               }
+            } else if (data.session) {
+              // Update store if needed
+              const currentState = useAuthStore.getState();
+              if (!currentState.session || currentState.session.expires_at !== data.session.expires_at) {
+                logger.debug('Refreshing auth state after tab visibility change');
+                currentState.setSession(data.session);
+                lastKnownSessionRef.current = data.session;
+                
+                // Also refresh user data
+                const user = await getCurrentUser();
+                if (user) currentState.setUser(user);
+              }
             }
-          } else if (data.session) {
-            // Update store if needed
-            const currentState = useAuthStore.getState();
-            if (!currentState.session || currentState.session.expires_at !== data.session.expires_at) {
-              logger.debug('Refreshing auth state after tab visibility change');
-              currentState.setSession(data.session);
-              lastKnownSessionRef.current = data.session;
-              
-              // Also refresh user data
-              const user = await getCurrentUser();
-              if (user) currentState.setUser(user);
+          } catch (err) {
+            logger.error('Error refreshing session on visibility change:', err);
+            
+            // Attempt recovery with cached session
+            if (lastKnownSessionRef.current) {
+              logger.debug('Attempting recovery with cached session');
+              const currentState = useAuthStore.getState();
+              if (!currentState.session) {
+                currentState.setSession(lastKnownSessionRef.current);
+              }
             }
           }
-        } catch (err) {
-          logger.error('Error refreshing session on visibility change:', err);
-          
-          // Attempt recovery with cached session
-          if (lastKnownSessionRef.current) {
-            logger.debug('Attempting recovery with cached session');
-            const currentState = useAuthStore.getState();
-            if (!currentState.session) {
-              currentState.setSession(lastKnownSessionRef.current);
-            }
-          }
-        }
+        }, import.meta.env.PROD ? 300 : 150); // Longer delay in production to prevent race conditions
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityChangeTimeout) {
+        clearTimeout(visibilityChangeTimeout);
+      }
+    };
   }, []);
   
   // Render children without waiting for auth to complete

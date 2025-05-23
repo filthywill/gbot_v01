@@ -6,6 +6,7 @@ import logger from '../lib/logger';
 import { clearAllVerificationState } from '../lib/auth/utils';
 import { checkVerificationState, saveVerificationState } from '../lib/auth/verification';
 import AUTH_CONFIG from '../lib/auth/config';
+import { secureSignOut } from '../lib/auth/sessionUtils';
 
 // Auth states that represent the full lifecycle of authentication
 export type AuthStatus = 
@@ -39,6 +40,7 @@ type AuthState = {
   // Direct state setters (for auth callbacks and external auth sources)
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
+  clearSession: () => void;
   
   // Computed / helpers
   isAuthenticated: () => boolean;
@@ -194,56 +196,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
       clearAllVerificationState();
       
       return data;
-    } catch (error) {
-      logger.error('Email sign-in error:', error);
-      
-      // Log the complete error object for debugging
-      if (import.meta.env.DEV) {
-        console.log('Sign-in error structure:', JSON.stringify(error, null, 2));
-      }
-      
-      // Set more user-friendly error messages based on error codes
-      let userFriendlyError = error instanceof Error ? error.message : 'Failed to sign in';
-      
-      // Check for error code first (more reliable)
-      if (error && typeof error === 'object') {
-        // Check for Supabase structured error format
-        const errorCode = 
-          // Check for error.code directly
-          ('code' in error && typeof error.code === 'string') ? error.code :
-          // Check for error.error.code (nested structure)
-          ('error' in error && typeof error.error === 'object' && error.error && 'code' in error.error) ? 
-            error.error.code : null;
-        
-        if (errorCode) {
-          logger.debug('Sign-in error code detected:', errorCode);
-          
-          switch (errorCode) {
-            case 'invalid_credentials':
-            case 'invalid_login_credentials':
-              userFriendlyError = 'Incorrect email or password. Please try again.';
-              break;
-            case 'email_not_confirmed':
-              userFriendlyError = 'Please verify your email before signing in.';
-              break;
-            case 'user_not_found':
-              userFriendlyError = 'No account found with this email address.';
-              break;
-            case 'too_many_attempts':
-            case 'over_request_rate_limit':
-              userFriendlyError = 'Too many sign-in attempts. Please try again later.';
-              break;
-            default:
-              // Keep default error message for unrecognized codes
-              break;
-          }
-        }
-      }
-      
+    } catch (error: any) {
+      logger.error('Error signing in:', error);
+      logger.debug('Supabase auth error structure:', JSON.stringify(error, null, 2));
       set({ 
-        status: 'ERROR',
-        error: userFriendlyError,
-        lastError: error instanceof Error ? error : new Error(userFriendlyError)
+        error: error.message || 'Authentication failed',
+        lastError: error,
+        status: 'ERROR' 
       });
       throw error;
     }
@@ -378,31 +337,19 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING' });
       
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Use the secure sign-out function for better security
+      await secureSignOut();
       
-      // Clear auth state
-      set({ 
-        user: null,
-        session: null,
-        status: 'UNAUTHENTICATED',
-        error: null
-      });
+      // No need to update state as secureSignOut already calls clearSession
+      set({ status: 'UNAUTHENTICATED' });
       
-      // Clear verification state when logging out
-      clearAllVerificationState();
-      
-      // Also clear password recovery state
-      try {
-        localStorage.removeItem('passwordRecoveryState');
-        logger.debug('Cleared password recovery state on sign out');
-      } catch (err) {
-        logger.error('Error clearing password recovery state:', err);
-      }
+      // Update preferences if needed
+      const { clearPreferences } = usePreferencesStore.getState();
+      clearPreferences();
       
       logger.info('User signed out successfully');
     } catch (error) {
-      logger.error('Sign out error:', error);
+      logger.error('Error signing out:', error);
       set({ 
         status: 'ERROR',
         error: error instanceof Error ? error.message : 'Failed to sign out',
@@ -680,6 +627,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
   // Direct state setters for auth callbacks
   setUser: (user: User | null) => set({ user }),
   setSession: (session: Session | null) => set({ session }),
+  
+  clearSession: () => set({ 
+    user: null, 
+    session: null, 
+    status: 'UNAUTHENTICATED',
+    error: null
+  }),
   
   // Computed helpers
   isAuthenticated: () => get().status === 'AUTHENTICATED',
@@ -962,8 +916,9 @@ export const checkUserExists = async (email: string): Promise<boolean> => {
     // Log any unexpected errors but don't expose to user
     logger.error("Error checking if user exists:", error);
     
-    // Default to false for other errors
-    return false;
+    // If checking user existence fails, assume user might exist to avoid information disclosure
+    logger.debug('User exists check error structure:', JSON.stringify(error, null, 2));
+    return true; // Fail safely by assuming user exists
   } catch (error) {
     logger.error('Exception checking if user exists:', error);
     return false; // Assume user doesn't exist if there's an error
