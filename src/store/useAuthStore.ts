@@ -66,8 +66,19 @@ const useAuthStore = create<AuthState>((set, get) => ({
   isUserDataLoading: false,
 
   initialize: async () => {
-    // Only initialize if we're in the initial state to prevent duplicate initializations
-    if (get().status !== 'INITIAL' && get().status !== 'ERROR') {
+    const currentState = get();
+    
+    // Prevent multiple simultaneous initializations
+    if (currentState.status === 'LOADING' || 
+        (currentState.status === 'AUTHENTICATED' && currentState.user && currentState.session)) {
+      logger.debug('Auth initialization already in progress or completed, skipping');
+      return;
+    }
+    
+    // Only initialize if we're in the initial state, error state, or unauthenticated with no session
+    if (currentState.status !== 'INITIAL' && 
+        currentState.status !== 'ERROR' && 
+        !(currentState.status === 'UNAUTHENTICATED' && !currentState.session)) {
       logger.debug('Auth already initialized, skipping initialization');
       return;
     }
@@ -673,44 +684,107 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
       if (session) {
-        try {
-          // Mark as loading while we fetch the user data
-          useAuthStore.setState({ 
-            status: 'LOADING', 
-            isUserDataLoading: true
-          });
-          
-          const user = await getCurrentUser(AUTH_CONFIG.maxUserFetchRetries);
-          
-          if (user) {
+        // IMPORTANT: Use setTimeout to avoid the Supabase deadlock bug
+        // Don't make async API calls directly in onAuthStateChange
+        setTimeout(async () => {
+          try {
+            // Mark as loading while we fetch the user data
             useAuthStore.setState({ 
-              user,
-              session,
-              status: 'AUTHENTICATED',
-              error: null,
-              isUserDataLoading: false
+              status: 'LOADING', 
+              isUserDataLoading: true,
+              session // Always set the session immediately
             });
             
-            logger.info('User authenticated via state change', { userId: user.id, event });
-          } else {
-            logger.warn('Auth state change with session but no user data');
+            const user = await getCurrentUser(AUTH_CONFIG.maxUserFetchRetries);
+            
+            if (user) {
+              useAuthStore.setState({ 
+                user,
+                session,
+                status: 'AUTHENTICATED',
+                error: null,
+                isUserDataLoading: false
+              });
+              
+              logger.info('User authenticated via state change', { userId: user.id, event });
+            } else {
+              logger.warn('Auth state change with session but no user data');
+              
+              // Don't clear the session immediately - give the user a chance to recover
+              // Keep the session but mark as error state temporarily
+              useAuthStore.setState({ 
+                status: 'ERROR',
+                error: 'Unable to retrieve user information. Please refresh the page.',
+                isUserDataLoading: false
+                // Note: We're keeping the session here instead of clearing it
+              });
+              
+              // Try to recover the user data in the background
+              setTimeout(async () => {
+                try {
+                  const retryUser = await getCurrentUser(1); // Single retry
+                  if (retryUser) {
+                    useAuthStore.setState({ 
+                      user: retryUser,
+                      status: 'AUTHENTICATED',
+                      error: null
+                    });
+                    logger.info('Successfully recovered user data after initial failure');
+                  } else {
+                    // Only clear session after exhaustive attempts fail
+                    logger.error('Failed to recover user data, clearing session');
+                    useAuthStore.setState({ 
+                      user: null,
+                      session: null,
+                      status: 'UNAUTHENTICATED',
+                      error: 'Session expired. Please sign in again.'
+                    });
+                  }
+                } catch (error) {
+                  logger.error('Error during user data recovery:', error);
+                  // Clear session only after recovery fails
+                  useAuthStore.setState({ 
+                    user: null,
+                    session: null,
+                    status: 'UNAUTHENTICATED',
+                    error: 'Authentication failed. Please sign in again.'
+                  });
+                }
+              }, 2000); // Wait 2 seconds before attempting recovery
+            }
+          } catch (error) {
+            logger.error('Error during auth state change:', error);
+            
+            // Don't clear session immediately on error - be more conservative
             useAuthStore.setState({ 
-              status: 'UNAUTHENTICATED',
-              user: null,
-              session: null,
-              error: 'Failed to retrieve user information',
+              status: 'ERROR',
+              error: 'Authentication error. Please refresh the page.',
+              lastError: error instanceof Error ? error : new Error('Unknown error'),
               isUserDataLoading: false
+              // Keep the session for potential recovery
             });
+            
+            // Attempt recovery after a delay
+            setTimeout(async () => {
+              try {
+                const currentSession = useAuthStore.getState().session;
+                if (currentSession) {
+                  const retryUser = await getCurrentUser(1);
+                  if (retryUser) {
+                    useAuthStore.setState({ 
+                      user: retryUser,
+                      status: 'AUTHENTICATED',
+                      error: null
+                    });
+                    logger.info('Successfully recovered from auth state change error');
+                  }
+                }
+              } catch (recoveryError) {
+                logger.debug('Auth recovery failed, maintaining error state');
+              }
+            }, 3000); // Wait 3 seconds before attempting recovery
           }
-        } catch (error) {
-          logger.error('Error during auth state change:', error);
-          useAuthStore.setState({ 
-            status: 'ERROR',
-            error: 'Authentication state error',
-            lastError: error instanceof Error ? error : new Error('Unknown error'),
-            isUserDataLoading: false
-          });
-        }
+        }, 0); // Use setTimeout to break out of the onAuthStateChange context
       }
     } else if (event === 'SIGNED_OUT') {
       useAuthStore.setState({ 

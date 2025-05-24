@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { UserIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface AvatarProps {
   user: User;
-  profile?: {
-    avatar_url: string | null;
-  } | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   showFallback?: boolean;
@@ -19,7 +16,6 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ 
   user, 
-  profile,
   size = 'sm', 
   className = '',
   showFallback = true,
@@ -31,8 +27,10 @@ const Avatar: React.FC<AvatarProps> = ({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImageReady, setIsImageReady] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
-  // Size configurations
+  // Size configurations - ensure consistent sizing across all states
   const sizeClasses = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12', 
@@ -49,33 +47,66 @@ const Avatar: React.FC<AvatarProps> = ({
     const loadAvatar = async () => {
       setIsLoading(true);
       setImageError(false);
+      setIsImageReady(false);
       
-      // Priority 1: Uploaded avatar from profile
-      if (profile?.avatar_url) {
-        setImageUrl(profile.avatar_url);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Priority 2: Social provider avatar
+      // Try to get avatar from social provider metadata
       const socialAvatar = getSocialProviderAvatar(user);
+      
       if (socialAvatar) {
-        setImageUrl(socialAvatar);
-        setIsLoading(false);
+        // Preload the image to prevent broken image flash
+        const img = new Image();
+        img.onload = () => {
+          setImageUrl(socialAvatar);
+          setIsImageReady(true);
+          setIsLoading(false);
+        };
+        img.onerror = () => {
+          setImageError(true);
+          setImageUrl(null);
+          setIsLoading(false);
+          // Try Gravatar as fallback if social avatar fails
+          if (user.email && showFallback) {
+            tryGravatarFallback();
+          }
+        };
+        img.src = socialAvatar;
         return;
       }
 
-      // Priority 3: Gravatar fallback
+      // Fallback to Gravatar if no social avatar
       if (user.email && showFallback) {
-        const gravatarUrl = await getGravatarUrl(user.email);
-        setImageUrl(gravatarUrl);
+        await tryGravatarFallback();
+      } else {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
+    };
+
+    const tryGravatarFallback = async () => {
+      try {
+        const gravatarUrl = await getGravatarUrl(user.email!);
+        
+        // Preload Gravatar image
+        const img = new Image();
+        img.onload = () => {
+          setImageUrl(gravatarUrl);
+          setIsImageReady(true);
+          setIsLoading(false);
+        };
+        img.onerror = () => {
+          setImageError(true);
+          setImageUrl(null);
+          setIsLoading(false);
+        };
+        img.src = gravatarUrl;
+      } catch (error) {
+        setImageError(true);
+        setImageUrl(null);
+        setIsLoading(false);
+      }
     };
 
     loadAvatar();
-  }, [user, profile, showFallback]);
+  }, [user, showFallback]);
 
   // Extract avatar URL from social provider metadata
   const getSocialProviderAvatar = (user: User): string | null => {
@@ -141,40 +172,54 @@ const Avatar: React.FC<AvatarProps> = ({
   const handleImageError = () => {
     setImageError(true);
     setImageUrl(null);
+    setIsImageReady(false);
   };
 
   const handleImageLoad = () => {
+    setIsImageReady(true);
     setIsLoading(false);
   };
 
-  // Show loading state
-  if (isLoading && imageUrl) {
+  // Common container classes that ensure fixed dimensions across all states
+  const containerClasses = cn(
+    sizeClasses[size],
+    "rounded-full flex-shrink-0", // flex-shrink-0 prevents size changes
+    isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer",
+    className
+  );
+
+  // Show loading state - maintain exact same dimensions
+  if (isLoading) {
     return (
       <div className={cn(
-        sizeClasses[size],
-        "rounded-full bg-zinc-700 animate-pulse",
-        className
+        containerClasses,
+        "bg-zinc-700 animate-pulse border border-zinc-600"
       )} />
     );
   }
 
-  // Show avatar image if available and not errored
-  if (imageUrl && !imageError) {
+  // Show avatar image if available and ready
+  if (imageUrl && isImageReady && !imageError) {
     const imageElement = (
-      <img
-        src={imageUrl}
-        alt={`${user.email || 'User'} avatar`}
-        className={cn(
-          sizeClasses[size],
-          "rounded-full object-cover border border-zinc-600",
-          isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer",
-          className
-        )}
-        onError={handleImageError}
-        onLoad={handleImageLoad}
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
-      />
+      <div className={containerClasses}>
+        <img
+          ref={imgRef}
+          src={imageUrl}
+          alt={`${user.email || 'User'} avatar`}
+          className={cn(
+            sizeClasses[size],
+            "rounded-full object-cover border border-zinc-600 block"
+          )}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          // Prevent image from showing until fully loaded
+          style={{
+            display: isImageReady ? 'block' : 'none'
+          }}
+        />
+      </div>
     );
 
     if (isClickable && onClick) {
@@ -193,13 +238,12 @@ const Avatar: React.FC<AvatarProps> = ({
     return imageElement;
   }
 
-  // Fallback to default icon
+  // Fallback to default icon - maintain exact same dimensions
   const fallbackElement = (
     <div className={cn(
-      sizeClasses[size],
-      "rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center",
-      isClickable && "transition-all duration-200 hover:ring-2 hover:ring-zinc-500 hover:ring-offset-2 hover:ring-offset-zinc-900 cursor-pointer hover:bg-zinc-600",
-      className
+      containerClasses,
+      "bg-zinc-700 border border-zinc-600 flex items-center justify-center",
+      isClickable && "hover:bg-zinc-600"
     )}>
       <UserIcon className={cn(iconSizes[size], "text-zinc-400")} />
     </div>

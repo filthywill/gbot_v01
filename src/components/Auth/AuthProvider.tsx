@@ -18,6 +18,10 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { initializeSDK } = useGoogleAuthStore();
   // Add ref to cache the last known good session
   const lastKnownSessionRef = useRef<any>(null);
+  // Add ref to track if visibility change is in progress
+  const visibilityChangeInProgressRef = useRef(false);
+  // Add ref to track the last visibility change time
+  const lastVisibilityChangeRef = useRef(0);
   
   // Initialize authentication on mount
   useEffect(() => {
@@ -88,76 +92,136 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   // Handle tab visibility changes to refresh auth state
   useEffect(() => {
-    let visibilityChangeTimeout: NodeJS.Timeout;
+    let debounceTimeout: NodeJS.Timeout;
     
     const handleVisibilityChange = async () => {
-      // Clear any pending visibility change operations
-      if (visibilityChangeTimeout) {
-        clearTimeout(visibilityChangeTimeout);
+      // Clear any pending timeouts
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
       }
       
+      const now = Date.now();
+      const timeSinceLastChange = now - lastVisibilityChangeRef.current;
+      
+      // If tab is becoming visible
       if (!document.hidden) {
-        logger.debug('Tab became visible, refreshing auth state');
+        // Debounce rapid visibility changes (prevent multiple triggers)
+        if (timeSinceLastChange < 1000) {
+          logger.debug('Debouncing rapid visibility change');
+          return;
+        }
         
-        // Add a small delay to prevent race conditions with ongoing token refresh
-        visibilityChangeTimeout = setTimeout(async () => {
+        // Check if we're already processing a visibility change
+        if (visibilityChangeInProgressRef.current) {
+          logger.debug('Visibility change already in progress, skipping');
+          return;
+        }
+        
+        lastVisibilityChangeRef.current = now;
+        visibilityChangeInProgressRef.current = true;
+        
+        logger.debug('Tab became visible, checking auth state');
+        
+        // Add a debounced delay to prevent race conditions with ongoing operations
+        debounceTimeout = setTimeout(async () => {
           try {
-            // Force refresh the session when tab becomes visible
-            const { data, error } = await supabase.auth.getSession();
+            const currentState = useAuthStore.getState();
             
-            // Fall back to cached session if there's an error or no session
-            if (error || !data.session) {
-              logger.debug('Using cached session after visibility change');
-              if (lastKnownSessionRef.current) {
-                const currentState = useAuthStore.getState();
-                // Only update if there's no current session
-                if (!currentState.session) {
-                  currentState.setSession(lastKnownSessionRef.current);
-                  logger.debug('Restored session from cache');
-                  
-                  // Also try to refresh user data
-                  const user = await getCurrentUser();
-                  if (user) {
-                    currentState.setUser(user);
-                    logger.debug('User data refreshed after restoring cached session');
+            // If auth is currently loading, don't interfere
+            if (currentState.isSessionLoading || currentState.isUserDataLoading) {
+              logger.debug('Auth operations in progress, skipping visibility change refresh');
+              visibilityChangeInProgressRef.current = false;
+              return;
+            }
+            
+            // Only proceed if we have a session or cached session
+            if (!currentState.session && !lastKnownSessionRef.current) {
+              logger.debug('No session to refresh, skipping visibility change refresh');
+              visibilityChangeInProgressRef.current = false;
+              return;
+            }
+            
+            // For users who are already authenticated, just validate the current session
+            if (currentState.user && currentState.session) {
+              // Don't make async calls during tab switching - let the auth state change handler manage this
+              logger.debug('User already authenticated, letting auth system manage state');
+            } else if (currentState.status === 'ERROR' && currentState.session) {
+              // If we're in an error state but have a session, trigger a gentle refresh
+              // by temporarily clearing and restoring the session to trigger auth state change
+              logger.debug('Attempting to recover from error state on tab visibility change');
+              setTimeout(() => {
+                try {
+                  const session = currentState.session;
+                  if (session) {
+                    // Trigger auth state change by briefly clearing and restoring session
+                    currentState.setSession(null);
+                    setTimeout(() => {
+                      currentState.setSession(session);
+                    }, 100);
                   }
+                } catch (err) {
+                  logger.debug('Could not trigger session refresh:', err);
                 }
-              }
-            } else if (data.session) {
-              // Update store if needed
-              const currentState = useAuthStore.getState();
-              if (!currentState.session || currentState.session.expires_at !== data.session.expires_at) {
-                logger.debug('Refreshing auth state after tab visibility change');
-                currentState.setSession(data.session);
-                lastKnownSessionRef.current = data.session;
-                
-                // Also refresh user data
-                const user = await getCurrentUser();
-                if (user) currentState.setUser(user);
+              }, 250);
+            } else if (!currentState.user && currentState.session) {
+              // We have a session but no user - trigger a session refresh
+              logger.debug('Session exists but no user, triggering refresh');
+              setTimeout(() => {
+                try {
+                  const session = currentState.session;
+                  if (session) {
+                    // Trigger auth state change by briefly clearing and restoring session
+                    currentState.setSession(null);
+                    setTimeout(() => {
+                      currentState.setSession(session);
+                    }, 100);
+                  }
+                } catch (err) {
+                  logger.debug('Could not trigger session refresh:', err);
+                }
+              }, 250);
+            } else if (lastKnownSessionRef.current && !currentState.session) {
+              // Try to restore from cached session
+              logger.debug('Attempting to restore session from cache');
+              try {
+                currentState.setSession(lastKnownSessionRef.current);
+              } catch (err) {
+                logger.debug('Could not restore cached session:', err);
+                lastKnownSessionRef.current = null;
               }
             }
           } catch (err) {
-            logger.error('Error refreshing session on visibility change:', err);
-            
-            // Attempt recovery with cached session
-            if (lastKnownSessionRef.current) {
-              logger.debug('Attempting recovery with cached session');
-              const currentState = useAuthStore.getState();
-              if (!currentState.session) {
-                currentState.setSession(lastKnownSessionRef.current);
-              }
-            }
+            logger.error('Error handling tab visibility change:', err);
+            // Don't force logout on errors - preserve existing auth state
+          } finally {
+            visibilityChangeInProgressRef.current = false;
           }
-        }, import.meta.env.PROD ? 300 : 150); // Longer delay in production to prevent race conditions
+        }, 500); // Increased debounce delay for better stability
+      } else {
+        // Tab is becoming hidden - just update the timestamp
+        lastVisibilityChangeRef.current = now;
+        logger.debug('Tab became hidden, preserving auth state');
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also add focus event as backup (some browsers don't fire visibilitychange consistently)
+    const handleWindowFocus = () => {
+      if (!document.hidden) {
+        handleVisibilityChange();
+      }
+    };
+    
+    window.addEventListener('focus', handleWindowFocus);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (visibilityChangeTimeout) {
-        clearTimeout(visibilityChangeTimeout);
+      window.removeEventListener('focus', handleWindowFocus);
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
       }
+      visibilityChangeInProgressRef.current = false;
     };
   }, []);
   

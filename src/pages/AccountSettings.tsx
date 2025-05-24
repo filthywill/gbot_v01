@@ -7,9 +7,7 @@ import PasswordStrengthMeter from '../components/Auth/PasswordStrengthMeter';
 import { EyeIcon, EyeOffIcon, HomeIcon, ArrowLeftIcon } from 'lucide-react';
 import useNotificationStore from '../store/useNotificationStore';
 import { usePasswordManagement } from '../hooks/auth/usePasswordManagement';
-import { useProfileManagement } from '../hooks/useProfileManagement';
 import { AppHeader } from '../components/app';
-import { AvatarUpload } from '../components/Auth';
 
 const AccountSettings = () => {
   const { user } = useAuthStore();
@@ -21,22 +19,33 @@ const AccountSettings = () => {
   const passwordManagement = usePasswordManagement({ 
     userEmail: user?.email 
   });
-
-  // Use the profile management hook
-  const profileManagement = useProfileManagement();
   
   useEffect(() => {
-    if (user?.id) {
-      profileManagement.fetchProfile(user.id);
-    }
-  }, [user, profileManagement.fetchProfile]);
-
-  // Sync username state with profile data
-  useEffect(() => {
-    if (profileManagement.profile?.username) {
-      setUsername(profileManagement.profile.username);
-    }
-  }, [profileManagement.profile]);
+    const fetchProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
+        }
+        
+        if (data) {
+          setUsername(data.username || '');
+        }
+      } catch (error) {
+        console.error('Error in profile fetch:', error);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
   
     // Check Supabase Auth settings on component mount (development only)
   useEffect(() => {
@@ -72,25 +81,27 @@ const AccountSettings = () => {
   const updateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !username.trim()) return;
+    if (!user) return;
     
     setIsSaving(true);
     
     try {
-      const success = await profileManagement.updateProfile({ username: username.trim() });
+      const updates = {
+        id: user.id,
+        username,
+        updated_at: new Date().toISOString(),
+      };
       
-      if (success) {
-        addNotification({
-          type: 'success',
-          message: 'Profile updated successfully!'
-        });
-      } else {
-        // Error is already set in profileManagement.error
-        addNotification({
-          type: 'error',
-          message: profileManagement.error || 'Error updating profile.'
-        });
-      }
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(updates);
+        
+      if (error) throw error;
+      
+      addNotification({
+        type: 'success',
+        message: 'Profile updated successfully!'
+      });
     } catch (error) {
       console.error('Error updating profile:', error);
       addNotification({
@@ -154,88 +165,43 @@ const AccountSettings = () => {
 
         
         <div className="bg-container rounded-lg shadow-lg p-6 mb-2">
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
-            
-            {/* Profile Layout - Avatar and Form Side by Side */}
-            <div className="flex flex-col lg:flex-row gap-8">
-              {/* Avatar Upload Section */}
-              <div className="flex-shrink-0">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-secondary mb-3">Profile Picture</label>
-                  {user && (
-                    <AvatarUpload
-                      user={user}
-                      profile={profileManagement.profile}
-                      onAvatarUpdate={(newAvatarUrl) => {
-                        // Optimistically update the profile state
-                        if (profileManagement.profile) {
-                          // The hook already handles the update, just show success
-                          addNotification({
-                            type: 'success',
-                            message: newAvatarUrl ? 'Profile picture updated!' : 'Profile picture removed!'
-                          });
-                        }
-                      }}
-                      size="lg"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Profile Form Section */}
-              <div className="flex-1 space-y-4">
-                <div className="max-w-md">
-                  <label className="block text-sm font-medium text-secondary mb-1">Email</label>
-                  <input 
-                    type="text" 
-                    value={user?.email || ''} 
-                    disabled 
-                    className="w-full px-3 py-2 bg-panel border border-app rounded-md text-secondary"
-                  />
-                  <p className="mt-1 text-xs text-secondary">Your email address cannot be changed.</p>
-                </div>
-                
-                <form onSubmit={updateProfile} className="space-y-4">
-                  <div className="max-w-md">
-                    <label htmlFor="username" className="block text-sm font-medium text-secondary mb-1">
-                      Username
-                    </label>
-                    <input
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-3 py-2 bg-app border border-app rounded-md text-primary 
-                      focus:ring-1 focus:ring-brand-primary-500 focus:border-brand-primary-500 outline-none"
-                      placeholder="Enter your username"
-                      minLength={2}
-                      maxLength={50}
-                      pattern="^[a-zA-Z0-9_.-]+$"
-                      title="Username can only contain letters, numbers, dots, dashes, and underscores"
-                    />
-                    <p className="mt-1 text-xs text-secondary">
-                      2-50 characters. Letters, numbers, dots, dashes, and underscores only.
-                    </p>
-                    
-                    {/* Show validation error if exists */}
-                    {profileManagement.error && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {profileManagement.error}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    disabled={isSaving || profileManagement.isSaving || !username.trim()}
-                    className="mt-4"
-                  >
-                    {(isSaving || profileManagement.isSaving) ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </form>
-              </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold mb-3">Profile Information</h2>
+                        
+            <div className="mb-4 max-w-md">
+              <label className="block text-sm font-medium text-secondary mb-1">Email</label>
+              <input 
+                type="text" 
+                value={user?.email || ''} 
+                disabled 
+                className="w-full px-3 py-2 bg-panel border border-app rounded-md text-secondary"
+              />
+              <p className="mt-1 text-xs text-secondary">Your email address cannot be changed.</p>
             </div>
+            
+            <form onSubmit={updateProfile}>
+              <div className="mb-4 max-w-md">
+                <label htmlFor="username" className="block text-sm font-medium text-secondary mb-1">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3 py-2 bg-app border border-app rounded-md text-primary 
+                  focus:ring-1 focus:ring-brand-primary-500 focus:border-brand-primary-500 outline-none"
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                disabled={isSaving}
+                className="mt-2"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </form>
           </div>
         </div>
         

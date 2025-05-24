@@ -24,18 +24,7 @@ This markdown document can be checked into your repository as a reference for yo
 
 ### Basic Profiles Table Schema
 
-```sql
-CREATE TABLE public.profiles (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  username TEXT,
-  website TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- Set comment on table
-COMMENT ON TABLE public.profiles IS 'Profile information for application users';
-```
+```sqlCREATE TABLE public.profiles (  id UUID REFERENCES auth.users(id) PRIMARY KEY,  username TEXT,  avatar_url TEXT,  updated_at TIMESTAMP WITH TIME ZONE,  created_at TIMESTAMP WITH TIME ZONE DEFAULT now());-- Set comment on tableCOMMENT ON TABLE public.profiles IS 'Profile information for application users';```
 
 ## 2. Security Implementation
 
@@ -202,15 +191,7 @@ Here's a complete example migration file that creates the profiles table with al
 ```sql
 -- Migration: 20230801000000_create_profiles_table.sql
 
--- Create profiles table
-CREATE TABLE public.profiles (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  username TEXT,
-  website TEXT,
-  avatar_url TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+-- Create profiles tableCREATE TABLE public.profiles (  id UUID REFERENCES auth.users(id) PRIMARY KEY,  username TEXT,  avatar_url TEXT,  updated_at TIMESTAMP WITH TIME ZONE,  created_at TIMESTAMP WITH TIME ZONE DEFAULT now());
 
 -- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -250,7 +231,6 @@ CREATE TRIGGER on_auth_user_created
 COMMENT ON TABLE public.profiles IS 'Profile information for application users';
 COMMENT ON COLUMN public.profiles.id IS 'References the auth.users table';
 COMMENT ON COLUMN public.profiles.username IS 'User-provided username';
-COMMENT ON COLUMN public.profiles.website IS 'User-provided website URL';
 COMMENT ON COLUMN public.profiles.avatar_url IS 'URL to user avatar image';
 ```
 

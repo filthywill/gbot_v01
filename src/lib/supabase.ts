@@ -65,21 +65,23 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
               const session = JSON.parse(value);
               const now = Math.floor(Date.now() / 1000);
               
-              // CRITICAL: For tab switching scenarios, be very conservative about when to return null
+              // For tab switching scenarios, be extremely conservative about when to return null
               // Only return null if the session is significantly expired AND we have explicit user preference
               if (session && session.expires_at) {
-                // Much more conservative grace period - prioritize user experience over security margins
+                // More aggressive caching for tab switching - prioritize user experience
                 const sessionAge = now - (session.issued_at || session.expires_at - 3600);
                 const sessionAgeHours = sessionAge / 3600;
                 
-                // Extended grace periods to handle tab switching and network delays
+                // Very extended grace periods for tab switching scenarios
                 let gracePeriod;
-                if (sessionAgeHours < 2) {
-                  gracePeriod = 15 * 60; // 15 minutes for sessions under 2 hours
-                } else if (sessionAgeHours < 12) {
-                  gracePeriod = 10 * 60; // 10 minutes for sessions under 12 hours
+                if (sessionAgeHours < 1) {
+                  gracePeriod = 30 * 60; // 30 minutes for fresh sessions
+                } else if (sessionAgeHours < 6) {
+                  gracePeriod = 20 * 60; // 20 minutes for sessions under 6 hours
+                } else if (sessionAgeHours < 24) {
+                  gracePeriod = 15 * 60; // 15 minutes for sessions under 24 hours
                 } else {
-                  gracePeriod = 5 * 60; // 5 minutes for older sessions
+                  gracePeriod = 10 * 60; // 10 minutes for older sessions
                 }
                 
                 const effectiveExpiry = session.expires_at - gracePeriod;
@@ -96,8 +98,8 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
                   return value;
                 }
                 
-                // Session appears expired - be VERY careful about returning null
-                // Only return null if we're absolutely sure the user wants to be logged out
+                // Session appears expired - be VERY conservative about returning null
+                // During tab switching, always prefer to return the session and let refresh handle it
                 let rememberMe = true; // Default to true for safety
                 try {
                   const preferences = JSON.parse(localStorage.getItem('gbot-preferences') || '{}');
@@ -109,7 +111,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
                 }
                 
                 // Only return null if rememberMe is explicitly false AND session is very expired
-                const veryExpiredThreshold = session.expires_at + (30 * 60); // 30 minutes past expiry
+                const veryExpiredThreshold = session.expires_at + (60 * 60); // 1 hour past expiry
                 if (!rememberMe && now > veryExpiredThreshold) {
                   logger.debug('Not returning very expired session due to rememberMe=false');
                   return null;
@@ -383,28 +385,35 @@ export const getCurrentUser = async (retryCount = AUTH_CONFIG.maxUserFetchRetrie
         return lastKnownUserCache;
       }
       
-      // Increased timeout for better tab switching support
+      // Use much shorter timeouts to avoid blocking auth state changes
+      const timeoutMs = document.hidden ? 8000 : (import.meta.env.PROD ? 5000 : 3000);
+      
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('User fetch timeout')), 8000); // Increased from 4000ms to 8000ms
+        setTimeout(() => reject(new Error('User fetch timeout')), timeoutMs);
       });
       
       const userPromise = supabase.auth.getUser();
       
       // Race between the actual request and the timeout
-      const result = await Promise.race([userPromise, timeoutPromise]) as { data: { user: any } };
+      const result = await Promise.race([userPromise, timeoutPromise]) as { data: { user: any }, error?: any };
+      
+      // Check for errors in the response
+      if (result?.error) {
+        throw result.error;
+      }
       
       if (!result?.data?.user) {
         logger.debug(`No user found in getCurrentUser (attempt ${attempt + 1}/${retryCount + 1})`);
         
-        // If we have cached data and tab is not visible, return it
-        if (lastKnownUserCache && document.hidden) {
-          logger.debug('Using cached user data for hidden tab');
+        // If we have cached data, return it instead of failing
+        if (lastKnownUserCache) {
+          logger.debug('Using cached user data as fallback for missing user');
           return lastKnownUserCache;
         }
         
         if (attempt < retryCount) {
-          // Exponential backoff with longer delays for tab switching scenarios
-          const backoffTime = Math.pow(2, attempt) * 1000; // Increased from 500ms base to 1000ms
+          // Use shorter delays to avoid blocking
+          const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000); // Cap at 2 seconds, shorter base
           logger.debug(`Retrying getCurrentUser in ${backoffTime}ms`);
           await delay(backoffTime);
           continue;
@@ -421,23 +430,26 @@ export const getCurrentUser = async (retryCount = AUTH_CONFIG.maxUserFetchRetrie
     } catch (error) {
       logger.warn(`Error getting current user (attempt ${attempt + 1}/${retryCount + 1}):`, error);
       
-      // If we have cached data and tab is not visible, return it even in error case
-      if (lastKnownUserCache && document.hidden) {
-        logger.debug('Using cached user data for hidden tab after error');
+      // If we have cached data, use it as fallback for any error
+      if (lastKnownUserCache && (attempt === retryCount || document.hidden)) {
+        logger.debug('Using cached user data after error (final fallback)');
         return lastKnownUserCache;
       }
       
       if (attempt < retryCount) {
-        // Exponential backoff with longer delays
-        const backoffTime = Math.pow(2, attempt) * 1000; // Increased from 500ms base to 1000ms
-        logger.debug(`Retrying getCurrentUser in ${backoffTime}ms`);
+        // Use shorter delays for error recovery
+        const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000); // Cap at 2 seconds, shorter base
+        logger.debug(`Retrying getCurrentUser in ${backoffTime}ms after error`);
         await delay(backoffTime);
       } else {
         // If all retries fail but we have a cached user, return it as last resort
         if (lastKnownUserCache) {
-          logger.debug('All retries failed, using cached user data as fallback');
+          logger.debug('All retries failed, using cached user data as final fallback');
           return lastKnownUserCache;
         }
+        
+        // Only return null if we have no cached data at all
+        logger.error('getCurrentUser failed completely with no cached fallback');
         return null;
       }
     }

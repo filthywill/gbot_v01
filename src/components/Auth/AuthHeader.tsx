@@ -7,7 +7,7 @@ import ProfileMenu from './ProfileMenu';
 
 /**
  * Authentication header component that displays the current authentication state
- * Uses non-blocking rendering to provide a smooth user experience
+ * Uses non-blocking rendering with fixed dimensions to prevent layout shifts
  */
 const AuthHeader: React.FC = () => {
   const { 
@@ -51,20 +51,30 @@ const AuthHeader: React.FC = () => {
     }
   }, [isAuthenticated]);
   
+  // Fixed container dimensions to prevent layout shifts
+  const containerClasses = cn(
+    "flex items-center justify-end", // Consistent alignment
+    "min-h-[40px]", // Minimum height to prevent collapse
+    "min-w-[120px]" // Minimum width to prevent horizontal shifting
+  );
+  
   // Render based on authentication status
   return (
-    <div className="flex items-center">
+    <div className={containerClasses}>
       {isLoading() ? (
-        // Show loading indicator until authentication is determined
-        <div className="px-4 py-1.5">
-          <div className="w-16 h-5 rounded-md bg-zinc-800 animate-pulse"></div>
+        // Show loading indicator with fixed dimensions matching final content
+        <div className="flex items-center space-x-3">
+          {/* Email placeholder */}
+          <div className="w-20 h-4 rounded-md bg-zinc-800 animate-pulse"></div>
+          {/* Avatar placeholder - matches Avatar component dimensions */}
+          <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-600 animate-pulse flex-shrink-0"></div>
         </div>
       ) : isAuthenticated() && user ? (
         // User is authenticated, show profile menu dropdown
         <ProfileMenu user={user} onSignOut={handleSignOut} />
       ) : hasInitialized() ? (
-        // User is definitely not authenticated, show sign in button only
-        <div className="flex space-x-2">
+        // User is definitely not authenticated, show sign in button with fixed dimensions
+        <div className="flex justify-end">
           <button
             onClick={handleOpenSignInModal}
             className={cn(
@@ -72,16 +82,21 @@ const AuthHeader: React.FC = () => {
               "bg-indigo-600 text-white",
               "hover:bg-indigo-700",
               "transition-all duration-200 ease-in-out",
-              "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+              "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900",
+              "min-w-[70px] h-[32px]", // Fixed dimensions to match loading state
+              "flex items-center justify-center" // Center content
             )}
           >
             Sign In
           </button>
         </div>
       ) : (
-        // We're still waiting for initial auth check, show nothing
-        <div className="px-4 py-1.5">
-          <div className="w-16 h-5 rounded-md bg-zinc-800 animate-pulse"></div>
+        // We're still waiting for initial auth check, show loading with same dimensions
+        <div className="flex items-center space-x-3">
+          {/* Email placeholder */}
+          <div className="w-20 h-4 rounded-md bg-zinc-800 animate-pulse"></div>
+          {/* Avatar placeholder - matches Avatar component dimensions */}
+          <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-600 animate-pulse flex-shrink-0"></div>
         </div>
       )}
       
