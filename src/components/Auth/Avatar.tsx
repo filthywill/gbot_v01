@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { UserIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { 
+  getCachedAvatar, 
+  preloadAndCacheAvatar, 
+  generateAvatarCacheKey 
+} from '../../utils/avatarCache';
 
 interface AvatarProps {
   user: User;
@@ -25,160 +30,107 @@ const Avatar: React.FC<AvatarProps> = ({
   'aria-expanded': ariaExpanded
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isImageReady, setIsImageReady] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const [hasError, setHasError] = useState(false);
+
+  // Generate stable cache key based on user data
+  const cacheKey = useMemo(() => {
+    return generateAvatarCacheKey(user.id, user.user_metadata, user.email);
+  }, [user.id, user.user_metadata?.avatar_url, user.user_metadata?.picture, user.email]);
 
   // Size configurations - ensure consistent sizing across all states
-  const sizeClasses = {
+  const sizeClasses = useMemo(() => ({
     sm: 'w-8 h-8',
     md: 'w-12 h-12', 
     lg: 'w-16 h-16'
-  };
+  }), []);
 
-  const iconSizes = {
+  const iconSizes = useMemo(() => ({
     sm: 'h-4 w-4',
     md: 'h-6 w-6',
     lg: 'h-8 w-8'
-  };
+  }), []);
 
-  useEffect(() => {
-    const loadAvatar = async () => {
-      setIsLoading(true);
-      setImageError(false);
-      setIsImageReady(false);
-      
-      // Try to get avatar from social provider metadata
-      const socialAvatar = getSocialProviderAvatar(user);
-      
-      if (socialAvatar) {
-        // Preload the image to prevent broken image flash
-        const img = new Image();
-        img.onload = () => {
-          setImageUrl(socialAvatar);
-          setIsImageReady(true);
-          setIsLoading(false);
-        };
-        img.onerror = () => {
-          setImageError(true);
-          setImageUrl(null);
-          setIsLoading(false);
-          // Try Gravatar as fallback if social avatar fails
-          if (user.email && showFallback) {
-            tryGravatarFallback();
-          }
-        };
-        img.src = socialAvatar;
-        return;
-      }
-
-      // Fallback to Gravatar if no social avatar
-      if (user.email && showFallback) {
-        await tryGravatarFallback();
-      } else {
-        setIsLoading(false);
-      }
-    };
-
-    const tryGravatarFallback = async () => {
-      try {
-        const gravatarUrl = await getGravatarUrl(user.email!);
-        
-        // Preload Gravatar image
-        const img = new Image();
-        img.onload = () => {
-          setImageUrl(gravatarUrl);
-          setIsImageReady(true);
-          setIsLoading(false);
-        };
-        img.onerror = () => {
-          setImageError(true);
-          setImageUrl(null);
-          setIsLoading(false);
-        };
-        img.src = gravatarUrl;
-      } catch (error) {
-        setImageError(true);
-        setImageUrl(null);
-        setIsLoading(false);
-      }
-    };
-
-    loadAvatar();
-  }, [user, showFallback]);
-
-  // Extract avatar URL from social provider metadata
-  const getSocialProviderAvatar = (user: User): string | null => {
+  // Extract avatar URL from social provider metadata - optimized
+  const getSocialProviderAvatar = useCallback((user: User): string | null => {
     const metadata = user.user_metadata;
-    
-    if (!metadata) {
-      return null;
-    }
+    if (!metadata) return null;
 
-    // Handle different social providers
-    // Google
-    if (metadata.avatar_url) {
-      return metadata.avatar_url;
-    }
-    if (metadata.picture) {
-      return metadata.picture;
-    }
-    
-    // GitHub
-    if (metadata.avatar_url) {
-      return metadata.avatar_url;
-    }
-    
-    // Twitter/X (future)
-    if (metadata.profile_image_url) {
-      return metadata.profile_image_url;
-    }
-    
-    // Discord (future)
-    if (metadata.avatar && metadata.id) {
-      const discordUrl = `https://cdn.discordapp.com/avatars/${metadata.id}/${metadata.avatar}.png`;
-      return discordUrl;
-    }
-    
-    // LinkedIn (future)
-    if (metadata.profilePicture) {
-      return metadata.profilePicture;
-    }
-    
-    // Generic fallback for any provider that uses these common fields
-    if (metadata.image) {
-      return metadata.image;
-    }
-    if (metadata.photo) {
-      return metadata.photo;
-    }
-    
-    return null;
-  };
+    // Check common avatar fields in priority order
+    return metadata.avatar_url || 
+           metadata.picture || 
+           metadata.profile_image_url ||
+           metadata.image ||
+           metadata.photo ||
+           (metadata.avatar && metadata.id ? 
+             `https://cdn.discordapp.com/avatars/${metadata.id}/${metadata.avatar}.png` : null) ||
+           metadata.profilePicture ||
+           null;
+  }, []);
 
-  // Generate Gravatar URL
-  const getGravatarUrl = async (email: string): Promise<string> => {
+  // Generate Gravatar URL - optimized
+  const getGravatarUrl = useCallback(async (email: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(email.toLowerCase().trim());
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     
-    // Return Gravatar URL with fallback to 404 (so we can handle the error)
     return `https://www.gravatar.com/avatar/${hashHex}?s=80&d=404`;
-  };
+  }, []);
 
-  const handleImageError = () => {
-    setImageError(true);
+  // Simplified loading logic
+  useEffect(() => {
+    const loadAvatar = async () => {
+      // Check cache first
+      const cachedUrl = getCachedAvatar(cacheKey);
+      if (cachedUrl) {
+        setImageUrl(cachedUrl);
+        setIsLoading(false);
+        setHasError(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setHasError(false);
+      
+      try {
+        // Try social provider avatar first
+        const socialAvatar = getSocialProviderAvatar(user);
+        
+        if (socialAvatar) {
+          const cachedUrl = await preloadAndCacheAvatar(socialAvatar, cacheKey);
+          setImageUrl(cachedUrl);
+          setIsLoading(false);
+          return;
+        }
+
+        // Fallback to Gravatar if enabled
+        if (user.email && showFallback) {
+          const gravatarUrl = await getGravatarUrl(user.email);
+          const cachedUrl = await preloadAndCacheAvatar(gravatarUrl, `${cacheKey}-gravatar`);
+          setImageUrl(cachedUrl);
+          setIsLoading(false);
+          return;
+        }
+
+        // No avatar available
+        setIsLoading(false);
+        
+      } catch (error) {
+        setHasError(true);
+        setImageUrl(null);
+        setIsLoading(false);
+      }
+    };
+
+    loadAvatar();
+  }, [cacheKey, getSocialProviderAvatar, getGravatarUrl, user.email, showFallback]);
+
+  const handleImageError = useCallback(() => {
+    setHasError(true);
     setImageUrl(null);
-    setIsImageReady(false);
-  };
-
-  const handleImageLoad = () => {
-    setIsImageReady(true);
-    setIsLoading(false);
-  };
+  }, []);
 
   // Common container classes that ensure fixed dimensions across all states
   const containerClasses = cn(
@@ -198,26 +150,20 @@ const Avatar: React.FC<AvatarProps> = ({
     );
   }
 
-  // Show avatar image if available and ready
-  if (imageUrl && isImageReady && !imageError) {
+  // Show avatar image if available and not errored
+  if (imageUrl && !hasError) {
     const imageElement = (
       <div className={containerClasses}>
         <img
-          ref={imgRef}
           src={imageUrl}
           alt={`${user.email || 'User'} avatar`}
           className={cn(
             sizeClasses[size],
-            "rounded-full object-cover border border-zinc-600 block"
+            "rounded-full object-cover border border-zinc-600"
           )}
           onError={handleImageError}
-          onLoad={handleImageLoad}
           referrerPolicy="no-referrer"
           crossOrigin="anonymous"
-          // Prevent image from showing until fully loaded
-          style={{
-            display: isImageReady ? 'block' : 'none'
-          }}
         />
       </div>
     );

@@ -90,8 +90,7 @@ export function AppHeader({
               {/* Clickable Logo */}
               <button
                 onClick={handleLogoClick}
-                className="hover:opacity-80 transition-opacity duration-200 focus:outline-none 
-                         focus:ring-2 focus:ring-brand-primary-500 focus:ring-offset-2 rounded-md p-1"
+                className="transition-opacity duration-200 rounded-md p-1"
                 aria-label="Return to home page"
                 title="Click to return to home page"
               >
