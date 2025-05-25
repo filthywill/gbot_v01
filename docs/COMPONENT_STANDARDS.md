@@ -252,6 +252,168 @@ const myValueConfig = {
 const linearConfig = createLinearValueConfig(0, 100, 1);
 ```
 
----
+### Authentication Components
+
+Authentication components follow a layered architecture with clear separation of concerns:
+
+#### Core Authentication Components
+
+**AuthProvider** (`src/components/Auth/AuthProvider.tsx`)
+- Manages authentication initialization and session persistence
+- Handles tab visibility changes with debouncing and error recovery
+- Provides authentication context to the entire application
+- Implements retry logic for failed authentication operations
+
+```tsx
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
+
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  // Session caching and visibility change handling
+  const lastKnownSessionRef = useRef<any>(null);
+  const visibilityChangeInProgressRef = useRef(false);
+  
+  // Enhanced initialization with retry logic
+  // Tab visibility handling with debouncing
+  // Error recovery mechanisms
+  
+  return <>{children}</>;
+};
+```
+
+**AuthModal** (`src/components/Auth/AuthModal.tsx`)
+- Main modal container for authentication flows
+- Manages modal visibility and view transitions
+- Integrates with authentication hooks for state management
+
+#### Authentication Hooks
+
+**useEmailVerification** (`src/hooks/auth/useEmailVerification.ts`)
+- Manages email verification state and process
+- Handles OTP code verification and resending
+- Provides verification status and error handling
+
+```tsx
+export function useEmailVerification() {
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  
+  // Verification logic with state persistence
+  // URL parameter checking for verification
+  // Resume verification functionality
+  
+  return {
+    showVerificationModal,
+    setShowVerificationModal,
+    verificationEmail,
+    verificationError,
+    setVerificationError,
+    isVerifying,
+    pendingVerification,
+    handleResumeVerification
+  };
+}
+```
+
+**useAuthModalState** (`src/hooks/auth/useAuthModalState.ts`)
+- Controls authentication modal state and view management
+- Handles URL parameter-based modal activation
+- Manages transitions between sign-in, sign-up, and password reset views
+
+```tsx
+export type AuthModalView = 'sign_in' | 'sign_up' | 'forgotten_password';
+
+export function useAuthModalState() {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalView>('sign_in');
+  
+  // URL parameter checking and processing
+  // Modal state management
+  // View transition handling
+  
+  return {
+    showAuthModal,
+    setShowAuthModal,
+    authModalMode,
+    setAuthModalMode,
+    checkUrlParams
+  };
+}
+```
+
+#### Authentication Store Integration
+
+Authentication components integrate with the enhanced Zustand store:
+
+```tsx
+// Enhanced auth store usage
+const { 
+  user, 
+  session, 
+  status, 
+  error,
+  isSessionLoading,
+  isUserDataLoading,
+  initialize,
+  signInWithEmail,
+  signUpWithEmail,
+  signOut,
+  resetError
+} = useAuthStore();
+
+// Status-based rendering
+if (status === 'LOADING') {
+  return <LoadingSpinner />;
+}
+
+if (status === 'ERROR' && error) {
+  return <ErrorMessage message={error} onRetry={resetError} />;
+}
+
+if (status === 'AUTHENTICATED' && user) {
+  return <AuthenticatedContent user={user} />;
+}
+```
+
+#### Component Architecture Principles
+
+1. **Separation of Concerns**:
+   - AuthProvider handles initialization and session management
+   - Hooks manage specific authentication flows
+   - UI components focus on presentation and user interaction
+
+2. **Error Handling**:
+   - Comprehensive error states with user-friendly messages
+   - Retry mechanisms for failed operations
+   - Graceful degradation when services are unavailable
+
+3. **Loading States**:
+   - Granular loading indicators for different operations
+   - Separate loading states for session and user data
+   - Progressive loading with cached data fallbacks
+
+4. **State Management**:
+   - Centralized state through Zustand store
+   - Local component state for UI-specific concerns
+   - Persistent state for user preferences and session data
+
+5. **Tab Visibility Handling**:
+   - Debounced visibility change detection
+   - Session restoration on tab focus
+   - Error recovery for authentication state inconsistencies
+
+#### Testing Considerations
+
+Authentication components should be tested for:
+
+1. **State Transitions**: Verify proper state changes during auth flows
+2. **Error Handling**: Test error scenarios and recovery mechanisms
+3. **Tab Switching**: Verify session persistence across tab changes
+4. **Network Issues**: Test behavior with intermittent connectivity
+5. **Cache Behavior**: Verify proper cache usage and invalidation
 
 Following these standards ensures consistent UI behavior, maintainable code structure, and proper history tracking throughout the application. 

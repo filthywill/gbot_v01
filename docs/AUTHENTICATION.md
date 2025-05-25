@@ -48,7 +48,7 @@ The system is designed to be:
 ### Core Components
 
 1. **Supabase Client**: Handles communication with Supabase Auth API
-2. **Auth Stores (Zustand)**: Manages authentication state and operations
+2. **Auth Store (Zustand)**: Manages authentication state and operations
 3. **Authentication Hooks**: Custom React hooks for auth operations
    - `useEmailVerification`: Manages email verification state and process
    - `useAuthModalState`: Controls authentication modal state and views
@@ -75,7 +75,8 @@ src/
 │   ├── auth/
 │   │   ├── config.ts             # Centralized auth configuration
 │   │   ├── verification.ts       # Verification utilities
-│   │   └── stateSync.ts          # State synchronization utilities
+│   │   ├── utils.ts              # Auth utility functions
+│   │   └── sessionUtils.ts       # Session management utilities
 │   └── supabase/
 │       └── supabase.ts           # Supabase client initialization
 ├── components/
@@ -118,26 +119,26 @@ The `AUTH_CONFIG` module centralizes authentication-related configuration settin
 // src/lib/auth/config.ts
 export const AUTH_CONFIG = {
   // Delays for state transitions (longer in production for stability)
-  stateTransitionDelay: import.meta.env.PROD ? 200 : 100,
+  stateTransitionDelay: import.meta.env.PROD ? 300 : 200,
   
   // Retry intervals for init and token operations
-  retryDelay: import.meta.env.PROD ? 5000 : 3000,
-  tokenExchangeRetryDelay: 1000,
+  retryDelay: import.meta.env.PROD ? 6000 : 4000,
+  tokenExchangeRetryDelay: 1500,
   
   // Timeout for user fetch operations
-  userFetchTimeout: 4000,
+  userFetchTimeout: 8000,
   
   // Maximum number of retries for various operations
-  maxInitRetries: 2,
-  maxTokenExchangeRetries: 2,
-  maxUserFetchRetries: 2,
+  maxInitRetries: 3,
+  maxTokenExchangeRetries: 3,
+  maxUserFetchRetries: 3,
   
   // Session duration settings
   sessionDuration: 60 * 60 * 24 * 7, // 7 days in seconds
 };
 ```
 
-This configuration makes it easy to tune authentication behaviors for different environments.
+This configuration makes it easy to tune authentication behaviors for different environments and provides optimized settings for tab switching scenarios.
 
 ### Authentication Provider
 
@@ -150,14 +151,29 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { initializeSDK } = useGoogleAuthStore();
   // Cache the last known good session
   const lastKnownSessionRef = useRef<any>(null);
+  // Track visibility change progress
+  const visibilityChangeInProgressRef = useRef(false);
   
-  // Initialize authentication on mount
+  // Initialize authentication on mount with retry mechanism
   useEffect(() => {
-    // Initialization logic with retry mechanism
-    // ...
+    const setupAuth = async () => {
+      try {
+        await initialize();
+        logger.info('AuthProvider: Authentication initialization completed');
+      } catch (err) {
+        logger.error('AuthProvider: Authentication initialization failed', err);
+        // Retry after delay if initialization fails
+        setTimeout(() => {
+          initialize().catch(retryErr => {
+            logger.error('AuthProvider: Retry authentication initialization failed', retryErr);
+          });
+        }, AUTH_CONFIG.retryDelay);
+      }
+    };
+    setupAuth();
   }, [initialize, initializeSDK]);
   
-  // Cache the session when it changes
+  // Cache session when it changes
   useEffect(() => {
     const authState = useAuthStore.getState();
     if (authState.session) {
@@ -166,149 +182,52 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [useAuthStore.getState().session]);
   
-  // Handle tab visibility changes
+  // Handle tab visibility changes with debouncing and error recovery
   useEffect(() => {
+    let debounceTimeout: NodeJS.Timeout;
+    
     const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        // Refresh authentication state when tab becomes visible
-        // With fallback to cached session if needed
+      if (!document.hidden && !visibilityChangeInProgressRef.current) {
+        visibilityChangeInProgressRef.current = true;
+        
+        debounceTimeout = setTimeout(async () => {
+          try {
+            const currentState = useAuthStore.getState();
+            
+            // Skip if auth operations are in progress
+            if (currentState.isSessionLoading || currentState.isUserDataLoading) {
+              return;
+            }
+            
+            // Handle different auth states appropriately
+            if (currentState.status === 'ERROR' && currentState.session) {
+              // Attempt recovery from error state
+              logger.debug('Attempting to recover from error state on tab visibility change');
+              // Trigger session refresh by temporarily clearing and restoring
+              currentState.setSession(null);
+              setTimeout(() => currentState.setSession(currentState.session), 100);
+            }
+          } catch (err) {
+            logger.error('Error handling tab visibility change:', err);
+          } finally {
+            visibilityChangeInProgressRef.current = false;
+          }
+        }, 500);
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
   }, []);
   
-  // Render children without waiting for auth to complete
   return <>{children}</>;
 };
-```
-
-### Authentication Hooks
-
-#### useEmailVerification
-
-The `useEmailVerification` hook manages the full email verification process:
-
-```typescript
-// src/hooks/auth/useEmailVerification.ts
-import { useState, useEffect, useCallback } from 'react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { logStateTransition } from '@/lib/auth/stateSync';
-
-export function useEmailVerification() {
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [pendingVerification, setPendingVerification] = useState(false);
-  
-  // ...verification logic
-
-  useEffect(() => {
-    // Load verification state from localStorage
-    const savedEmail = localStorage.getItem('verificationEmail');
-    if (savedEmail) {
-      setVerificationEmail(savedEmail);
-      setPendingVerification(true);
-    }
-    
-    // Check URL parameters for verification
-    checkForVerification();
-  }, []);
-  
-  const handleResumeVerification = useCallback(() => {
-    // Resume verification logic
-  }, []);
-  
-  return {
-    showVerificationModal,
-    setShowVerificationModal,
-    verificationEmail,
-    verificationError,
-    setVerificationError,
-    isVerifying,
-    pendingVerification,
-    handleResumeVerification
-  };
-}
-```
-
-#### useAuthModalState
-
-The `useAuthModalState` hook manages the authentication modal state:
-
-```typescript
-// src/hooks/auth/useAuthModalState.ts
-import { useState, useEffect, useCallback } from 'react';
-import { FLAGS } from '@/lib/flags';
-import { logStateTransition } from '@/lib/auth/stateSync';
-
-export type AuthModalView = 'sign_in' | 'sign_up' | 'forgotten_password';
-
-export function useAuthModalState() {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<AuthModalView>('sign_in');
-  
-  // Check URL parameters for auth-related actions
-  const checkUrlParams = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    const action = params.get('auth');
-    
-    if (action === 'signin') {
-      setAuthModalMode('sign_in');
-      setShowAuthModal(true);
-    } else if (action === 'signup') {
-      setAuthModalMode('sign_up');
-      setShowAuthModal(true);
-    } else if (action === 'reset') {
-      setAuthModalMode('forgotten_password');
-      setShowAuthModal(true);
-    }
-    
-    // Clean URL after processing
-    if (action) {
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-    }
-  }, []);
-  
-  useEffect(() => {
-    checkUrlParams();
-  }, [checkUrlParams]);
-  
-  return {
-    showAuthModal,
-    setShowAuthModal,
-    authModalMode,
-    setAuthModalMode,
-    checkUrlParams
-  };
-}
-```
-
-### Supabase Client
-
-The Supabase client is initialized in `src/lib/supabase/supabase.ts`:
-
-```typescript
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/supabase';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
 ```
 
 ### Authentication State Management
@@ -317,569 +236,282 @@ The authentication state is managed through a Zustand store in `src/store/useAut
 
 ```typescript
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import { User, AuthError } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase, getCurrentUser } from '../lib/supabase';
+
+export type AuthStatus = 
+  | 'INITIAL'      // Initial state before any auth check
+  | 'LOADING'      // Auth check in progress
+  | 'AUTHENTICATED' // User is authenticated
+  | 'UNAUTHENTICATED' // User is not authenticated
+  | 'ERROR';       // Auth error occurred
 
 interface AuthState {
   user: User | null;
-  isLoading: boolean;
-  error: AuthError | null;
-  isAuthenticated: boolean;
-  isVerified: boolean;
-  pendingEmail: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  session: Session | null;
+  status: AuthStatus;
+  error: string | null;
+  lastError: Error | null;
+  
+  // Specific loading states for better UX
+  isSessionLoading: boolean;
+  isUserDataLoading: boolean;
+  
+  // Actions
+  initialize: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ user: User; session: Session } | undefined>;
+  signUpWithEmail: (email: string, password: string) => Promise<{ user: User | null; session: Session | null; } | null>;
   signOut: () => Promise<void>;
-  verifyOTP: (email: string, token: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  clearError: () => void;
+  resetError: () => void;
+  resetPassword: (email: string) => Promise<boolean>;
+  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null; } | null>;
+  
+  // Direct state setters for auth callbacks
+  setUser: (user: User | null) => void;
+  setSession: (session: Session | null) => void;
+  clearSession: () => void;
+  
+  // Computed helpers
+  isAuthenticated: () => boolean;
+  isLoading: () => boolean;
+  hasInitialized: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isLoading: true,
+  session: null,
+  status: 'INITIAL',
   error: null,
-  isAuthenticated: false,
-  isVerified: false,
-  pendingEmail: null,
+  lastError: null,
+  isSessionLoading: false,
+  isUserDataLoading: false,
   
-  signIn: async (email, password) => {
+  initialize: async () => {
+    const currentState = get();
+    
+    // Prevent multiple simultaneous initializations
+    if (currentState.status === 'LOADING' || 
+        (currentState.status === 'AUTHENTICATED' && currentState.user && currentState.session)) {
+      logger.debug('Auth initialization already in progress or completed, skipping');
+      return;
+    }
+    
     try {
-      set({ isLoading: true, error: null });
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      set({ 
+        status: 'LOADING', 
+        error: null,
+        isSessionLoading: true,
+        isUserDataLoading: false
       });
       
-      if (error) throw error;
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      set({
-        user: data.user,
-        isAuthenticated: true,
-        isVerified: true,
-        isLoading: false,
-      });
+      if (sessionError) throw sessionError;
+      
+      set({ isSessionLoading: false });
+      
+      if (!session) {
+        set({ 
+          status: 'UNAUTHENTICATED',
+          user: null,
+          session: null,
+          isUserDataLoading: false
+        });
+        return;
+      }
+      
+      // Session found, get user data with retry logic
+      set({ session, isUserDataLoading: true });
+      
+      const user = await getCurrentUser(AUTH_CONFIG.maxUserFetchRetries);
+      
+      if (user) {
+        set({ 
+          user,
+          status: 'AUTHENTICATED',
+          error: null,
+          isUserDataLoading: false
+        });
+      } else {
+        set({ 
+          user: null,
+          session: null,
+          status: 'UNAUTHENTICATED',
+          error: 'Unable to retrieve user data',
+          isUserDataLoading: false
+        });
+      }
     } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-        isAuthenticated: false,
+      set({ 
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Authentication initialization failed',
+        lastError: error instanceof Error ? error : new Error('Unknown error'),
+        isSessionLoading: false,
+        isUserDataLoading: false
       });
     }
   },
   
-  signUp: async (email, password) => {
-    try {
-      set({ isLoading: true, error: null });
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirect: `${window.location.origin}/auth/callback`,
-        }
-      });
-      
-      if (error) throw error;
-      
-      set({
-        pendingEmail: email,
-        isLoading: false,
-        isAuthenticated: false,
-        isVerified: false,
-      });
-    } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-      });
-    }
-  },
-  
-  signOut: async () => {
-    try {
-      set({ isLoading: true });
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      set({
-        user: null,
-        isAuthenticated: false,
-        isVerified: false,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-      });
-    }
-  },
-  
-  verifyOTP: async (email, token) => {
-    try {
-      set({ isLoading: true, error: null });
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-      });
-      
-      if (error) throw error;
-      
-      set({
-        user: data.user,
-        isAuthenticated: true,
-        isVerified: true,
-        pendingEmail: null,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-      });
-    }
-  },
-  
-  resetPassword: async (email) => {
-    try {
-      set({ isLoading: true, error: null });
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-      
-      if (error) throw error;
-      
-      set({
-        pendingEmail: email,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-      });
-    }
-  },
-  
-  updatePassword: async (password) => {
-    try {
-      set({ isLoading: true, error: null });
-      const { error } = await supabase.auth.updateUser({
-        password,
-      });
-      
-      if (error) throw error;
-      
-      set({ isLoading: false });
-    } catch (error) {
-      set({
-        error: error as AuthError,
-        isLoading: false,
-      });
-    }
-  },
-  
-  clearError: () => {
-    set({ error: null });
-  },
+  // ... other methods
 }));
 ```
 
-## OTP Verification Flow
+### Enhanced getCurrentUser Function
 
-GraffitiSOFT uses OTP code-based email verification rather than link-based verification. This approach offers several advantages:
+The `getCurrentUser` function in `src/lib/supabase.ts` has been enhanced with comprehensive retry logic and caching:
 
-- **Better user experience**: Users can verify without switching contexts
-- **Reduced friction**: No need to open email client and click links
-- **Improved security**: Time-limited codes with expiration
-- **Lower abandonment rate**: Streamlined verification process
+```typescript
+// Cache for user data to improve resilience
+let lastKnownUserCache: any = null;
+let lastUserFetchTime = 0;
+const USER_CACHE_TTL = 30 * 1000; // 30 seconds
 
-### OTP Flow Implementation
-
-The OTP verification flow consists of the following steps:
-
-1. **User signs up**: Enters email and password
-2. **OTP generation**: System generates a one-time code
-3. **Email delivery**: Code is sent to user's email address
-4. **Code entry**: User enters code in the verification screen
-5. **Verification**: System validates the code
-6. **Account activation**: Account is activated upon successful verification
-
-### OTP Verification Code
-
-The sign-up component initiates the OTP flow:
-
-```tsx
-// components/Auth/flows/SignUp.tsx
-const SignUp = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const { signUp, isLoading, error } = useAuthStore();
-  const navigate = useNavigate();
+export const getCurrentUser = async (retryCount = AUTH_CONFIG.maxUserFetchRetries) => {
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (password !== confirmPassword) {
-      // Handle password mismatch error
-      return;
-    }
-    
-    await signUp(email, password);
-    navigate('/auth/verify');
-  };
+  // Check for recent cached user data
+  const now = Date.now();
+  const isRecentCache = (now - lastUserFetchTime) < USER_CACHE_TTL;
   
-  // Form JSX
-};
-```
-
-After sign-up, the user is directed to the verification screen:
-
-```tsx
-// components/Auth/flows/VerifyOTP.tsx
-const VerifyOTP = () => {
-  const [otpCode, setOtpCode] = useState('');
-  const { verifyOTP, pendingEmail, isLoading, error } = useAuthStore();
-  const navigate = useNavigate();
-  
-  // Redirect if no pending email
-  useEffect(() => {
-    if (!pendingEmail) {
-      navigate('/auth/signin');
-    }
-  }, [pendingEmail, navigate]);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendingEmail) return;
-    
-    await verifyOTP(pendingEmail, otpCode);
-    navigate('/dashboard');
-  };
-  
-  // Verification form JSX with VerificationCodeInput
-};
-```
-
-The `VerificationCodeInput` component handles the OTP code entry:
-
-```tsx
-// components/Auth/ui/VerificationCodeInput.tsx
-interface VerificationCodeInputProps {
-  length?: number;
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}
-
-const VerificationCodeInput = ({
-  length = 6,
-  value,
-  onChange,
-  disabled = false,
-}: VerificationCodeInputProps) => {
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  
-  // Initialize refs array
-  useEffect(() => {
-    inputRefs.current = inputRefs.current.slice(0, length);
-  }, [length]);
-  
-  // Split value into individual characters
-  const valueArray = value.split('').slice(0, length);
-  
-  // Handle input change
-  const handleChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const newChar = e.target.value.slice(-1);
-    
-    // Create new value array and update
-    const newValue = [...valueArray];
-    newValue[index] = newChar;
-    
-    // Call onChange with new string value
-    onChange(newValue.join(''));
-    
-    // Focus next input if value was entered
-    if (newChar && index < length - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-  
-  // Handle key press
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Focus previous input on backspace
-    if (e.key === 'Backspace' && !valueArray[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-  
-  // Handle paste
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text/plain').slice(0, length);
-    onChange(pastedData);
-  };
-  
-  return (
-    <div className="flex gap-2 items-center justify-center">
-      {Array.from({ length }).map((_, index) => (
-        <input
-          key={index}
-          ref={(el) => (inputRefs.current[index] = el)}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={1}
-          className="w-12 h-14 text-center text-xl border rounded-md focus:border-primary focus:ring-1 focus:ring-primary"
-          value={valueArray[index] || ''}
-          onChange={(e) => handleChange(index, e)}
-          onKeyDown={(e) => handleKeyDown(index, e)}
-          onPaste={handlePaste}
-          disabled={disabled}
-          aria-label={`Verification code digit ${index + 1}`}
-        />
-      ))}
-    </div>
-  );
-};
-```
-
-## Password Reset Flow
-
-The password reset flow follows these steps:
-
-1. **User requests reset**: Enters email on reset password form
-2. **Reset email**: System sends email with reset link
-3. **Link access**: User clicks link in email
-4. **New password entry**: User enters new password
-5. **Password update**: System updates password
-
-### Implementation
-
-The password reset request component:
-
-```tsx
-// components/Auth/flows/RequestPasswordReset.tsx
-const RequestPasswordReset = () => {
-  const [email, setEmail] = useState('');
-  const { resetPassword, isLoading, error } = useAuthStore();
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await resetPassword(email);
-    setIsSubmitted(true);
-  };
-  
-  if (isSubmitted) {
-    return (
-      <div className="text-center">
-        <h2>Check your email</h2>
-        <p>We've sent password reset instructions to {email}</p>
-      </div>
-    );
+  if (lastKnownUserCache && isRecentCache && !document.hidden) {
+    logger.debug('Using cached user data (visible tab with recent cache)');
+    return lastKnownUserCache;
   }
   
-  // Form JSX
-};
-```
-
-The password update component:
-
-```tsx
-// components/Auth/flows/UpdatePassword.tsx
-const UpdatePassword = () => {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const { updatePassword, isLoading, error } = useAuthStore();
-  const [isUpdated, setIsUpdated] = useState(false);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (password !== confirmPassword) {
-      // Handle password mismatch
-      return;
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      // Return stale cache on first attempt while fetching fresh data
+      if (attempt === 0 && lastKnownUserCache && !document.hidden) {
+        logger.debug('Using stale cached user data while fetching fresh data');
+        // Schedule background refresh
+        setTimeout(() => {
+          supabase.auth.getUser().then(({ data }) => {
+            if (data?.user) {
+              lastKnownUserCache = data.user;
+              lastUserFetchTime = Date.now();
+            }
+          }).catch(err => logger.debug('Background refresh failed (non-critical):', err));
+        }, 0);
+        return lastKnownUserCache;
+      }
+      
+      // Use environment-appropriate timeouts
+      const timeoutMs = document.hidden ? 8000 : (import.meta.env.PROD ? 5000 : 3000);
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('User fetch timeout')), timeoutMs);
+      });
+      
+      const userPromise = supabase.auth.getUser();
+      const result = await Promise.race([userPromise, timeoutPromise]) as { data: { user: any }, error?: any };
+      
+      if (result?.error) throw result.error;
+      
+      if (!result?.data?.user) {
+        if (lastKnownUserCache) {
+          logger.debug('Using cached user data as fallback for missing user');
+          return lastKnownUserCache;
+        }
+        
+        if (attempt < retryCount) {
+          const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000);
+          await delay(backoffTime);
+          continue;
+        }
+        return null;
+      }
+      
+      // Cache successful result
+      lastKnownUserCache = result.data.user;
+      lastUserFetchTime = Date.now();
+      
+      return result.data.user;
+    } catch (error) {
+      logger.warn(`Error getting current user (attempt ${attempt + 1}/${retryCount + 1}):`, error);
+      
+      // Use cached data as fallback on errors
+      if (lastKnownUserCache && (attempt === retryCount || document.hidden)) {
+        logger.debug('Using cached user data after error (final fallback)');
+        return lastKnownUserCache;
+      }
+      
+      if (attempt < retryCount) {
+        const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000);
+        await delay(backoffTime);
+      } else {
+        if (lastKnownUserCache) {
+          logger.debug('All retries failed, using cached user data as final fallback');
+          return lastKnownUserCache;
+        }
+        return null;
+      }
     }
-    
-    await updatePassword(password);
-    setIsUpdated(true);
-  };
-  
-  if (isUpdated) {
-    return (
-      <div className="text-center">
-        <h2>Password Updated</h2>
-        <p>Your password has been successfully updated.</p>
-        <Button asChild>
-          <Link to="/auth/signin">Sign In</Link>
-        </Button>
-      </div>
-    );
-  }
-  
-  // Form JSX
-};
-```
-
-## Form Validation
-
-All authentication forms implement comprehensive validation:
-
-1. **Email validation**: Proper email format checking
-2. **Password strength**: Minimum length, complexity requirements
-3. **Matching validation**: Password and confirm password match
-4. **Empty field validation**: Required field checking
-5. **Error messaging**: Clear user feedback on validation issues
-
-Example validation implementation:
-
-```tsx
-// utils/validation.ts
-export const validateEmail = (email: string): string | null => {
-  if (!email) return 'Email is required';
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) return 'Invalid email format';
-  
-  return null;
-};
-
-export const validatePassword = (password: string): string | null => {
-  if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters';
-  
-  // Check for complexity requirements
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  
-  if (!(hasUpperCase && hasLowerCase && hasNumber)) {
-    return 'Password must include uppercase, lowercase, and numbers';
   }
   
   return null;
 };
-
-export const validatePasswordMatch = (password: string, confirmPassword: string): string | null => {
-  if (password !== confirmPassword) return 'Passwords do not match';
-  return null;
-};
 ```
 
-## UI Components
+## Tab Visibility Solution
 
-The authentication UI is built with reusable components following these principles:
+We've implemented a comprehensive multi-layered approach to handle authentication persistence when switching between browser tabs, addressing the common issue where users would be logged out when switching tabs:
 
-1. **Consistency**: Uniform styling across all auth forms
-2. **Responsiveness**: Mobile-friendly layouts
-3. **Accessibility**: ARIA attributes and keyboard navigation
-4. **Error Visibility**: Clear error presentation
-5. **Loading States**: Feedback during async operations
+### Architecture
 
-Key components include:
+The tab visibility solution uses several techniques to maintain session state:
 
-- **AuthLayout**: Consistent layout wrapper for all auth pages
-- **AuthForm**: Base form component with standard styling
-- **FormField**: Labeled input with validation and error display
-- **VerificationCodeInput**: Specialized input for OTP codes
-- **PasswordStrengthMeter**: Visual password strength indicator
-- **AuthButton**: Styled button with loading state
-- **AuthDivider**: "or" divider for alternative auth methods
-- **SocialAuthButton**: Button for OAuth providers
+1. **Session Reference Caching**: 
+   - The `AuthProvider` component maintains a reference to the last known good session
+   - This reference is used to restore session state when a tab becomes visible again
+   - Implementation using React's `useRef` hook preserves session data between renders
 
-## Security Considerations
+2. **User Data Caching**:
+   - In-memory cache for user data with a configurable TTL (30 seconds)
+   - Avoids unnecessary API calls when switching tabs
+   - Provides fallback data when network requests fail
+   - Background refresh mechanism for stale data
 
-The authentication system implements several security measures:
+3. **Visibility Event Handler**:
+   - Listens to the browser's `visibilitychange` event with debouncing
+   - Refreshes authentication state when a tab becomes visible again
+   - Includes focus event as backup for browser compatibility
+   - Prevents race conditions with ongoing auth operations
 
-1. **Secure Password Storage**: Passwords are hashed and never stored in plaintext
-2. **Rate Limiting**: Protection against brute force attacks
-3. **Secure Session Management**: HTTP-only cookies for session tokens
-4. **OTP Expiry**: Time-limited verification codes
-5. **HTTPS**: All auth traffic occurs over secure connections
-6. **Input Sanitization**: Protection against injection attacks
-7. **CSRF Protection**: Cross-site request forgery mitigation
+4. **Enhanced Storage Implementation**:
+   - Customized Supabase storage adapter that prioritizes valid sessions
+   - Handles edge cases for background tabs and token refreshes
+   - Respects user preferences for "Remember Me" functionality
+   - Conservative session expiry handling
 
-## Testing
+5. **Token Refresh Optimization**:
+   - Special handling for background tabs during token refreshes
+   - Retry logic with exponential backoff for failed refresh attempts
+   - Fallback to cached data when refreshes fail
+   - Longer timeouts for token refresh operations
 
-### Testing the OTP Flow
+6. **Error Recovery Mechanisms**:
+   - Automatic recovery attempts after auth state change errors
+   - Conservative error handling that preserves existing sessions
+   - Graceful degradation when network requests fail
 
-To test the OTP verification flow:
+### Implementation Details
 
-1. **Setup test account**: Create a test email for verification purposes
-2. **Sign up**: Complete the sign-up process with test credentials
-3. **Check email**: Access the test email inbox to retrieve the OTP code
-4. **Verify code**: Enter the code in the verification screen
-5. **Confirm success**: Verify successful authentication and redirection
+The solution is implemented across several key files:
 
-For development and testing, you can view OTP codes in the Supabase Auth logs:
+1. **AuthProvider.tsx**: Tab visibility handling with debouncing and error recovery
+2. **supabase.ts**: Enhanced storage implementation and user data caching
+3. **useAuthStore.ts**: Robust auth state management with retry logic
+4. **config.ts**: Environment-optimized timeout and retry configurations
 
-1. Go to the Supabase dashboard
-2. Navigate to Authentication → Logs
-3. Find the relevant sign-up event
-4. The OTP code will be visible in the event details
+### Key Features
 
-### Testing Edge Cases
-
-Ensure to test these edge cases:
-
-1. **Invalid OTP**: Entering incorrect verification code
-2. **Expired OTP**: Attempting to use expired code
-3. **Resending OTP**: Requesting new verification code
-4. **Session expiry**: Testing behavior when session expires
-5. **Network issues**: Testing with intermittent connectivity
-6. **Multiple devices**: Verifying on different device than sign-up
-
-## Supabase Setup
-
-### Configuration
-
-1. **Create Supabase Project**:
-   - Sign up at [Supabase](https://supabase.com/)
-   - Create a new project
-   - Note your project URL and anon key
-
-2. **Configure Auth Settings**:
-   - Go to Authentication → Settings
-   - Set "Site URL" to your application URL
-   - Configure "Redirect URLs" for auth callbacks
-   - Enable "Email Auth" provider
-   - Set up "External OAuth Providers" if needed
-
-3. **Email Templates**:
-   - Customize verification and password reset email templates
-   - Ensure OTP code is clearly visible in the template
-
-4. **Environment Variables**:
-   - Create `.env.local` file in project root
-   - Add Supabase URL and anon key:
-     ```
-     VITE_SUPABASE_URL=https://your-project-id.supabase.co
-     VITE_SUPABASE_ANON_KEY=your-anon-key
-     ```
-
-### Enabling OTP Verification
-
-1. **Update Auth Settings**:
-   - In Supabase dashboard, go to Authentication → Settings
-   - Enable "Email Confirmations" in the Email Auth section
-
-2. **Configure OTP Settings**:
-   - Set "Confirmation Method" to "One-time password (OTP)"
-   - Configure OTP expiry time (default is 24 hours)
-
-3. **Customize Email Template**:
-   - Edit the "Confirm signup" email template
-   - Ensure the OTP code is prominently displayed
-   - Example template:
-     ```html
-     <h2>Welcome to GraffitiSOFT!</h2>
-     <p>Your verification code is: <strong>{{ .Token }}</strong></p>
-     <p>This code will expire in 24 hours.</p>
-     ```
+- **Debounced Visibility Changes**: Prevents rapid-fire auth checks during tab switching
+- **Progressive Fallbacks**: Multiple layers of fallback data (cache, session, recovery)
+- **Environment Awareness**: Different timeouts and behaviors for development vs production
+- **Background Tab Optimization**: Reduced API calls and longer timeouts for hidden tabs
+- **Conservative Session Handling**: Prefers to maintain sessions rather than force logout
+- **Comprehensive Logging**: Detailed logging for debugging tab switching issues
 
 ## Troubleshooting
 
@@ -913,103 +545,23 @@ Ensure to test these edge cases:
    - Ensure link is opened in same browser as request
 
 6. **Authentication Lost When Switching Tabs**:
-   - Make sure you're using the latest version of the codebase with tab visibility handling
-   - Verify that visibilitychange event listener is properly registered
-   - Check network connectivity when tab becomes visible again
+   - Verify the latest codebase with enhanced tab visibility handling is deployed
+   - Check browser console for auth-related errors during tab switching
+   - Ensure network connectivity when tab becomes visible again
    - Try refreshing the page if session restoration fails
+   - Check that `visibilitychange` event listener is properly registered
 
 7. **Remember Me Not Working**:
-   - Ensure user preferences are correctly saved
+   - Ensure user preferences are correctly saved in localStorage
    - Check localStorage access/permissions
    - Verify the custom storage implementation in Supabase client
+   - Check browser settings for localStorage restrictions
 
-## Tab Visibility Solution
-
-We've implemented a multi-layered approach to handle authentication persistence when switching between browser tabs, addressing a common issue where users would be logged out when switching tabs:
-
-### Architecture
-
-The tab visibility solution uses several techniques to maintain session state:
-
-1. **Session Reference Caching**: 
-   - The `AuthProvider` component maintains a reference to the last known good session
-   - This reference is used to restore session state when a tab becomes visible again
-   - Implementation using React's `useRef` hook preserves session data between renders
-
-2. **User Data Caching**:
-   - In-memory cache for user data with a configurable TTL (Time-To-Live)
-   - Avoids unnecessary API calls when switching tabs
-   - Provides fallback data when network requests fail
-
-3. **Visibility Event Handler**:
-   - Listens to the browser's `visibilitychange` event
-   - Refreshes authentication state when a tab becomes visible again
-   - Implemented in `AuthProvider.tsx`
-
-4. **Enhanced Storage Implementation**:
-   - Customized Supabase storage adapter that prioritizes valid sessions
-   - Handles edge cases for background tabs and token refreshes
-   - Respects user preferences for "Remember Me" functionality
-
-5. **Token Refresh Optimization**:
-   - Special handling for background tabs during token refreshes
-   - Retry logic with exponential backoff for failed refresh attempts
-   - Fallback to cached data when refreshes fail
-
-### Implementation
-
-The solution is implemented across several files:
-
-1. **AuthProvider.tsx**:
-   ```typescript
-   // Session reference caching
-   const lastKnownSessionRef = useRef<any>(null);
-   
-   // Cache updating
-   useEffect(() => {
-     const authState = useAuthStore.getState();
-     if (authState.session) {
-       lastKnownSessionRef.current = authState.session;
-       logger.debug('Updated cached session reference');
-     }
-   }, [useAuthStore.getState().session]);
-   
-   // Tab visibility handler
-   useEffect(() => {
-     const handleVisibilityChange = async () => {
-       if (!document.hidden) {
-         // Implementation details for refreshing auth on tab visibility change
-         // ...
-       }
-     };
-     
-     document.addEventListener('visibilitychange', handleVisibilityChange);
-     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-   }, []);
-   ```
-
-2. **supabase.ts**:
-   ```typescript
-   // User data caching
-   let lastKnownUserCache: any = null;
-   let lastUserFetchTime = 0;
-   const USER_CACHE_TTL = 30 * 1000; // 30 seconds
-   
-   // Enhanced storage implementation
-   storage: {
-     async getItem(key: string) {
-       // Logic to prioritize valid sessions and handle "Remember Me" preference
-       // ...
-     },
-     // Additional methods
-   }
-   
-   // Token refresh handling with retries
-   if (event === 'TOKEN_REFRESHED') {
-     // Implementation details for token refresh with retries
-     // ...
-   }
-   ```
+8. **getCurrentUser Function Errors**:
+   - Check network connectivity and Supabase service status
+   - Verify auth configuration timeouts are appropriate for your environment
+   - Look for cached user data being used as fallback
+   - Check browser console for retry attempts and timeout errors
 
 ## Future Considerations
 

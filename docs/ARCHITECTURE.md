@@ -153,11 +153,36 @@ The application uses Zustand for efficient state management with:
 ### Authentication State
 Authentication state is now managed through dedicated hooks and stores:
 
-- **useAuthStore**: Central Zustand store for authentication state
+- **useAuthStore**: Central Zustand store for authentication state with enhanced loading states and error handling
 - **useEmailVerification**: Hook for email verification process
 - **useAuthModalState**: Hook for modal visibility and view state
+- **AuthProvider**: Component that handles authentication initialization and tab visibility changes
 
-This separation allows for more granular control over authentication flows and improves code maintainability.
+The authentication system includes several key improvements:
+
+#### Enhanced State Management
+- **Granular Loading States**: Separate loading indicators for session and user data
+- **Comprehensive Error Handling**: Detailed error tracking with recovery mechanisms
+- **Status-Based State**: Clear authentication status tracking (INITIAL, LOADING, AUTHENTICATED, UNAUTHENTICATED, ERROR)
+
+#### Tab Visibility Handling
+- **Session Caching**: Maintains reference to last known good session
+- **Visibility Event Handling**: Responds to tab visibility changes with debouncing
+- **Error Recovery**: Automatic recovery attempts when auth errors occur during tab switching
+- **Progressive Fallbacks**: Multiple layers of fallback data (cache, session, recovery)
+
+#### Robust User Data Retrieval
+- **Enhanced getCurrentUser Function**: Comprehensive retry logic with exponential backoff
+- **User Data Caching**: In-memory cache with configurable TTL (30 seconds)
+- **Background Refresh**: Updates stale cache data in background
+- **Environment-Aware Timeouts**: Different timeout values for development vs production
+
+#### Configuration-Driven Behavior
+- **AUTH_CONFIG**: Centralized configuration for timeouts, retries, and delays
+- **Environment Optimization**: Different settings for development and production
+- **Tab Switching Optimization**: Specific configurations for handling tab visibility changes
+
+This separation allows for more granular control over authentication flows and improves code maintainability while providing a resilient authentication experience across different browser behaviors.
 
 ### Control Component Hierarchy
 The application features a three-tier control component system:
