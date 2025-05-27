@@ -1,0 +1,128 @@
+Notepad Name: NODE_ENV Configuration
+
+# Implementation Plan for Fixing NODE_ENV Configuration
+
+## 1. Remove NODE_ENV from Environment Files
+
+First, let's address the immediate issue by removing the redundant NODE_ENV setting:
+
+```bash
+# Remove from all .env files
+# .env, .env.local, .env.development, .env.production, etc.
+- NODE_ENV=production  # Remove this line
+```
+
+## 2. Create a Proper Environment Configuration Structure
+
+```
+/
+├── .env                   # Base environment variables (committed to repo)
+├── .env.local             # Local overrides (not committed)
+├── .env.development       # Development-specific variables
+├── .env.production        # Production-specific variables
+└── vite.config.ts         # Vite configuration
+```
+
+## ✅ 3. Update Vite Config
+
+Update your `vite.config.ts` file to handle environment modes properly:
+
+```typescript
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current directory
+  const env = loadEnv(mode, process.cwd(), '');
+  
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, './src')
+      }
+    },
+    server: {
+      https: env.VITE_USE_HTTPS === 'true'
+    },
+    define: {
+      // Make additional env variables available to client
+      __APP_ENV__: JSON.stringify(env.APP_ENV || mode),
+    },
+    // Conditionally apply production optimizations
+    build: {
+      sourcemap: mode !== 'production',
+      minify: mode === 'production',
+      // Any additional build settings
+    }
+  }
+});
+```
+
+## ✅ 4. Update NPM Scripts
+
+Modify your package.json scripts for clarity:
+
+```json
+"scripts": {
+  "dev": "vite",
+  "dev:https": "cross-env VITE_USE_HTTPS=true vite",
+  "build": "vite build",
+  "build:prod": "vite build --mode production",
+  "preview": "vite preview",
+  "preview:https": "cross-env VITE_USE_HTTPS=true vite preview"
+}
+```
+
+## ✅ 5. Create Environment Type Definitions
+
+For TypeScript support, create a types file:
+
+```typescript
+// src/types/env.d.ts
+interface ImportMetaEnv {
+  readonly VITE_APP_TITLE: string;
+  readonly VITE_API_URL: string;
+  readonly VITE_USE_HTTPS: string;
+  // Add more env variables as needed
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+```
+
+## ✅ 6. Document Environment Configuration
+
+The environment configuration has been documented in `docs/ENVIRONMENT.md`. The documentation includes:
+
+- Environment files structure and loading order
+- NODE_ENV behavior and warnings against manually setting it
+- Available environment variables and their purposes
+- NPM scripts for different environments
+- Environment detection implementation
+- Type definitions for environment variables
+- Troubleshooting tips and best practices
+
+## 7. Migration Steps
+
+1. Back up all current .env files
+2. Remove NODE_ENV from all environment files
+3. Apply the new vite.config.ts structure
+4. Update package.json scripts
+5. Test each environment (dev, build, preview) to verify it works
+6. Add environment type definitions for better TypeScript support
+7. Document the environment configuration for future developers
+
+## 8. Testing Plan
+
+1. Test development mode: `npm run dev`
+2. Test HTTPS development: `npm run dev:https`  
+3. Test production build: `npm run build:prod`
+4. Test production preview: `npm run preview`
+5. Test HTTPS preview: `npm run preview:https`
+6. Verify environment-specific code works correctly
+7. Check for any console warnings related to environment variables
+
+This implementation gives you a clean, future-proof approach that follows Vite's best practices for environment configuration while eliminating the warning about NODE_ENV. 

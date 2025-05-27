@@ -2,13 +2,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
 import AuthModal from './AuthModal';
 import { cn } from '../../lib/utils';
-import { AUTH_VIEWS } from '../../lib/auth/constants';
-import logger from '../../lib/logger';
-import { clearAllVerificationState } from '../../lib/auth/utils';
+import { AUTH_VIEWS, AuthView } from '../../lib/auth/constants';
+import ProfileMenu from './ProfileMenu';
 
 /**
  * Authentication header component that displays the current authentication state
- * Uses non-blocking rendering to provide a smooth user experience
+ * Uses non-blocking rendering with fixed dimensions to prevent layout shifts
  */
 const AuthHeader: React.FC = () => {
   const { 
@@ -21,83 +20,22 @@ const AuthHeader: React.FC = () => {
   } = useAuthStore();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<typeof AUTH_VIEWS[keyof typeof AUTH_VIEWS]>(AUTH_VIEWS.SIGN_IN);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-  
-  // Check for pending verification on mount
-  useEffect(() => {
-    try {
-      // If user is already authenticated, clear any verification state
-      if (isAuthenticated() && user) {
-        clearAllVerificationState();
-        setVerificationEmail(null);
-        logger.debug('User already authenticated, cleared verification state');
-        return;
-      }
-      
-      const storedState = localStorage.getItem('verificationState');
-      if (storedState) {
-        const parsedState = JSON.parse(storedState);
-        const currentTime = Date.now();
-        const expirationTime = parsedState.startTime + (30 * 60 * 1000); // 30 minutes
-        
-        if (currentTime < expirationTime && parsedState.email) {
-          // Double-check user's auth status to prevent showing verification for authenticated users
-          if (!isAuthenticated()) {
-            setVerificationEmail(parsedState.email);
-            logger.debug('Found pending verification in AuthHeader for:', parsedState.email);
-          } else {
-            // User is authenticated but verification state exists, clean it up
-            clearAllVerificationState();
-            logger.debug('Cleared stale verification state for authenticated user');
-          }
-        } else {
-          // Verification state expired, clean it up
-          clearAllVerificationState();
-          logger.debug('Cleared expired verification state');
-        }
-      }
-    } catch (error) {
-      logger.error('Error checking pending verification in AuthHeader:', error);
-      // In case of any error, clear the state to be safe
-      clearAllVerificationState();
-      setVerificationEmail(null);
-    }
-  }, [isAuthenticated, user]);
+  const [authView, setAuthView] = useState<AuthView>(AUTH_VIEWS.SIGN_IN);
   
   // Create a memoized signOut handler
   const handleSignOut = useCallback(async () => {
-    // Clear any verification state before signing out
-    clearAllVerificationState();
-    setVerificationEmail(null);
-    
     await signOut();
   }, [signOut]);
   
   // Handle opening the modal for sign in
   const handleOpenSignInModal = useCallback(() => {
-    // Don't show verification modal if user is already authenticated
-    if (isAuthenticated() && user) {
-      // Make sure any lingering verification state is cleared
-      clearAllVerificationState();
-      setVerificationEmail(null);
-      logger.debug('Prevented showing verification modal for authenticated user');
-      return;
-    }
-    
-    // If there is a pending verification, show the verification view instead
-    if (verificationEmail) {
-      setAuthMode(AUTH_VIEWS.VERIFICATION);
-      logger.info('Opening auth modal in verification mode due to pending verification');
-    } else {
-      setAuthMode(AUTH_VIEWS.SIGN_IN);
-    }
+    setAuthView(AUTH_VIEWS.SIGN_IN);
     setShowAuthModal(true);
-  }, [verificationEmail, isAuthenticated, user]);
+  }, []);
   
   // Handle opening the modal for sign up
   const handleOpenSignUpModal = useCallback(() => {
-    setAuthMode(AUTH_VIEWS.SIGN_UP);
+    setAuthView(AUTH_VIEWS.SIGN_UP);
     setShowAuthModal(true);
   }, []);
   
@@ -113,53 +51,52 @@ const AuthHeader: React.FC = () => {
     }
   }, [isAuthenticated]);
   
+  // Fixed container dimensions to prevent layout shifts
+  const containerClasses = cn(
+    "flex items-center justify-end", // Consistent alignment
+    "min-h-[40px]", // Minimum height to prevent collapse
+    "min-w-[120px]" // Minimum width to prevent horizontal shifting
+  );
+  
   // Render based on authentication status
   return (
-    <div className="flex items-center">
+    <div className={containerClasses}>
       {isLoading() ? (
-        // Show loading indicator until authentication is determined
-        <div className="px-4 py-1.5">
-          <div className="w-16 h-5 rounded-md bg-container animate-pulse"></div>
+        // Show loading indicator with fixed dimensions matching final content
+        <div className="flex items-center space-x-3">
+          {/* Email placeholder */}
+          <div className="w-20 h-4 rounded-md bg-zinc-800 animate-pulse"></div>
+          {/* Avatar placeholder - matches Avatar component dimensions */}
+          <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-600 animate-pulse flex-shrink-0"></div>
         </div>
       ) : isAuthenticated() && user ? (
-        // User is authenticated, show profile and sign out button
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-tertiary">
-            {user?.email}
-          </span>
-          <button
-            onClick={handleSignOut}
-            className={cn(
-              "px-4 py-1.5 text-sm font-medium rounded-md",
-              "bg-container text-secondary border border-app",
-              "hover:bg-panel hover:border-app",
-              "transition-all duration-200 ease-in-out",
-              "focus:outline-none focus:ring-2 focus:ring-brand-neutral-500 focus:ring-offset-2 focus:ring-offset-app"
-            )}
-          >
-            Sign Out
-          </button>
-        </div>
+        // User is authenticated, show profile menu dropdown
+        <ProfileMenu user={user} onSignOut={handleSignOut} />
       ) : hasInitialized() ? (
-        // User is definitely not authenticated, show sign in button only
-        <div className="flex space-x-2 bg-brand-gradient rounded-md">
+        // User is definitely not authenticated, show sign in button with fixed dimensions
+        <div className="flex justify-end">
           <button
             onClick={handleOpenSignInModal}
-            className={cn( 
-              "px-4 py-1.5 text-sm font-medium",
-              "text-white",
-              "hover:bg-brand-primary-600",
+            className={cn(
+              "px-4 py-1.5 text-sm font-medium rounded-md",
+              "bg-indigo-600 text-white",
+              "hover:bg-indigo-700",
               "transition-all duration-200 ease-in-out",
-              "focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:ring-offset-2 focus:ring-offset-app"
+              "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900",
+              "min-w-[70px] h-[32px]", // Fixed dimensions to match loading state
+              "flex items-center justify-center" // Center content
             )}
           >
             Sign In
           </button>
         </div>
       ) : (
-        // We're still waiting for initial auth check, show nothing
-        <div className="px-4 py-1.5">
-          <div className="w-16 h-5 rounded-md bg-container animate-pulse"></div>
+        // We're still waiting for initial auth check, show loading with same dimensions
+        <div className="flex items-center space-x-3">
+          {/* Email placeholder */}
+          <div className="w-20 h-4 rounded-md bg-zinc-800 animate-pulse"></div>
+          {/* Avatar placeholder - matches Avatar component dimensions */}
+          <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-600 animate-pulse flex-shrink-0"></div>
         </div>
       )}
       
@@ -168,8 +105,7 @@ const AuthHeader: React.FC = () => {
         <AuthModal 
           isOpen={showAuthModal} 
           onClose={handleCloseModal}
-          initialView={authMode}
-          verificationEmail={verificationEmail}
+          initialView={authView}
         />
       )}
     </div>

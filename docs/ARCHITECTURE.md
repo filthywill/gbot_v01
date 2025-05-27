@@ -140,7 +140,8 @@ All implemented effects include:
 - **Shadow Effect**: Offset controls for depth
 - **Shine**: Basic implementation with opacity control
 
-### State Management
+## State Management
+
 The application uses Zustand for efficient state management with:
 - Centralized state store for all customization options
 - History tracking for undo/redo functionality
@@ -148,6 +149,40 @@ The application uses Zustand for efficient state management with:
 - Real-time preview updates
 - Preset management system
 - Optimized rendering with fine-grained state updates
+
+### Authentication State
+Authentication state is now managed through dedicated hooks and stores:
+
+- **useAuthStore**: Central Zustand store for authentication state with enhanced loading states and error handling
+- **useEmailVerification**: Hook for email verification process
+- **useAuthModalState**: Hook for modal visibility and view state
+- **AuthProvider**: Component that handles authentication initialization and tab visibility changes
+
+The authentication system includes several key improvements:
+
+#### Enhanced State Management
+- **Granular Loading States**: Separate loading indicators for session and user data
+- **Comprehensive Error Handling**: Detailed error tracking with recovery mechanisms
+- **Status-Based State**: Clear authentication status tracking (INITIAL, LOADING, AUTHENTICATED, UNAUTHENTICATED, ERROR)
+
+#### Tab Visibility Handling
+- **Session Caching**: Maintains reference to last known good session
+- **Visibility Event Handling**: Responds to tab visibility changes with debouncing
+- **Error Recovery**: Automatic recovery attempts when auth errors occur during tab switching
+- **Progressive Fallbacks**: Multiple layers of fallback data (cache, session, recovery)
+
+#### Robust User Data Retrieval
+- **Enhanced getCurrentUser Function**: Comprehensive retry logic with exponential backoff
+- **User Data Caching**: In-memory cache with configurable TTL (30 seconds)
+- **Background Refresh**: Updates stale cache data in background
+- **Environment-Aware Timeouts**: Different timeout values for development vs production
+
+#### Configuration-Driven Behavior
+- **AUTH_CONFIG**: Centralized configuration for timeouts, retries, and delays
+- **Environment Optimization**: Different settings for development and production
+- **Tab Switching Optimization**: Specific configurations for handling tab visibility changes
+
+This separation allows for more granular control over authentication flows and improves code maintainability while providing a resilient authentication experience across different browser behaviors.
 
 ### Control Component Hierarchy
 The application features a three-tier control component system:
@@ -165,6 +200,35 @@ The application features an optimized color selection system:
 - Global state for recently used and custom colors
 
 ## Component Architecture
+
+The application follows a modular component architecture with clear separation of concerns:
+
+### Core Application Components
+
+#### App Container Structure
+The main App component has been refactored to use a modular approach:
+
+- **AppHeader**: Contains application logo and authentication controls
+- **AppMainContent**: Contains the main graffiti generator UI and customization tools
+- **AppFooter**: Contains copyright information and application links
+- **AppDevTools**: Contains development-only tools and visualizations (only in development mode)
+
+This modular structure improves maintainability and allows for better component reuse.
+
+### Authentication Components
+
+The authentication system has been completely refactored into dedicated components and hooks:
+
+#### Authentication Architecture
+
+The authentication system follows a modular design with the following key components:
+
+- **Custom Authentication Hooks**: Extracted authentication logic into reusable hooks
+- **Dedicated UI Components**: Separate components for different authentication views
+- **Modal Management**: Centralized modal control for authentication flows
+- **State Persistence**: Robust state handling for interrupted authentication flows
+
+For detailed information on the authentication system implementation, including hook details, component structures, and code examples, see [Authentication Documentation](./AUTHENTICATION.md).
 
 ### UI Components
 The application uses a comprehensive UI system built with:

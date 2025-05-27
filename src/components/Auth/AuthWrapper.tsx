@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
 import logger from '../../lib/logger';
 import { supabase, getCurrentUser } from '../../lib/supabase';
+import { refreshSessionAfterSensitiveOperation } from '../../lib/auth/sessionUtils';
 
 /**
  * Check if an email is verified directly with Supabase
@@ -179,6 +180,10 @@ export const directVerifyEmail = async (email: string) => {
           logger.error('Error updating user metadata:', updateError);
         } else {
           logger.info('Successfully updated user metadata');
+          
+          // Refresh session after updating user metadata for enhanced security
+          await refreshSessionAfterSensitiveOperation();
+          
           return { success: true };
         }
       }

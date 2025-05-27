@@ -81,9 +81,17 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
       // Handle specific error cases
       if (errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
         setError('Network timeout - please try again or check your connection');
-      } else if (errorMessage.includes('invalid') || errorMessage.includes('incorrect')) {
-        setError('Invalid verification code - please check and try again');
-      } else if (errorMessage.includes('expired')) {
+      } 
+      // Special case for the ambiguous "Token has expired or is invalid" error
+      else if (errorMessage === 'Token has expired or is invalid') {
+        // The code was just entered, so it's more likely invalid than expired
+        setError('Incorrect verification code - please check and try again');
+      }
+      else if (errorMessage.toLowerCase().includes('invalid') || 
+               errorMessage.toLowerCase().includes('incorrect') || 
+               errorMessage.toLowerCase().includes('not found')) {
+        setError('Incorrect verification code - please check and try again');
+      } else if (errorMessage.toLowerCase().includes('expired')) {
         setError('Verification code has expired - please request a new one');
       } else {
         setError(`Failed to verify: ${errorMessage}`);

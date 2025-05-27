@@ -96,10 +96,18 @@ export const exportLimiter = new RateLimiter({
   warningThreshold: 2
 });
 
+// Strict rate limiter for password changes to prevent abuse
+export const passwordChangeLimiter = new RateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 3, // Only 3 password changes per 15 minutes
+  warningThreshold: 1 // Warn when 1 attempt remaining
+});
+
 // Helper function to check rate limits
-export const checkRateLimit = (key: string, type: 'general' | 'svg' | 'export'): boolean => {
+export const checkRateLimit = (key: string, type: 'general' | 'svg' | 'export' | 'password'): boolean => {
   const limiter = type === 'svg' ? svgLimiter : 
                  type === 'export' ? exportLimiter : 
+                 type === 'password' ? passwordChangeLimiter :
                  generalLimiter;
   
   return limiter.check(key);

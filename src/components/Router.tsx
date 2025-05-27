@@ -5,6 +5,10 @@ import TermsOfService from '../pages/TermsOfService';
 import ResetPasswordPage from '../pages/auth/reset-password';
 import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
+import VerifyRedirect from '../pages/auth/verify-redirect';
+import AccountSettings from '../pages/AccountSettings';
+import { ProtectedRoute } from './Auth';
+import NotificationProvider from './ui/NotificationProvider';
 // Use dynamic imports instead of static imports to avoid build failures
 const EmailVerificationSuccess = lazy(() => import('../pages/auth/verification-success').then(module => {
   return { default: module.default };
@@ -14,8 +18,7 @@ import AuthCallback from '../pages/auth/callback';
 import logger from '../lib/logger';
 
 const Router: React.FC = () => {
-  console.log('!!! ROUTER FUNCTION BODY START !!!', { timestamp: new Date().toISOString() });
-  logger.info('!!! ROUTER FUNCTION BODY START !!!');
+  logger.debug('Router function body start', { timestamp: new Date().toISOString() });
 
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [hasError, setHasError] = useState(false);
@@ -23,7 +26,7 @@ const Router: React.FC = () => {
 
   // Log initial route - this is crucial for debugging
   useEffect(() => {
-    console.log('ROUTER INITIAL LOAD', {
+    logger.debug('Router initial load', {
       pathname: window.location.pathname,
       search: window.location.search,
       hash: window.location.hash,
@@ -31,12 +34,9 @@ const Router: React.FC = () => {
       timestamp: new Date().toISOString()
     });
     
-    logger.info('Router loaded at:', window.location.href);
-    
     // Check for auth callback route immediately
     if (isAuthCallback()) {
-      console.log('AUTH CALLBACK ROUTE DETECTED ON INITIAL LOAD');
-      logger.info('Auth callback route detected on initial load');
+      logger.debug('Auth callback route detected on initial load');
     }
     
     // Global error handler
@@ -61,8 +61,7 @@ const Router: React.FC = () => {
       
       // Check for auth callback on path change
       if (isAuthCallback()) {
-        console.log('AUTH CALLBACK ROUTE DETECTED AFTER NAVIGATION');
-        logger.info('Auth callback route detected after navigation');
+        logger.debug('Auth callback route detected after navigation');
       }
     };
 
@@ -142,27 +141,19 @@ const Router: React.FC = () => {
     const result = isPathCallback || hasSpecificSearchParams || hasAuthCallbackFlag;
 
     if (result) {
-      console.log('AUTH CALLBACK DETECTED (ROUTER):', { 
-        isPathCallback,
-        hasSpecificSearchParams,
-        hasAuthCallbackFlag,
-        fullUrl,
-        pathname
-      });
-      
       logger.debug('Auth callback detected (Router):', { 
         isPathCallback, 
         hasSpecificSearchParams, 
         hasAuthCallbackFlag,
-        fullUrl
+        fullUrl,
+        pathname
       });
     }
     
     return result;
   };
 
-  console.log('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath, timestamp: new Date().toISOString() });
-  logger.info('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath });
+  logger.debug('Router before render logic', { currentPath, timestamp: new Date().toISOString() });
 
   // If we have an error, show a fallback UI
   if (hasError) {
@@ -186,36 +177,63 @@ const Router: React.FC = () => {
 
   // Render the appropriate component based on the current path
   if (isAuthCallback()) {
-    console.log('RENDERING AUTH CALLBACK COMPONENT');
-    logger.info('Rendering AuthCallback component');
-    return <AuthCallback />;
+    logger.debug('Rendering AuthCallback component');
+    return (
+      <NotificationProvider>
+        <AuthCallback />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/privacy-policy')) {
-    return <PrivacyPolicy />;
+    return (
+      <NotificationProvider>
+        <PrivacyPolicy />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/terms-of-service')) {
-    return <TermsOfService />;
+    return (
+      <NotificationProvider>
+        <TermsOfService />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/token-debug')) {
     logger.info('Rendering TokenDebugPage component');
-    return <TokenDebugPage />;
+    return (
+      <NotificationProvider>
+        <TokenDebugPage />
+      </NotificationProvider>
+    );
+  } else if (pathStartsWith('/account-settings')) {
+    logger.info('Rendering protected AccountSettings component');
+    return (
+      <NotificationProvider>
+      <ProtectedRoute redirectTo="/auth/login">
+        <AccountSettings />
+      </ProtectedRoute>
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/auth/reset-password')) {
     // Direct link reset password route
-    console.log('RENDERING RESET PASSWORD COMPONENT', {
+    logger.debug('Rendering ResetPasswordPage component', {
       url: window.location.href,
       path: window.location.pathname, 
       search: window.location.search,
       hash: window.location.hash,
-      timestamp: new Date().toISOString()
-    });
-    logger.info('Rendering ResetPasswordPage component with token params', {
+      timestamp: new Date().toISOString(),
       hasToken: new URLSearchParams(window.location.search).has('token'),
       tokenLength: new URLSearchParams(window.location.search).get('token')?.length,
       type: new URLSearchParams(window.location.search).get('type')
     });
     
     try {
-      return <ResetPasswordPage />;
+      return (
+        <NotificationProvider>
+          <ResetPasswordPage />
+        </NotificationProvider>
+      );
     } catch (error) {
       logger.error('Error rendering ResetPasswordPage:', error);
       return (
+        <NotificationProvider>
         <div className="p-4 flex flex-col items-center justify-center min-h-screen bg-zinc-900">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md w-full">
             <p className="font-bold">Error rendering Reset Password page</p>
@@ -225,21 +243,39 @@ const Router: React.FC = () => {
             Return to Home
           </a>
         </div>
+        </NotificationProvider>
       );
     }
+  } else if (pathStartsWith('/auth/verify-redirect')) {
+    logger.info('Rendering VerifyRedirect component');
+    return (
+      <NotificationProvider>
+        <VerifyRedirect />
+      </NotificationProvider>
+    );
   } else if (pathStartsWith('/auth/verification-success')) {
     logger.info('Rendering EmailVerificationSuccess component');
     return (
+      <NotificationProvider>
       <Suspense fallback={<div>Loading verification page...</div>}>
         <EmailVerificationSuccess />
       </Suspense>
+      </NotificationProvider>
     );
   } else if (pathStartsWith('/verification-debug')) {
-    logger.info('Rendering VerificationDebug component');
-    return <VerificationDebug />;
+    return (
+      <NotificationProvider>
+        <VerificationDebug />
+      </NotificationProvider>
+    );
   } else {
-    // Default route
-    return <App />;
+    // Default case - render the main App component
+    logger.info('Rendering main App component');
+    return (
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
+    );
   }
 };
 

@@ -49,9 +49,6 @@ export function AuthModal({
   // Combined verification email - prop takes precedence
   const effectiveVerificationEmail = verificationEmail || localVerificationEmail;
   
-  // Reference for tracking clicks on modal backdrop
-  const mouseDownOnBackdrop = useRef(false);
-  
   // Log critical verification information for debugging
   useEffect(() => {
     if (isOpen && initialView === AUTH_VIEWS.VERIFICATION) {
@@ -166,22 +163,6 @@ export function AuthModal({
       checkAuthAndClose(onClose);
     }
   }, [isOpen, authStatus, onClose]);
-  
-  // Modal backdrop mouse handlers
-  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Check if click was directly on the backdrop (not content)
-    if (e.target === e.currentTarget) {
-      mouseDownOnBackdrop.current = true;
-    }
-  };
-  
-  const handleBackdropMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only close if both mousedown and mouseup were on backdrop
-    if (mouseDownOnBackdrop.current && e.target === e.currentTarget) {
-      onClose();
-    }
-    mouseDownOnBackdrop.current = false;
-  };
   
   // Handle view changes - changing to accept string instead of AuthMode
   const handleViewChange = (newMode: string) => {
@@ -371,12 +352,7 @@ export function AuthModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
-        <div 
-          className="p-6"
-          ref={modalRef}
-          onMouseDown={handleBackdropMouseDown}
-          onMouseUp={handleBackdropMouseUp}
-        >
+        <div className="p-6" ref={modalRef}>
           {error && (
             <div className="mb-4 bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded text-sm">
               {error}

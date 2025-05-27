@@ -233,33 +233,71 @@ const useAuthStore = create<AuthState>((set) => ({
 | Name | Type | Description |
 |------|------|-------------|
 | `user` | `User \| null` | Current authenticated user |
-| `isLoading` | `boolean` | Authentication loading state |
-| `isAuthenticated` | `boolean` | Authentication status |
-| `error` | `string \| null` | Authentication error |
-| `status` | `'LOADING' \| 'UNAUTHENTICATED' \| 'AUTHENTICATED' \| 'ERROR'` | Current auth status |
+| `session` | `Session \| null` | Current authentication session |
+| `status` | `AuthStatus` | Current authentication status |
+| `error` | `string \| null` | Authentication error message |
+| `lastError` | `Error \| null` | Last error object for debugging |
+| `isSessionLoading` | `boolean` | Session loading state |
+| `isUserDataLoading` | `boolean` | User data loading state |
+
+**AuthStatus Type:**
+
+```typescript
+export type AuthStatus = 
+  | 'INITIAL'      // Initial state before any auth check
+  | 'LOADING'      // Auth check in progress
+  | 'AUTHENTICATED' // User is authenticated
+  | 'UNAUTHENTICATED' // User is not authenticated
+  | 'ERROR';       // Auth error occurred
+```
 
 **Actions:**
 
 | Name | Type | Description |
 |------|------|-------------|
-| `initialize` | `() => Promise<void>` | Initialize authentication state |
-| `signInWithEmail` | `(email: string, password: string) => Promise<void>` | Sign in with email/password |
-| `signUpWithEmail` | `(email: string, password: string) => Promise<void>` | Sign up with email/password |
-| `verifyOtp` | `(email: string, token: string) => Promise<{ user: User \| null }>` | Verify OTP code |
+| `initialize` | `() => Promise<void>` | Initialize authentication state with retry logic |
+| `signInWithEmail` | `(email: string, password: string) => Promise<{ user: User; session: Session } \| undefined>` | Sign in with email/password |
+| `signUpWithEmail` | `(email: string, password: string) => Promise<{ user: User \| null; session: Session \| null; } \| null>` | Sign up with email/password |
 | `signOut` | `() => Promise<void>` | Sign out current user |
 | `resetError` | `() => void` | Clear authentication errors |
+| `setError` | `(error: string) => void` | Set authentication error |
+| `resetPassword` | `(email: string) => Promise<boolean>` | Send password reset email |
+| `verifyOtp` | `(email: string, token: string) => Promise<{ user: User \| null; session: Session \| null; } \| null>` | Verify OTP code |
+| `setUser` | `(user: User \| null) => void` | Direct user state setter |
+| `setSession` | `(session: Session \| null) => void` | Direct session state setter |
+| `clearSession` | `() => void` | Clear session data |
+
+**Computed Helpers:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `isAuthenticated` | `() => boolean` | Check if user is authenticated |
+| `isLoading` | `() => boolean` | Check if any auth operation is loading |
+| `hasInitialized` | `() => boolean` | Check if auth has been initialized |
 
 **Usage Example:**
 
 ```tsx
 // Get auth state
-const { isAuthenticated, user } = useAuthStore();
+const { user, status, isLoading } = useAuthStore();
 
 // Use auth actions
-const { signInWithEmail, signOut } = useAuthStore();
+const { signInWithEmail, signOut, initialize } = useAuthStore();
 
 // Sign in
-await signInWithEmail('user@example.com', 'password123');
+try {
+  const result = await signInWithEmail('user@example.com', 'password123');
+  if (result) {
+    console.log('Signed in:', result.user);
+  }
+} catch (error) {
+  console.error('Sign in failed:', error);
+}
+
+// Initialize auth on app start
+useEffect(() => {
+  initialize();
+}, []);
 ```
 
 ### usePreferencesStore
@@ -400,33 +438,86 @@ const overlap = findOptimalOverlap(svgA, svgB, 0.8);
 
 ### Authentication Utilities
 
-#### verifyOtp
+#### getCurrentUser
 
-Verifies an OTP code during email verification.
+Enhanced function to get the current user with retry logic and caching.
 
 ```typescript
-verifyOtp(
-  email: string, 
-  token: string
-): Promise<{ user: User | null }>
+getCurrentUser(
+  retryCount?: number
+): Promise<User | null>
 ```
 
 **Parameters:**
 
 | Name | Type | Description |
 |------|------|-------------|
-| `email` | `string` | User's email address |
-| `token` | `string` | OTP verification token |
+| `retryCount` | `number` | Maximum number of retry attempts (default: AUTH_CONFIG.maxUserFetchRetries) |
 
 **Returns:**
 
-`Promise<{ user: User | null }>` - Authentication result with user if successful
+`Promise<User | null>` - Current user or null if not authenticated
+
+**Features:**
+
+- **Caching**: Uses in-memory cache with 30-second TTL
+- **Retry Logic**: Exponential backoff for failed requests
+- **Tab Awareness**: Different timeouts for visible vs hidden tabs
+- **Fallback Handling**: Returns cached data when fresh requests fail
+- **Background Refresh**: Updates cache in background for stale data
 
 **Usage Example:**
 
 ```typescript
-const { user } = await verifyOtp('user@example.com', '123456');
+// Get current user with default retry count
+const user = await getCurrentUser();
+
+// Get current user with custom retry count
+const user = await getCurrentUser(5);
+
+// Handle potential null result
+if (user) {
+  console.log('Current user:', user.email);
+} else {
+  console.log('No authenticated user');
+}
 ```
+
+#### Auth Configuration
+
+Centralized configuration for authentication timeouts and retry logic.
+
+```typescript
+// src/lib/auth/config.ts
+export const AUTH_CONFIG = {
+  // Delays for state transitions (optimized for tab switching)
+  stateTransitionDelay: import.meta.env.PROD ? 300 : 200,
+  
+  // Retry intervals for operations
+  retryDelay: import.meta.env.PROD ? 6000 : 4000,
+  tokenExchangeRetryDelay: 1500,
+  
+  // Timeout for user fetch operations
+  userFetchTimeout: 8000,
+  
+  // Maximum number of retries
+  maxInitRetries: 3,
+  maxTokenExchangeRetries: 3,
+  maxUserFetchRetries: 3,
+  
+  // Session duration
+  sessionDuration: 60 * 60 * 24 * 7, // 7 days in seconds
+};
+```
+
+**Configuration Properties:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `stateTransitionDelay` | `number` | Delay for auth state transitions (ms) |
+| `retryDelay` | `number` | Base delay for retry operations (ms) |
+| `userFetchTimeout` | `number` | Timeout for user fetch operations (ms) |
+| `maxUserFetchRetries` | `number` | Maximum retries for user fetch operations |
 
 ### Rate Limiting
 

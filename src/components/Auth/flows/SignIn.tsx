@@ -77,6 +77,22 @@ const SignIn: React.FC<SignInProps> = ({
       
       // If we get here, authentication was successful
       logger.info('Sign in successful');
+      
+      // Check for returnTo parameter in the URL
+      const params = new URLSearchParams(window.location.search);
+      const returnTo = params.get('returnTo');
+      
+      if (returnTo) {
+        // Navigate to the return path
+        logger.info('Redirecting to return path after login:', returnTo);
+        (window as any).navigateTo(decodeURIComponent(returnTo));
+      } else {
+        // If there's no returnTo parameter, explicitly navigate to the home page
+        logger.info('No return path found, navigating to home page');
+        (window as any).navigateTo('/');
+      }
+      
+      // Call the success callback
       onSuccess();
     } catch (err) {
       logger.error('Sign in error:', err);

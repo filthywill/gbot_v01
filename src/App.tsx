@@ -1,48 +1,80 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSelector } from './components/StyleSelector';
-import { InputForm } from './components/InputForm';
-import GraffitiDisplay from './components/GraffitiDisplay';
-import { CustomizationToolbar } from './components/CustomizationToolbar';
+import React from 'react';
 import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
 import { GRAFFITI_STYLES } from './data/styles';
-// Note: There are multiple logo files with slightly different names (stizack-wh.svg and stizak-wh.svg)
-import stizakLogo from './assets/logos/stizack-wh.svg';
-import { OverlapDebugPanel } from './components/OverlapDebugPanel';
 import { cn } from './lib/utils';
 import { useDevStore } from './store/useDevStore';
 import { isDevelopment } from './lib/env';
-import { debugLog, isDebugPanelEnabled } from './lib/debug';
 import logger from './lib/logger';
-import { AuthProvider, AuthHeader, VerificationBanner } from './components/Auth';
+import { AuthProvider, VerificationBanner } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
-import usePreferencesStore from './store/usePreferencesStore';
-import { supabase } from './lib/supabase';
 import { AuthModal } from './components/Auth';
-import { showSuccess, showError, showInfo } from './lib/toast';
-import { DevColorPanel } from './components/ui/dev-color-panel';
-import { AUTH_VIEWS } from './lib/auth/constants';
-import { clearAllVerificationState } from './lib/auth/utils';
+import { useEmailVerification } from './hooks/auth/useEmailVerification';
+import { useAuthModalState } from './hooks/auth/useAuthModalState';
+import { AppHeader, AppFooter, AppDevTools, AppMainContent } from './components/app';
+// Import all modals from the centralized modals directory
+import { 
+  VerificationSuccessModal, 
+  VerificationErrorModal, 
+  VerificationLoadingModal 
+} from './components/modals';
 
+/**
+ * Main Application Component
+ * 
+ * App structure follows a modular component architecture:
+ * - AppHeader: Contains logo and authentication header
+ * - AppMainContent: Holds the main graffiti generator UI
+ * - AppFooter: Contains copyright and links
+ * - AppDevTools: Developer tools (only visible in development)
+ * 
+ * Protected Routes Usage Example:
+ * When using React Router, protect auth-required routes like:
+ * 
+ * import { ProtectedRoute } from './components/Auth';
+ * 
+ * <Routes>
+ *   <Route path="/" element={<PublicPage />} />
+ *   <Route 
+ *     path="/dashboard" 
+ *     element={
+ *       <ProtectedRoute redirectTo="/auth/login">
+ *         <DashboardPage />
+ *       </ProtectedRoute>
+ *     } 
+ *   />
+ * </Routes>
+ */
 function App() {
+  // Get developer tools state from store
   const { showValueOverlays, toggleValueOverlays, showColorPanel, toggleColorPanel } = useDevStore();
   const isDev = isDevelopment();
-  const { status, initialize, user } = useAuthStore();
-  const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
+  const { user } = useAuthStore();
   
-  // Modal state for verification success
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-
-  // Auth modal state
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<typeof AUTH_VIEWS[keyof typeof AUTH_VIEWS]>(AUTH_VIEWS.SIGN_IN);
+  // Authentication and modal state management
+  const {
+    showAuthModal,
+    setShowAuthModal,
+    authModalMode, 
+    setAuthModalMode
+  } = useAuthModalState();
   
-  // State for resuming verification
-  const [pendingVerification, setPendingVerification] = useState(false);
+  // Authentication and verification state management
+  const {
+    showVerificationModal,
+    setShowVerificationModal,
+    verificationEmail,
+    verificationError,
+    setVerificationError,
+    isVerifying,
+    pendingVerification,
+    handleResumeVerification
+  } = useEmailVerification({
+    // Pass the auth modal control functions to enable the resume verification feature
+    setShowAuthModal,
+    setAuthModalMode
+  });
 
-  // Get all state and actions from our Zustand-powered hook
+  // Graffiti generator state from Zustand store
   const {
     displayInputText,
     isGenerating,
@@ -63,320 +95,27 @@ function App() {
     handleUndoRedo
   } = useGraffitiGeneratorWithZustand();
   
-  // Flag to track if we've had at least one successful generation
+  // Track if we've had at least one successful generation
   const hasInitialGeneration = React.useRef(false);
 
-  // Handle email verification
-  useEffect(() => {
-    const checkForVerification = async () => {
-      // First check for hash fragments in the URL (Supabase uses these for email verification)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-
-      // Get URL parameters - from either query string or hash fragment
-      const tokenFromSearch = new URLSearchParams(window.location.search).get('token');
-      const typeFromSearch = new URLSearchParams(window.location.search).get('type');
-      const emailFromSearch = new URLSearchParams(window.location.search).get('email');
-      const tokenFromHash = hashParams.get('access_token');
-      const typeFromHash = hashParams.get('type');
-
-      // Combine parameters (prefer hash if available)
-      const token = tokenFromHash || tokenFromSearch;
-      const type = typeFromHash || typeFromSearch;
-      const email = emailFromSearch; // Email usually comes in search params for our custom flows
-
-      logger.info('Checking for verification params:', { 
-        token: token?.substring(0, 8), 
-        type, 
-        email 
-      });
-
-      // ==============================================================
-      // TEMPORARILY COMMENTED OUT - Let Supabase handle #access_token automatically
-      // ==============================================================
-      // // Handle callback from Supabase with #access_token in URL
-      // if (hashParams.get('access_token')) {
-      //   logger.info('Detected Supabase auth redirect with access_token (Manual handling bypassed)');
-      //   // setIsVerifying(true); // Let Supabase handle session, don't show manual verification state
-      //   // try {
-      //   //   // Supabase automatically handles the session when it detects the access_token in URL
-      //   //   // We might just need to refresh the auth state AFTER Supabase has done its work.
-      //   //   // A slight delay or listening to onAuthStateChange might be better here.
-      //   //   logger.info('Detected Supabase auth redirect with access_token');
-      //   //   
-      //   //   // Re-initialize auth state after a short delay to allow Supabase to process
-      //   //   // setTimeout(async () => {
-      //   //   //   logger.info('Re-initializing auth state after delay...');
-      //   //   //   await initialize();
-      //   //   //   const { user, status } = useAuthStore.getState();
-      //   //   //   logger.info('Auth state after handling Supabase redirect (delayed check):', { status, hasUser: !!user });
-      //   //   //   // Potentially clear verification state IF user is authenticated
-      //   //   //   if(status === 'AUTHENTICATED') {
-      //   //   //       setVerificationEmail(null);
-      //   //   //       setPendingVerification(false);
-      //   //   //       clearAllVerificationState();
-      //   //   //       // Show success modal and clean up the URL
-      //   //   //       setShowVerificationModal(true);
-      //   //   //       window.history.replaceState({}, document.title, '/');
-      //   //   //   } else {
-      //   //   //       logger.warn('Supabase redirect handled, but user not authenticated after delay.');
-      //   //   //       // Don't clean URL, maybe show error?
-      //   //   //   }
-      //   //   //   setIsVerifying(false);
-      //   //   // }, 500); // Adjust delay as needed
-
-      //   // } catch (error) {
-      //   //   logger.error('Failed to process Supabase auth redirect:', error);
-      //   //   setVerificationError('Failed to complete authentication');
-      //   //   setIsVerifying(false);
-      //   // }
-      //   return; // Return here to prevent further processing if it was an access_token hash
-      // }
-      // ==============================================================
-
-      // Check if this is our custom verification request with token param (non-Supabase magic link)
-      // This part handles flows where WE put the token/type/email in the SEARCH parameters
-      if (tokenFromSearch && (typeFromSearch === 'verification' || typeFromSearch === 'signup') && emailFromSearch) {
-        logger.info('Detected CUSTOM verification parameters in SEARCH URL:', { token: tokenFromSearch.substring(0, 8), type: typeFromSearch, email: emailFromSearch });
-        setIsVerifying(true);
-        setVerificationEmail(emailFromSearch);
-        
-        try {
-          // Save email for login form in case they need to sign in manually later
-          setLastUsedEmail(emailFromSearch);
-          setRememberMe(true);
-          
-          // The correct way to handle email verification in Supabase v2
-          logger.info('Verifying email with token');
-          
-          // First try exchangeCodeForSession which is the recommended method
-          try {
-            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(tokenFromSearch);
-            if (sessionError) {
-              logger.error('Error exchanging code for session, falling back to verifyOtp:', sessionError);
-              
-              // Fallback to verifyOtp if exchangeCodeForSession fails
-              const { error: verifyError } = await supabase.auth.verifyOtp({
-                token_hash: tokenFromSearch,
-                type: 'signup'
-              });
-              
-              if (verifyError) {
-                logger.error('Error verifying email with verifyOtp:', verifyError);
-                setVerificationError(verifyError.message);
-                throw verifyError;
-              }
-            }
-            
-            logger.info('Email verified successfully!');
-            
-            // Refresh auth state to confirm the user is logged in
-            await initialize();
-            
-            // Check if the user is authenticated after initialization
-            const { user, status } = useAuthStore.getState();
-            logger.info('Auth state after verification:', { status, hasUser: !!user });
-            
-            // Clear verification state now that user is verified
-            setVerificationEmail(null);
-            setPendingVerification(false);
-            clearAllVerificationState();
-            
-            // Show success modal - don't show sign-in modal
-            setShowVerificationModal(true);
-          } catch (exchangeError) {
-            logger.error('Failed to exchange token:', exchangeError);
-            throw exchangeError;
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          logger.error('Exception during verification:', errorMessage);
-          setVerificationError(errorMessage);
-        } finally {
-          setIsVerifying(false);
-          
-          // Clean up URL parameters
-          window.history.replaceState({}, document.title, '/');
-        }
-      }
-    };
-    
-    checkForVerification();
-  }, [initialize, setLastUsedEmail, setRememberMe]);
-
-  // Effect to update the hasInitialGeneration ref when we have processed SVGs
-  useEffect(() => {
+  // Update ref when we have processed SVGs
+  React.useEffect(() => {
     if (processedSvgs.length > 0) {
       hasInitialGeneration.current = true;
     }
   }, [processedSvgs]);
 
-  // Update debug logging to use secure logger
-  useEffect(() => {
-    debugLog('App history state:', {
-      historyLength: history.length,
-      currentHistoryIndex,
-      hasHistory: history.length > 0
-    });
-  }, [history.length, currentHistoryIndex]);
-
   // Log errors when they occur
-  useEffect(() => {
+  React.useEffect(() => {
     if (error) {
       logger.error('Application error occurred:', error);
     }
   }, [error]);
 
-  // Inside the App component, after any existing useEffect hooks
-  // Add a new useEffect to handle verification status from URL
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const verificationStatus = url.searchParams.get('verification');
-    const needsLogin = url.searchParams.get('needsLogin');
-    const authStatus = url.searchParams.get('auth');
-    const errorMessage = url.searchParams.get('error');
-    
-    // Clear the URL parameters without reloading the page
-    const cleanUrl = () => {
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('verification');
-      newUrl.searchParams.delete('needsLogin');
-      newUrl.searchParams.delete('auth');
-      newUrl.searchParams.delete('error');
-      window.history.replaceState({}, document.title, newUrl.toString());
-    };
-    
-    if (verificationStatus === 'success') {
-      logger.info('Email verification successful, showing confirmation');
-      
-      if (needsLogin === 'true') {
-        // Email verified but user needs to sign in
-        showSuccess('Your email has been verified. Please sign in to continue.');
-        
-        // Open the auth modal in sign-in mode
-        setAuthModalMode(AUTH_VIEWS.SIGN_IN);
-        setShowAuthModal(true);
-      } else {
-        // Email verified and user already signed in
-        showSuccess('Your email has been verified and you are now signed in.');
-      }
-      
-      cleanUrl();
-    } else if (verificationStatus === 'failed') {
-      // Verification failed
-      showError(errorMessage || 'There was a problem verifying your email. Please try again.');
-      
-      cleanUrl();
-    } else if (authStatus && authStatus !== 'success') {
-      // Handle other auth issues
-      showError(errorMessage || 'There was a problem with authentication.');
-      
-      cleanUrl();
-    }
-  }, []);
-
-  // Handle resuming verification from banner
-  const handleResumeVerification = (verificationEmail: string) => {
-    console.log('Resuming verification for email:', verificationEmail);
-    
-    // Save the verification state in localStorage
-    const verificationState = {
-      email: verificationEmail,
-      startTime: Date.now(),
-      resumed: true,
-      resumeTime: Date.now()
-    };
-    
-    // Store both in localStorage to ensure consistency
-    localStorage.setItem('verificationState', JSON.stringify(verificationState));
-    localStorage.setItem('verificationEmail', verificationEmail);
-    
-    // Then set the state and open the modal
-    setVerificationEmail(verificationEmail);
-    setAuthModalMode(AUTH_VIEWS.VERIFICATION);
-    setShowAuthModal(true);
-  };
-
-  // Check for pending verification on component mount
-  useEffect(() => {
-    try {
-      const storedState = localStorage.getItem('verificationState');
-      if (storedState) {
-        const parsedState = JSON.parse(storedState);
-        const currentTime = Date.now();
-        const expirationTime = parsedState.startTime + (30 * 60 * 1000); // 30 minutes
-        
-        if (currentTime < expirationTime) {
-          setPendingVerification(true);
-        } else {
-          // Clear expired state
-          localStorage.removeItem('verificationState');
-          setPendingVerification(false);
-        }
-      }
-    } catch (error) {
-      logger.error('Error checking pending verification:', error);
-    }
-  }, []);
-
-  // Add an effect to show the banner whenever the verificationEmail is set
-  useEffect(() => {
-    if (verificationEmail) {
-      setPendingVerification(true);
-    } else {
-      // Clear the pending verification state when email is null
-      setPendingVerification(false);
-    }
-  }, [verificationEmail]);
-
-  // Add this effect to clear verificationEmail when user becomes authenticated
-  useEffect(() => {
-    if (user) {
-      // User is authenticated, clear verification email state
-      setVerificationEmail(null);
-      setPendingVerification(false);
-      clearAllVerificationState();
-      logger.info('User authenticated, cleared verification email state');
-    }
-  }, [user]);
-
-  // Also ensure verification state is cleared when the modal is shown
-  useEffect(() => {
-    if (showVerificationModal) {
-      // Clear all verification state when the success modal is shown
-      setVerificationEmail(null);
-      setPendingVerification(false);
-      clearAllVerificationState();
-      logger.info('Cleared all verification state when success modal was shown');
-    }
-  }, [showVerificationModal]);
-
-  useEffect(() => {
-    const checkForQueryParams = () => {
-      // Check for URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      
-      // Check for reset=true to trigger reset password flow
-      if (urlParams.has('reset')) {
-        setAuthModalMode(AUTH_VIEWS.FORGOT_PASSWORD);
-        setShowAuthModal(true);
-      }
-      
-      // Check for successful password reset
-      if (urlParams.has('passwordReset') && urlParams.get('passwordReset') === 'success') {
-        showSuccess("Password updated successfully! You can now sign in with your new password.", 5000);
-        
-        // Clean up URL parameters
-        window.history.replaceState({}, document.title, '/');
-      }
-    };
-    
-    checkForQueryParams();
-  }, []);
-
   return (
     <AuthProvider>
       <div className="min-h-screen bg-app text-primary">
-        {/* Verification Banner */}
+        {/* Email verification banner - appears when a user is in the verification process */}
         <VerificationBanner 
           onResumeVerification={handleResumeVerification} 
           forceShow={!!verificationEmail} 
@@ -384,230 +123,71 @@ function App() {
           isAuthenticated={!!user} 
         />
         
-        {/* Main App Content */}
+        {/* Main Application Layout */}
         <div className={cn("min-h-screen", (!!verificationEmail || pendingVerification) && "pt-14")}>
-          {/* Header Section */}
-          <header>
-            {/* Auth Section */}
-            <div className="w-full bg-app">
-              <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-                <div className="flex justify-end">
-                  <AuthHeader />
-                </div>
-              </div>
-            </div>
-            
-            {/* Logo Section */}
-            <div className="bg-app">
-              <div className="max-w-[800px] mx-auto py-0 px-2 sm:px-3">
-                <div className="bg-container shadow-md rounded-md p-1">
-                  <div className="flex justify-center">
-                    <img 
-                      src={stizakLogo} 
-                      alt="STIZAK"
-                      className="h-[120px] w-auto" 
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </header>
+          {/* Application Header - contains authentication controls and logo */}
+            <AppHeader 
+              hasVerificationBanner={!!verificationEmail || pendingVerification}
+            />
           
-          <main className="flex-grow">
-            <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-              <div className="space-y-2">
-                {/* Top section: Input and Style Selection */}
-                <div className="bg-container shadow-md rounded-md p-1.5 sm:p-2 animate-fade-in">
-                  <InputForm 
-                    inputText={displayInputText}
-                    setInputText={handleInputTextChange}
-                    isGenerating={isGenerating}
-                    onGenerate={generateGraffiti}
-                  />
-                  
-                  {error && (
-                    <div className="mt-1 text-red-400 text-xs bg-red-900 bg-opacity-50 p-1 rounded animate-pulse-once">
-                      {error}
-                    </div>
-                  )}
-                  
-                  {/* Style Selector - removed extra top margin for better alignment */}
-                  <div className="mt-1.5">
-                    <StyleSelector 
-                      styles={GRAFFITI_STYLES}
-                      selectedStyle={selectedStyle}
-                      onSelectStyle={handleStyleChange}
-                    />
-                  </div>
-                </div>
-                
-                {/* Preview Section */}
-                <div className="bg-container shadow-md rounded-md p-1.5 sm:p-2 animate-slide-up">
-                  {/* This div maintains the 16:9 aspect ratio with no vertical gaps */}
-                  <div className="w-full relative bg-panel rounded-md overflow-hidden">
-                    <div className="w-full pb-[56.25%] relative">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        {processedSvgs.length > 0 ? (
-                          <GraffitiDisplay 
-                            isGenerating={isGenerating}
-                            processedSvgs={processedSvgs}
-                            positions={positions}
-                            contentWidth={contentWidth}
-                            contentHeight={contentHeight}
-                            containerScale={containerScale}
-                            customizationOptions={customizationOptions}
-                            customizationHistory={history}
-                            currentHistoryIndex={currentHistoryIndex}
-                            onUndoRedo={handleUndoRedo}
-                            inputText={displayInputText}
-                          />
-                        ) : (
-                          <div className="text-tertiary text-center p-3">
-                            {hasInitialGeneration.current ? (
-                              <p className="text-sm">No text to display. Enter some text and click Create.</p>
-                            ) : (
-                              <div className="space-y-1">
-                                <p className="text-tertiary text-sm">Enter text above and click Create to generate your graffiti</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Customization Section */}
-                <div className="bg-container shadow-md rounded-md p-0.5 sm:p-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                  <CustomizationToolbar 
-                    options={customizationOptions}
-                    onChange={handleCustomizationChange}
-                  />
-                </div>
-              </div>
-            </div>
-          </main>
+          {/* Main Content Area - contains graffiti generator UI */}
+            <AppMainContent 
+              displayInputText={displayInputText}
+              setInputText={handleInputTextChange}
+              isGenerating={isGenerating}
+              generateGraffiti={generateGraffiti}
+              error={error}
+              styles={GRAFFITI_STYLES}
+              selectedStyle={selectedStyle}
+              handleStyleChange={handleStyleChange}
+              processedSvgs={processedSvgs}
+              positions={positions}
+              contentWidth={contentWidth}
+              contentHeight={contentHeight}
+              containerScale={containerScale}
+              customizationOptions={customizationOptions}
+              history={history}
+              currentHistoryIndex={currentHistoryIndex}
+              handleUndoRedo={handleUndoRedo}
+              hasInitialGeneration={hasInitialGeneration}
+              handleCustomizationChange={handleCustomizationChange}
+            />
           
-          <footer className="shadow-inner mt-2">
-            <div className="max-w-[800px] mx-auto py-2 px-2 sm:px-3">
-              <p className="text-center text-tertiary text-xs">
-                STIZAK &copy;{new Date().getFullYear()} | 
-                <a href="/privacy-policy" className="ml-2 text-tertiary hover:text-secondary">Privacy Policy</a> | 
-                <a href="/terms-of-service" className="ml-2 text-tertiary hover:text-secondary">Terms of Service</a>
-              </p>
-            </div>
-          </footer>
+          {/* Application Footer - contains copyright and links */}
+            <AppFooter />
           
-          {/* Add the debug panel - only when debug panels are enabled */}
-          {isDev && isDebugPanelEnabled() && <OverlapDebugPanel />}
-          
-          {/* Add the color panel - only in development mode */}
-          {isDev && showColorPanel && <DevColorPanel />}
+          {/* Developer Tools - only visible in development mode */}
+            <AppDevTools
+              isDev={isDev}
+              showValueOverlays={showValueOverlays}
+              showColorPanel={showColorPanel}
+              toggleValueOverlays={toggleValueOverlays}
+              toggleColorPanel={toggleColorPanel}
+            />
         </div>
 
-        {/* Dev Mode Buttons - only visible when debug panels are enabled */}
-        {isDev && isDebugPanelEnabled() && (
-          <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[9999] flex gap-2 opacity-[0.25]">
-            <button
-              onClick={toggleValueOverlays}
-              className={cn(
-                "px-2 py-1 text-xs rounded border",
-                showValueOverlays
-                  ? "bg-pink-700 border-pink-500 text-white"
-                  : "bg-panel border-app text-secondary"
-              )}
-            >
-              {showValueOverlays ? 'Hide Values' : 'Show Values'}
-            </button>
-            <button
-              onClick={toggleColorPanel}
-              className={cn(
-                "px-2 py-1 text-xs rounded border",
-                showColorPanel
-                  ? "bg-pink-700 border-pink-500 text-white"
-                  : "bg-panel border-app text-secondary"
-              )}
-            >
-              {showColorPanel ? 'Hide Colors' : 'Edit Colors'}
-            </button>
-          </div>
-        )}
-        
-        {/* Email Verification Success Modal - Custom version instead of AuthModal */}
+        {/* ===== Modal Components ===== */}
+        {/* Verification Success Modal - Shown after successful email verification */}
         {showVerificationModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-              <div className="text-center mb-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-3">
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="h-8 w-8 text-green-600" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Email Verified!</h2>
-              </div>
-              
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                <p className="font-medium">Your account has been verified successfully</p>
-                <p className="mt-1">You are now signed in and can start using the application.</p>
-              </div>
-              
-              <button
-                onClick={() => {
-                  // Clear all verification state when the success modal is closed
-                  setShowVerificationModal(false);
-                  setVerificationEmail(null);
-                  setPendingVerification(false);
-                  clearAllVerificationState();
-                  logger.info('Cleared all verification state after success');
-                }}
-                className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white
-                  bg-brand-gradient
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500
-                  transition-all duration-200 ease-in-out transform hover:scale-[1.01]"
-              >
-                Continue to App
-              </button>
-            </div>
-          </div>
+          <VerificationSuccessModal 
+            isOpen={showVerificationModal} 
+            onClose={() => setShowVerificationModal(false)} 
+          />
         )}
         
-        {/* Verification Error Display */}
+        {/* Verification Error Modal - Shown when verification fails */}
         {verificationError && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-              <h2 className="text-xl font-bold text-status-error mb-4">Verification Failed</h2>
-              <p className="text-brand-neutral-700 mb-4">{verificationError}</p>
-              <p className="text-brand-neutral-700 mb-4">Please try signing in directly or contact support for assistance.</p>
-              <div className="flex justify-end">
-                <button 
-                  onClick={() => setVerificationError(null)}
-                  className="px-4 py-2 bg-brand-primary-600 text-white rounded hover:bg-brand-primary-700"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+          <VerificationErrorModal 
+            isOpen={!!verificationError} 
+            errorMessage={verificationError} 
+            onClose={() => setVerificationError(null)} 
+          />
         )}
         
-        {/* Loading indicator during verification */}
-        {isVerifying && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
-              <div className="animate-spin h-10 w-10 border-4 border-brand-primary-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <h2 className="text-xl font-bold text-brand-neutral-800 mb-2">Verifying Your Email</h2>
-              <p className="text-brand-neutral-600">Please wait while we verify your email address...</p>
-            </div>
-          </div>
-        )}
+        {/* Verification Loading Modal - Shown during verification process */}
+        <VerificationLoadingModal isOpen={isVerifying} />
         
-        {/* Auth Modal */}
+        {/* Authentication Modal - Used for login, signup, and password reset */}
         {showAuthModal && (
           <AuthModal
             isOpen={showAuthModal}
