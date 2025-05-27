@@ -61,6 +61,25 @@ export default defineConfig(({ mode }) => {
             zustand: ['zustand'],
           },
         },
+        plugins: [
+          // Strip console logs in production
+          mode === 'production' && {
+            name: 'strip-console',
+            transform(code: string, id: string) {
+              // Skip node_modules and certain file types
+              if (id.includes('node_modules') || id.endsWith('.css') || id.endsWith('.scss')) {
+                return null;
+              }
+              
+              // More precise regex that handles multiline console statements
+              const strippedCode = code
+                .replace(/console\.(log|debug|info)\s*\([^;]*\);?/g, '')
+                .replace(/console\.(log|debug|info)\s*\(\s*[^)]*\s*\)\s*;?/g, '');
+              
+              return strippedCode !== code ? { code: strippedCode, map: null } : null;
+            }
+          }
+        ].filter(Boolean)
       },
       // Improve performance of the build
       target: 'esnext',
@@ -99,6 +118,8 @@ export default defineConfig(({ mode }) => {
     define: {
       // Make additional env variables available to client
       __APP_ENV__: JSON.stringify(env.APP_ENV || mode),
+      __DEV__: JSON.stringify(mode === 'development'),
+      __PROD__: JSON.stringify(mode === 'production'),
     }
   };
 });

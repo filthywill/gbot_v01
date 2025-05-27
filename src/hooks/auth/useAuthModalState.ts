@@ -25,8 +25,7 @@ export interface UseAuthModalStateReturn {
  * Extracted from App.tsx to allow for better separation of concerns
  */
 export function useAuthModalState(): UseAuthModalStateReturn {
-  // Debug logging to confirm new implementation is used
-  console.log('🔄 [NEW IMPLEMENTATION] Using new auth modal state hook');
+  // Using new auth modal state hook implementation
   
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);

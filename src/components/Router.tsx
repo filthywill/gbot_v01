@@ -18,8 +18,7 @@ import AuthCallback from '../pages/auth/callback';
 import logger from '../lib/logger';
 
 const Router: React.FC = () => {
-  console.log('!!! ROUTER FUNCTION BODY START !!!', { timestamp: new Date().toISOString() });
-  logger.info('!!! ROUTER FUNCTION BODY START !!!');
+  logger.debug('Router function body start', { timestamp: new Date().toISOString() });
 
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [hasError, setHasError] = useState(false);
@@ -27,7 +26,7 @@ const Router: React.FC = () => {
 
   // Log initial route - this is crucial for debugging
   useEffect(() => {
-    console.log('ROUTER INITIAL LOAD', {
+    logger.debug('Router initial load', {
       pathname: window.location.pathname,
       search: window.location.search,
       hash: window.location.hash,
@@ -35,12 +34,9 @@ const Router: React.FC = () => {
       timestamp: new Date().toISOString()
     });
     
-    logger.info('Router loaded at:', window.location.href);
-    
     // Check for auth callback route immediately
     if (isAuthCallback()) {
-      console.log('AUTH CALLBACK ROUTE DETECTED ON INITIAL LOAD');
-      logger.info('Auth callback route detected on initial load');
+      logger.debug('Auth callback route detected on initial load');
     }
     
     // Global error handler
@@ -65,8 +61,7 @@ const Router: React.FC = () => {
       
       // Check for auth callback on path change
       if (isAuthCallback()) {
-        console.log('AUTH CALLBACK ROUTE DETECTED AFTER NAVIGATION');
-        logger.info('Auth callback route detected after navigation');
+        logger.debug('Auth callback route detected after navigation');
       }
     };
 
@@ -146,27 +141,19 @@ const Router: React.FC = () => {
     const result = isPathCallback || hasSpecificSearchParams || hasAuthCallbackFlag;
 
     if (result) {
-      console.log('AUTH CALLBACK DETECTED (ROUTER):', { 
-        isPathCallback,
-        hasSpecificSearchParams,
-        hasAuthCallbackFlag,
-        fullUrl,
-        pathname
-      });
-      
       logger.debug('Auth callback detected (Router):', { 
         isPathCallback, 
         hasSpecificSearchParams, 
         hasAuthCallbackFlag,
-        fullUrl
+        fullUrl,
+        pathname
       });
     }
     
     return result;
   };
 
-  console.log('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath, timestamp: new Date().toISOString() });
-  logger.info('!!! ROUTER BEFORE RENDER LOGIC !!!', { currentPath });
+  logger.debug('Router before render logic', { currentPath, timestamp: new Date().toISOString() });
 
   // If we have an error, show a fallback UI
   if (hasError) {
@@ -190,8 +177,7 @@ const Router: React.FC = () => {
 
   // Render the appropriate component based on the current path
   if (isAuthCallback()) {
-    console.log('RENDERING AUTH CALLBACK COMPONENT');
-    logger.info('Rendering AuthCallback component');
+    logger.debug('Rendering AuthCallback component');
     return (
       <NotificationProvider>
         <AuthCallback />
@@ -227,14 +213,12 @@ const Router: React.FC = () => {
     );
   } else if (pathStartsWith('/auth/reset-password')) {
     // Direct link reset password route
-    console.log('RENDERING RESET PASSWORD COMPONENT', {
+    logger.debug('Rendering ResetPasswordPage component', {
       url: window.location.href,
       path: window.location.pathname, 
       search: window.location.search,
       hash: window.location.hash,
-      timestamp: new Date().toISOString()
-    });
-    logger.info('Rendering ResetPasswordPage component with token params', {
+      timestamp: new Date().toISOString(),
       hasToken: new URLSearchParams(window.location.search).has('token'),
       tokenLength: new URLSearchParams(window.location.search).get('token')?.length,
       type: new URLSearchParams(window.location.search).get('type')

@@ -57,8 +57,7 @@ export function useEmailVerification(options: UseEmailVerificationOptions = {}):
   // Extract optional modal control functions
   const { setShowAuthModal, setAuthModalMode } = options;
   
-  // Debug logging to confirm new implementation is used
-  console.log('🔄 [NEW IMPLEMENTATION] Using new email verification hook');
+  // Using new email verification hook implementation
   
   const { initialize, user } = useAuthStore();
   const { setLastUsedEmail, setRememberMe } = usePreferencesStore();
@@ -215,7 +214,7 @@ export function useEmailVerification(options: UseEmailVerificationOptions = {}):
 
   // Handle resuming verification from banner
   const handleResumeVerification = (email: string) => {
-    console.log('Resuming verification for email:', email);
+    logger.debug('Resuming verification for email:', email);
     
     // Log state transitions for debugging
     logStateTransition('useEmailVerification', 'resumeVerification', { verificationEmail, pendingVerification }, { email, pendingVerification: true });
