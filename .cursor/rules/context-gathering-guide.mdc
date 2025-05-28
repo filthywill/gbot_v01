@@ -1,0 +1,315 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Context Gathering Guide for AI Assistants
+
+## Project Overview
+
+This is a **React + Vite graffiti generation application** that creates customizable graffiti text using SVG letter assets. The app features sophisticated SVG processing, real-time customization, user authentication, and preset management.
+
+### Key Technologies
+- **Frontend**: React 18 + TypeScript + Vite
+- **State Management**: Zustand with persistence
+- **UI Framework**: Tailwind CSS + Shadcn UI
+- **Backend**: Supabase (Auth + Database + Real-time)
+- **SVG Processing**: Custom algorithms with SVGO optimization
+- **Testing**: Vitest + React Testing Library
+
+### Available MCP Tools
+**Always prefer MCP tools when available for these operations:**
+
+#### Supabase MCP Tools
+- **Database Operations**: Use `mcp_supabase_*` functions for all database interactions
+- **Project Management**: List projects, get project details, create/manage branches
+- **Schema Management**: Apply migrations, execute SQL, generate TypeScript types
+- **Edge Functions**: Deploy and manage Supabase Edge Functions
+- **Analytics**: Get logs and monitor project performance
+- **Authentication**: Get project URLs and API keys
+
+#### Browser Tools MCP
+- **Debugging**: Use browser tools for real-time application debugging
+- **Performance**: Run performance audits and optimization analysis
+- **Accessibility**: Check accessibility compliance with built-in audits
+- **SEO**: Analyze SEO performance and best practices
+- **Screenshots**: Capture application state for debugging
+- **Console Monitoring**: Check for JavaScript errors and warnings
+
+**When to use MCP tools:**
+- Database schema changes → Use Supabase MCP migration tools
+- Performance issues → Use Browser Tools performance audit
+- Authentication problems → Use Supabase MCP to check project configuration
+- UI/UX debugging → Use Browser Tools for screenshots and console logs
+- Accessibility concerns → Use Browser Tools accessibility audit
+
+## Essential Context to Gather
+
+### 1. Current Feature Context
+**Always ask or determine:**
+- What specific feature/component is being worked on?
+- Is this a new feature or modification of existing functionality?
+- What is the user's immediate goal (bug fix, enhancement, new feature)?
+
+**Key files to examine:**
+```typescript
+// Core application state
+src/store/graffitiStore.ts
+src/store/authStore.ts
+src/store/preferencesStore.ts
+
+// Main application components
+src/components/app/App.tsx
+src/components/GraffitiDisplay/GraffitiDisplay.tsx
+
+// Type definitions
+src/types.ts
+src/types/supabase/
+```
+
+### 2. SVG Processing Context
+**When working with SVG features, examine:**
+```typescript
+// SVG processing utilities
+src/components/GraffitiDisplay/utils/svgUtils.ts
+src/components/GraffitiDisplay/utils/letterUtils.ts
+src/components/GraffitiDisplay/hooks/useSvgCache.ts
+
+// Overlap calculation logic
+src/components/GraffitiDisplay/utils/overlapUtils.ts
+
+// SVG optimization
+svg-optimizer/
+```
+
+**Key questions to ask:**
+- Which letter styles are being used?
+- Are there performance concerns with SVG processing?
+- Is this related to collision detection or overlap calculation?
+- Are there caching issues?
+
+### 3. Authentication & Database Context
+**When working with auth/database features:**
+```typescript
+// Authentication
+src/lib/supabase.ts
+src/hooks/auth/
+src/components/Auth/
+
+// Database schemas
+SUPABASE_SETUP.md
+src/types/supabase/
+```
+
+**Key questions:**
+- Is the user authenticated?
+- What database tables are involved?
+- Are there RLS (Row Level Security) considerations?
+- Is this related to user presets or analytics?
+
+### 4. State Management Context
+**For state-related issues:**
+```typescript
+// Zustand stores
+src/store/graffitiStore.ts      // Main graffiti generation state
+src/store/authStore.ts          // Authentication state
+src/store/preferencesStore.ts   // User preferences
+src/store/notificationStore.ts  // UI notifications
+```
+
+**Key patterns to understand:**
+- History management (undo/redo functionality)
+- Persistent state vs session state
+- Store composition and cross-store dependencies
+
+### 5. UI Component Context
+**For UI-related work:**
+```typescript
+// Component structure
+src/components/
+├── app/                 // Main app components
+├── Auth/               // Authentication UI
+├── controls/           // Customization controls
+├── GraffitiDisplay/    // Core graffiti rendering
+├── modals/            // Modal dialogs
+└── ui/                // Reusable UI components
+```
+
+**Key considerations:**
+- Responsive design requirements
+- Accessibility compliance
+- Theme/styling consistency
+- Component reusability
+
+## Context Gathering Checklist
+
+### Before Starting Any Task
+
+1. **Read the user's request carefully**
+   - What is the specific problem or feature request?
+   - Are there error messages or specific behaviors mentioned?
+   - What is the expected vs actual behavior?
+
+2. **Examine relevant files**
+   - Start with the most relevant component/feature
+   - Check related stores and hooks
+   - Look at type definitions for data structures
+
+3. **Understand the data flow**
+   - How does data move through the application?
+   - What triggers the behavior in question?
+   - Are there side effects or async operations involved?
+
+4. **Check for existing patterns**
+   - How are similar features implemented?
+   - What conventions are already established?
+   - Are there reusable utilities or hooks?
+
+### For Bug Fixes
+
+1. **Reproduce the issue**
+   - Understand the exact steps to reproduce
+   - Identify the component/function where the issue occurs
+   - Check browser console for errors
+
+2. **Trace the code path**
+   - Follow the execution from user action to bug manifestation
+   - Check state changes and side effects
+   - Look for race conditions or timing issues
+
+3. **Examine related code**
+   - Check recent changes that might have introduced the bug
+   - Look for similar patterns that work correctly
+   - Review error handling and edge cases
+
+### For New Features
+
+1. **Understand the requirements**
+   - What should the feature do?
+   - How should it integrate with existing functionality?
+   - Are there performance or accessibility requirements?
+
+2. **Plan the implementation**
+   - Which components need to be created/modified?
+   - What state management is required?
+   - Are there database schema changes needed?
+
+3. **Consider the architecture**
+   - How does this fit with existing patterns?
+   - What reusable components can be leveraged?
+   - Are there testing requirements?
+
+## Common Context Patterns
+
+### SVG Processing Issues
+```typescript
+// Always check these when dealing with SVG problems:
+1. SVG cache state and invalidation
+2. Letter asset availability and paths
+3. Processing pipeline and error handling
+4. Performance metrics and optimization
+5. Browser compatibility (especially Safari)
+```
+
+### State Management Issues
+```typescript
+// For state-related problems:
+1. Store subscription patterns
+2. Action dispatch and state updates
+3. Persistence and hydration
+4. Cross-store dependencies
+5. History management (undo/redo)
+```
+
+### Authentication Issues
+```typescript
+// For auth-related problems:
+1. Supabase session state
+2. RLS policy compliance
+3. Route protection and redirects
+4. Token refresh and expiration
+5. User data synchronization
+```
+
+### Performance Issues
+```typescript
+// For performance problems:
+1. Component re-render patterns
+2. Memoization and caching strategies
+3. SVG processing optimization
+4. Database query efficiency
+5. Bundle size and code splitting
+```
+
+## Questions to Ask Users
+
+### For Unclear Requirements
+- "Can you describe the expected behavior in more detail?"
+- "Are there any specific error messages you're seeing?"
+- "Which browser and device are you using?"
+- "Can you provide steps to reproduce the issue?"
+
+### For Feature Requests
+- "How should this integrate with existing functionality?"
+- "Are there any specific design or UX requirements?"
+- "Should this be available to all users or specific user types?"
+- "Are there performance considerations for this feature?"
+
+### For Bug Reports
+- "When did this issue first appear?"
+- "Does this happen consistently or intermittently?"
+- "Have you tried refreshing the page or clearing cache?"
+- "Are there any console errors visible in developer tools?"
+
+## Red Flags to Watch For
+
+### Performance Red Flags
+- Frequent re-renders of expensive components
+- Large SVG files without optimization
+- Inefficient database queries
+- Memory leaks in event listeners
+- Blocking operations on the main thread
+
+### Security Red Flags
+- Direct database access without RLS
+- Unvalidated user input
+- Exposed sensitive configuration
+- Missing authentication checks
+- Client-side only validation
+
+### Code Quality Red Flags
+- Deeply nested component hierarchies
+- Large components with multiple responsibilities
+- Inconsistent error handling patterns
+- Missing TypeScript types
+- Hardcoded values instead of configuration
+
+## Systematic Debugging Approach
+
+### 1. Isolate the Problem
+- Identify the smallest reproducible case
+- Determine if it's a frontend or backend issue
+- Check if it affects all users or specific conditions
+
+### 2. Gather Evidence
+- Collect error messages and stack traces
+- Check browser console and network tabs
+- Review recent code changes
+- Test in different browsers/devices
+
+### 3. Form Hypotheses
+- Based on evidence, what could be causing the issue?
+- Are there similar patterns in the codebase?
+- Could this be related to recent changes?
+
+### 4. Test Systematically
+- Test one hypothesis at a time
+- Use debugging tools and logging
+- Verify fixes don't break other functionality
+
+### 5. Document and Prevent
+- Document the root cause and solution
+- Consider if this indicates a broader pattern
+- Update tests or documentation to prevent recurrence
+
+This guide ensures thorough context gathering before starting any development work, leading to more effective and appropriate solutions.

@@ -749,3 +749,6 @@ export const LETTER_ROTATION_RULES: Record<string, Record<string, number>> = {
     c: -0, // Specific rotation for 'c' following 'r'
   },
 };
+
+// Export lookup table functions for hybrid overlap system
+export { COMPLETE_OVERLAP_LOOKUP, getOverlapValue, validateAgainstSpecialCases } from './generatedOverlapLookup';

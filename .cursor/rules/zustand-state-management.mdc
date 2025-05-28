@@ -1,0 +1,659 @@
+---
+description: 
+globs: **/store/*,*/hooks/*
+alwaysApply: false
+---
+# Zustand State Management Patterns
+
+## Store Structure and Organization
+
+### Basic Store Pattern
+```typescript
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface StoreState {
+  // State properties
+  data: DataType | null;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  setData: (data: DataType) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  reset: () => void;
+}
+
+const useStore = create<StoreState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      data: null,
+      isLoading: false,
+      error: null,
+      
+      // Actions
+      setData: (data) => set({ data, error: null }),
+      setLoading: (isLoading) => set({ isLoading }),
+      setError: (error) => set({ error, isLoading: false }),
+      reset: () => set({ data: null, isLoading: false, error: null }),
+    }),
+    {
+      name: 'store-name',
+      partialize: (state) => ({ data: state.data }), // Only persist specific fields
+    }
+  )
+);
+```
+
+### Graffiti Store Pattern
+```typescript
+interface GraffitiState {
+  // Current state
+  inputText: string;
+  customizationOptions: CustomizationOptions;
+  generatedSvg: string | null;
+  isGenerating: boolean;
+  
+  // History for undo/redo
+  history: HistoryEntry[];
+  historyIndex: number;
+  
+  // Cache
+  svgCache: Map<string, string>;
+  
+  // Actions
+  setInputText: (text: string) => void;
+  updateCustomization: (options: Partial<CustomizationOptions>) => void;
+  setGeneratedSvg: (svg: string) => void;
+  setGenerating: (generating: boolean) => void;
+  
+  // History actions
+  undo: () => void;
+  redo: () => void;
+  saveToHistory: () => void;
+  
+  // Cache actions
+  getCachedSvg: (key: string) => string | undefined;
+  setCachedSvg: (key: string, svg: string) => void;
+  clearCache: () => void;
+}
+
+const useGraffitiStore = create<GraffitiState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      inputText: '',
+      customizationOptions: defaultCustomizationOptions,
+      generatedSvg: null,
+      isGenerating: false,
+      history: [],
+      historyIndex: -1,
+      svgCache: new Map(),
+      
+      // Text and customization actions
+      setInputText: (inputText) => {
+        set({ inputText });
+        get().saveToHistory();
+      },
+      
+      updateCustomization: (options) => {
+        set((state) => ({
+          customizationOptions: { ...state.customizationOptions, ...options }
+        }));
+        get().saveToHistory();
+      },
+      
+      setGeneratedSvg: (generatedSvg) => set({ generatedSvg }),
+      setGenerating: (isGenerating) => set({ isGenerating }),
+      
+      // History management
+      saveToHistory: () => {
+        const state = get();
+        const entry: HistoryEntry = {
+          inputText: state.inputText,
+          customizationOptions: state.customizationOptions,
+          timestamp: Date.now(),
+        };
+        
+        // Remove future history if we're not at the end
+        const newHistory = state.history.slice(0, state.historyIndex + 1);
+        newHistory.push(entry);
+        
+        // Limit history size
+        const maxHistorySize = 50;
+        if (newHistory.length > maxHistorySize) {
+          newHistory.shift();
+        }
+        
+        set({
+          history: newHistory,
+          historyIndex: newHistory.length - 1,
+        });
+      },
+      
+      undo: () => {
+        const state = get();
+        if (state.historyIndex > 0) {
+          const newIndex = state.historyIndex - 1;
+          const entry = state.history[newIndex];
+          
+          set({
+            inputText: entry.inputText,
+            customizationOptions: entry.customizationOptions,
+            historyIndex: newIndex,
+          });
+        }
+      },
+      
+      redo: () => {
+        const state = get();
+        if (state.historyIndex < state.history.length - 1) {
+          const newIndex = state.historyIndex + 1;
+          const entry = state.history[newIndex];
+          
+          set({
+            inputText: entry.inputText,
+            customizationOptions: entry.customizationOptions,
+            historyIndex: newIndex,
+          });
+        }
+      },
+      
+      // Cache management
+      getCachedSvg: (key) => get().svgCache.get(key),
+      
+      setCachedSvg: (key, svg) => {
+        set((state) => {
+          const newCache = new Map(state.svgCache);
+          newCache.set(key, svg);
+          
+          // Limit cache size
+          if (newCache.size > 100) {
+            const firstKey = newCache.keys().next().value;
+            newCache.delete(firstKey);
+          }
+          
+          return { svgCache: newCache };
+        });
+      },
+      
+      clearCache: () => set({ svgCache: new Map() }),
+    }),
+    {
+      name: 'graffiti-store',
+      partialize: (state) => ({
+        inputText: state.inputText,
+        customizationOptions: state.customizationOptions,
+        history: state.history,
+        historyIndex: state.historyIndex,
+      }),
+    }
+  )
+);
+```
+
+## Async Actions and Optimistic Updates
+
+### Async Action Pattern
+```typescript
+interface AsyncState {
+  data: DataType[];
+  isLoading: boolean;
+  error: string | null;
+  
+  // Async actions
+  fetchData: () => Promise<void>;
+  createItem: (item: CreateItemRequest) => Promise<void>;
+  updateItem: (id: string, updates: UpdateItemRequest) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>;
+}
+
+const useAsyncStore = create<AsyncState>((set, get) => ({
+  data: [],
+  isLoading: false,
+  error: null,
+  
+  fetchData: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      const data = await api.fetchData();
+      set({ data, isLoading: false });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Fetch failed',
+        isLoading: false 
+      });
+    }
+  },
+  
+  createItem: async (item) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Optimistic update
+      const tempId = `temp-${Date.now()}`;
+      const optimisticItem = { ...item, id: tempId };
+      set((state) => ({ 
+        data: [...state.data, optimisticItem] 
+      }));
+      
+      // Actual API call
+      const createdItem = await api.createItem(item);
+      
+      // Replace optimistic item with real item
+      set((state) => ({
+        data: state.data.map(d => d.id === tempId ? createdItem : d),
+        isLoading: false
+      }));
+    } catch (error) {
+      // Revert optimistic update
+      set((state) => ({
+        data: state.data.filter(d => !d.id.startsWith('temp-')),
+        error: error instanceof Error ? error.message : 'Create failed',
+        isLoading: false
+      }));
+    }
+  },
+  
+  updateItem: async (id, updates) => {
+    try {
+      // Optimistic update
+      set((state) => ({
+        data: state.data.map(item => 
+          item.id === id ? { ...item, ...updates } : item
+        )
+      }));
+      
+      // Actual API call
+      await api.updateItem(id, updates);
+    } catch (error) {
+      // Revert on error - would need to store previous state
+      get().fetchData(); // Refetch to get correct state
+      set({ error: error instanceof Error ? error.message : 'Update failed' });
+    }
+  },
+  
+  deleteItem: async (id) => {
+    try {
+      // Store item for potential revert
+      const state = get();
+      const itemToDelete = state.data.find(item => item.id === id);
+      
+      // Optimistic update
+      set((state) => ({
+        data: state.data.filter(item => item.id !== id)
+      }));
+      
+      // Actual API call
+      await api.deleteItem(id);
+    } catch (error) {
+      // Revert optimistic update
+      if (itemToDelete) {
+        set((state) => ({
+          data: [...state.data, itemToDelete],
+          error: error instanceof Error ? error.message : 'Delete failed'
+        }));
+      }
+    }
+  },
+}));
+```
+
+## Store Composition and Custom Hooks
+
+### Store Composition Pattern
+```typescript
+// Separate stores for different concerns
+const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  login: async (credentials) => { /* implementation */ },
+  logout: () => { /* implementation */ },
+}));
+
+const usePreferencesStore = create<PreferencesState>((set) => ({
+  theme: 'light',
+  language: 'en',
+  setTheme: (theme) => set({ theme }),
+  setLanguage: (language) => set({ language }),
+}));
+
+// Composed hook that combines multiple stores
+export const useAppState = () => {
+  const auth = useAuthStore();
+  const preferences = usePreferencesStore();
+  const graffiti = useGraffitiStore();
+  
+  return {
+    auth,
+    preferences,
+    graffiti,
+    
+    // Derived state
+    isReady: auth.isAuthenticated && graffiti.inputText.length > 0,
+    
+    // Combined actions
+    reset: () => {
+      auth.logout();
+      graffiti.reset();
+    },
+  };
+};
+```
+
+### Custom Store Hooks
+```typescript
+// Hook for specific store slices
+export const useGraffitiText = () => {
+  const inputText = useGraffitiStore((state) => state.inputText);
+  const setInputText = useGraffitiStore((state) => state.setInputText);
+  
+  return { inputText, setInputText };
+};
+
+// Hook with derived state
+export const useGraffitiHistory = () => {
+  const history = useGraffitiStore((state) => state.history);
+  const historyIndex = useGraffitiStore((state) => state.historyIndex);
+  const undo = useGraffitiStore((state) => state.undo);
+  const redo = useGraffitiStore((state) => state.redo);
+  
+  return {
+    history,
+    historyIndex,
+    undo,
+    redo,
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < history.length - 1,
+  };
+};
+
+// Hook with computed values
+export const useGraffitiCache = () => {
+  const svgCache = useGraffitiStore((state) => state.svgCache);
+  const getCachedSvg = useGraffitiStore((state) => state.getCachedSvg);
+  const setCachedSvg = useGraffitiStore((state) => state.setCachedSvg);
+  const clearCache = useGraffitiStore((state) => state.clearCache);
+  
+  return {
+    cacheSize: svgCache.size,
+    getCachedSvg,
+    setCachedSvg,
+    clearCache,
+    isCacheEmpty: svgCache.size === 0,
+  };
+};
+```
+
+## Performance Optimization
+
+### Selective Subscriptions
+```typescript
+// ❌ Bad - subscribes to entire store
+const Component = () => {
+  const store = useGraffitiStore();
+  return <div>{store.inputText}</div>;
+};
+
+// ✅ Good - subscribes only to needed state
+const Component = () => {
+  const inputText = useGraffitiStore((state) => state.inputText);
+  return <div>{inputText}</div>;
+};
+
+// ✅ Good - multiple selective subscriptions
+const Component = () => {
+  const inputText = useGraffitiStore((state) => state.inputText);
+  const isGenerating = useGraffitiStore((state) => state.isGenerating);
+  
+  return (
+    <div>
+      {inputText}
+      {isGenerating && <LoadingSpinner />}
+    </div>
+  );
+};
+```
+
+### Memoized Selectors
+```typescript
+// Memoized selector for expensive computations
+const useExpensiveComputation = () => {
+  return useGraffitiStore(
+    useCallback(
+      (state) => {
+        // Expensive computation based on state
+        return computeExpensiveValue(state.customizationOptions, state.inputText);
+      },
+      []
+    )
+  );
+};
+
+// Shallow comparison for object selections
+import { shallow } from 'zustand/shallow';
+
+const useCustomizationOptions = () => {
+  return useGraffitiStore(
+    (state) => ({
+      options: state.customizationOptions,
+      updateOptions: state.updateCustomization,
+    }),
+    shallow
+  );
+};
+```
+
+### Batched Updates
+```typescript
+// Batch multiple state updates
+const batchedUpdate = () => {
+  useGraffitiStore.setState((state) => ({
+    inputText: 'new text',
+    customizationOptions: { ...state.customizationOptions, color: 'red' },
+    isGenerating: true,
+  }));
+};
+
+// Use immer for complex state updates
+import { produce } from 'immer';
+
+const complexUpdate = () => {
+  useGraffitiStore.setState(
+    produce((state) => {
+      state.inputText = 'new text';
+      state.customizationOptions.color = 'red';
+      state.customizationOptions.size = 24;
+      state.history.push({
+        inputText: state.inputText,
+        customizationOptions: state.customizationOptions,
+        timestamp: Date.now(),
+      });
+    })
+  );
+};
+```
+
+## Persistence Strategies
+
+### Selective Persistence
+```typescript
+const useStore = create<State>()(
+  persist(
+    (set, get) => ({
+      // Store implementation
+    }),
+    {
+      name: 'app-store',
+      
+      // Only persist specific fields
+      partialize: (state) => ({
+        inputText: state.inputText,
+        customizationOptions: state.customizationOptions,
+        preferences: state.preferences,
+        // Don't persist cache, loading states, etc.
+      }),
+      
+      // Custom serialization
+      serialize: (state) => JSON.stringify(state),
+      deserialize: (str) => JSON.parse(str),
+      
+      // Version migration
+      version: 1,
+      migrate: (persistedState, version) => {
+        if (version === 0) {
+          // Migrate from version 0 to 1
+          return {
+            ...persistedState,
+            newField: 'default value',
+          };
+        }
+        return persistedState;
+      },
+    }
+  )
+);
+```
+
+### Session vs Local Storage
+```typescript
+// Local storage (persistent across sessions)
+const usePersistentStore = create<State>()(
+  persist(
+    (set, get) => ({ /* implementation */ }),
+    {
+      name: 'persistent-store',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
+// Session storage (cleared when tab closes)
+const useSessionStore = create<State>()(
+  persist(
+    (set, get) => ({ /* implementation */ }),
+    {
+      name: 'session-store',
+      storage: createJSONStorage(() => sessionStorage),
+    }
+  )
+);
+```
+
+## Testing Patterns
+
+### Store Testing
+```typescript
+import { act, renderHook } from '@testing-library/react';
+
+describe('useGraffitiStore', () => {
+  beforeEach(() => {
+    // Reset store before each test
+    useGraffitiStore.setState({
+      inputText: '',
+      customizationOptions: defaultCustomizationOptions,
+      generatedSvg: null,
+      isGenerating: false,
+      history: [],
+      historyIndex: -1,
+    });
+  });
+  
+  it('updates input text correctly', () => {
+    const { result } = renderHook(() => useGraffitiStore());
+    
+    act(() => {
+      result.current.setInputText('test text');
+    });
+    
+    expect(result.current.inputText).toBe('test text');
+  });
+  
+  it('manages history correctly', () => {
+    const { result } = renderHook(() => useGraffitiStore());
+    
+    act(() => {
+      result.current.setInputText('first');
+    });
+    
+    act(() => {
+      result.current.setInputText('second');
+    });
+    
+    expect(result.current.history).toHaveLength(2);
+    expect(result.current.historyIndex).toBe(1);
+    
+    act(() => {
+      result.current.undo();
+    });
+    
+    expect(result.current.inputText).toBe('first');
+    expect(result.current.historyIndex).toBe(0);
+  });
+});
+```
+
+### Component Integration Testing
+```typescript
+const TestComponent = () => {
+  const { inputText, setInputText } = useGraffitiText();
+  return (
+    <div>
+      <span data-testid="text">{inputText}</span>
+      <button onClick={() => setInputText('updated')}>Update</button>
+    </div>
+  );
+};
+
+describe('Component with Store', () => {
+  it('updates store when button is clicked', () => {
+    render(<TestComponent />);
+    
+    expect(screen.getByTestId('text')).toHaveTextContent('');
+    
+    fireEvent.click(screen.getByText('Update'));
+    
+    expect(screen.getByTestId('text')).toHaveTextContent('updated');
+  });
+});
+```
+
+## Error Handling in Stores
+
+### Error State Management
+```typescript
+interface ErrorState {
+  errors: Record<string, string>;
+  setError: (key: string, error: string) => void;
+  clearError: (key: string) => void;
+  clearAllErrors: () => void;
+  hasErrors: boolean;
+}
+
+const useErrorStore = create<ErrorState>((set, get) => ({
+  errors: {},
+  
+  setError: (key, error) => {
+    set((state) => ({
+      errors: { ...state.errors, [key]: error }
+    }));
+  },
+  
+  clearError: (key) => {
+    set((state) => {
+      const { [key]: removed, ...rest } = state.errors;
+      return { errors: rest };
+    });
+  },
+  
+  clearAllErrors: () => set({ errors: {} }),
+  
+  get hasErrors() {
+    return Object.keys(get().errors).length > 0;
+  },
+}));
+```
+
+These patterns ensure consistent, performant, and maintainable state management throughout the graffiti generation application using Zustand.

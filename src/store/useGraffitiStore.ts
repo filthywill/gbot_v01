@@ -285,15 +285,33 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
         specialCases: {}
       };
 
-      // Create the updated rule, ensuring specialCases is preserved
-      const updatedRule = {
-        ...currentRule,
-        ...rule,
-        specialCases: {
-          ...currentRule.specialCases,
-          ...(rule.specialCases || {})
-        }
-      };
+      // Check if this is a complete reset (has all required properties)
+      const isCompleteReset = rule.hasOwnProperty('minOverlap') && 
+                             rule.hasOwnProperty('maxOverlap') && 
+                             rule.hasOwnProperty('specialCases');
+
+      let updatedRule;
+      
+      if (isCompleteReset) {
+        // Complete replacement - don't merge, just replace entirely
+        updatedRule = {
+          minOverlap: rule.minOverlap!,
+          maxOverlap: rule.maxOverlap!,
+          specialCases: rule.specialCases || {}
+        };
+        console.log('🔄 Complete rule replacement for:', letter, updatedRule);
+      } else {
+        // Partial update - merge with existing rule
+        updatedRule = {
+          ...currentRule,
+          ...rule,
+          specialCases: {
+            ...currentRule.specialCases,
+            ...(rule.specialCases || {})
+          }
+        };
+        console.log('📝 Partial rule update for:', letter, updatedRule);
+      }
 
       // Create new overlapRules object with the updated rule
       const newOverlapRules = {

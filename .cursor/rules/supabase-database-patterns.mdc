@@ -1,0 +1,775 @@
+---
+description: 
+globs: **/lib/supabase.ts,**/types/supabase.ts
+alwaysApply: false
+---
+# Supabase Database Patterns
+
+## Database Schema Design
+
+### Table Structure Patterns
+```sql
+-- Users table with proper constraints
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  display_name TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+  CONSTRAINT display_name_length CHECK (char_length(display_name) >= 2 AND char_length(display_name) <= 50)
+);
+
+-- Graffiti presets with proper indexing
+CREATE TABLE graffiti_presets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  input_text TEXT NOT NULL,
+  customization_options JSONB NOT NULL,
+  thumbnail_url TEXT,
+  is_public BOOLEAN DEFAULT FALSE,
+  tags TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT name_length CHECK (char_length(name) >= 1 AND char_length(name) <= 100),
+  CONSTRAINT input_text_length CHECK (char_length(input_text) >= 1 AND char_length(input_text) <= 500),
+  CONSTRAINT tags_limit CHECK (array_length(tags, 1) <= 10)
+);
+
+-- Analytics table for usage tracking
+CREATE TABLE graffiti_analytics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  session_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  event_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT event_type_valid CHECK (event_type IN ('generation', 'customization', 'preset_save', 'preset_load', 'export'))
+);
+
+-- Indexes for performance
+CREATE INDEX idx_graffiti_presets_user_id ON graffiti_presets(user_id);
+CREATE INDEX idx_graffiti_presets_public ON graffiti_presets(is_public) WHERE is_public = TRUE;
+CREATE INDEX idx_graffiti_presets_tags ON graffiti_presets USING GIN(tags);
+CREATE INDEX idx_graffiti_presets_created_at ON graffiti_presets(created_at DESC);
+CREATE INDEX idx_graffiti_analytics_user_id ON graffiti_analytics(user_id);
+CREATE INDEX idx_graffiti_analytics_session_id ON graffiti_analytics(session_id);
+CREATE INDEX idx_graffiti_analytics_event_type ON graffiti_analytics(event_type);
+CREATE INDEX idx_graffiti_analytics_created_at ON graffiti_analytics(created_at DESC);
+```
+
+### Triggers and Functions
+```sql
+-- Update timestamp trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply to tables
+CREATE TRIGGER update_users_updated_at 
+  BEFORE UPDATE ON users 
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_graffiti_presets_updated_at 
+  BEFORE UPDATE ON graffiti_presets 
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to clean old analytics data
+CREATE OR REPLACE FUNCTION cleanup_old_analytics()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM graffiti_analytics 
+  WHERE created_at < NOW() - INTERVAL '90 days';
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule cleanup (requires pg_cron extension)
+-- SELECT cron.schedule('cleanup-analytics', '0 2 * * *', 'SELECT cleanup_old_analytics();');
+```
+
+## Row Level Security (RLS) Policies
+
+### User Data Protection
+```sql
+-- Enable RLS on all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE graffiti_presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE graffiti_analytics ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see and modify their own data
+CREATE POLICY "Users can view own profile" ON users
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON users
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Preset access policies
+CREATE POLICY "Users can view own presets" ON graffiti_presets
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view public presets" ON graffiti_presets
+  FOR SELECT USING (is_public = TRUE);
+
+CREATE POLICY "Users can insert own presets" ON graffiti_presets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own presets" ON graffiti_presets
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own presets" ON graffiti_presets
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Analytics policies (users can only insert their own data)
+CREATE POLICY "Users can insert own analytics" ON graffiti_analytics
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- Admin policies (for service role)
+CREATE POLICY "Service role full access users" ON users
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role full access presets" ON graffiti_presets
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role full access analytics" ON graffiti_analytics
+  FOR ALL USING (auth.role() = 'service_role');
+```
+
+### Advanced RLS Patterns
+```sql
+-- Rate limiting policy (example)
+CREATE OR REPLACE FUNCTION check_rate_limit(user_id UUID, action_type TEXT, time_window INTERVAL, max_actions INTEGER)
+RETURNS BOOLEAN AS $$
+DECLARE
+  action_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO action_count
+  FROM graffiti_analytics
+  WHERE graffiti_analytics.user_id = check_rate_limit.user_id
+    AND event_type = action_type
+    AND created_at > NOW() - time_window;
+  
+  RETURN action_count < max_actions;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Apply rate limiting to preset creation
+CREATE POLICY "Rate limit preset creation" ON graffiti_presets
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id AND 
+    check_rate_limit(auth.uid(), 'preset_save', INTERVAL '1 hour', 10)
+  );
+```
+
+## TypeScript Integration
+
+### Generated Types Usage
+```typescript
+// Use Supabase CLI to generate types
+// npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/supabase/database.types.ts
+
+import { Database } from '@/types/supabase/database.types';
+
+// Type-safe table references
+export type User = Database['public']['Tables']['users']['Row'];
+export type UserInsert = Database['public']['Tables']['users']['Insert'];
+export type UserUpdate = Database['public']['Tables']['users']['Update'];
+
+export type GraffitiPreset = Database['public']['Tables']['graffiti_presets']['Row'];
+export type GraffitiPresetInsert = Database['public']['Tables']['graffiti_presets']['Insert'];
+export type GraffitiPresetUpdate = Database['public']['Tables']['graffiti_presets']['Update'];
+
+export type GraffitiAnalytics = Database['public']['Tables']['graffiti_analytics']['Row'];
+export type GraffitiAnalyticsInsert = Database['public']['Tables']['graffiti_analytics']['Insert'];
+
+// Custom types for application logic
+export interface CustomizationOptions {
+  letterStyle: string;
+  color: string;
+  size: number;
+  spacing: number;
+  rotation: number;
+  shadow: boolean;
+  shadowColor: string;
+  shadowOffset: { x: number; y: number };
+  outline: boolean;
+  outlineColor: string;
+  outlineWidth: number;
+}
+
+export interface PresetWithUser extends GraffitiPreset {
+  user: Pick<User, 'id' | 'display_name' | 'avatar_url'>;
+}
+```
+
+### Repository Pattern Implementation
+```typescript
+import { supabase } from '@/lib/supabase';
+import type { User, GraffitiPreset, GraffitiPresetInsert, GraffitiPresetUpdate } from '@/types/supabase';
+
+export class PresetRepository {
+  // Get user's presets
+  static async getUserPresets(userId: string): Promise<GraffitiPreset[]> {
+    const { data, error } = await supabase
+      .from('graffiti_presets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch user presets: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  // Get public presets with pagination
+  static async getPublicPresets(
+    page = 0,
+    limit = 20,
+    tags?: string[]
+  ): Promise<{ presets: PresetWithUser[]; hasMore: boolean }> {
+    let query = supabase
+      .from('graffiti_presets')
+      .select(`
+        *,
+        user:users(id, display_name, avatar_url)
+      `)
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .range(page * limit, (page + 1) * limit - 1);
+
+    if (tags && tags.length > 0) {
+      query = query.overlaps('tags', tags);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch public presets: ${error.message}`);
+    }
+
+    const presets = (data || []) as PresetWithUser[];
+    const hasMore = count ? count > (page + 1) * limit : false;
+
+    return { presets, hasMore };
+  }
+
+  // Create preset
+  static async createPreset(preset: GraffitiPresetInsert): Promise<GraffitiPreset> {
+    const { data, error } = await supabase
+      .from('graffiti_presets')
+      .insert(preset)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create preset: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  // Update preset
+  static async updatePreset(id: string, updates: GraffitiPresetUpdate): Promise<GraffitiPreset> {
+    const { data, error } = await supabase
+      .from('graffiti_presets')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update preset: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  // Delete preset
+  static async deletePreset(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('graffiti_presets')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to delete preset: ${error.message}`);
+    }
+  }
+
+  // Search presets
+  static async searchPresets(
+    query: string,
+    isPublicOnly = true
+  ): Promise<PresetWithUser[]> {
+    let dbQuery = supabase
+      .from('graffiti_presets')
+      .select(`
+        *,
+        user:users(id, display_name, avatar_url)
+      `)
+      .or(`name.ilike.%${query}%, description.ilike.%${query}%, input_text.ilike.%${query}%`)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (isPublicOnly) {
+      dbQuery = dbQuery.eq('is_public', true);
+    }
+
+    const { data, error } = await dbQuery;
+
+    if (error) {
+      throw new Error(`Failed to search presets: ${error.message}`);
+    }
+
+    return (data || []) as PresetWithUser[];
+  }
+}
+```
+
+## Real-time Subscriptions
+
+### Subscription Patterns
+```typescript
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+export class RealtimeManager {
+  private channels: Map<string, RealtimeChannel> = new Map();
+
+  // Subscribe to user's preset changes
+  subscribeToUserPresets(
+    userId: string,
+    onInsert?: (preset: GraffitiPreset) => void,
+    onUpdate?: (preset: GraffitiPreset) => void,
+    onDelete?: (preset: GraffitiPreset) => void
+  ): () => void {
+    const channelName = `user-presets-${userId}`;
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'graffiti_presets',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          onInsert?.(payload.new as GraffitiPreset);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'graffiti_presets',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          onUpdate?.(payload.new as GraffitiPreset);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'graffiti_presets',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          onDelete?.(payload.old as GraffitiPreset);
+        }
+      )
+      .subscribe();
+
+    this.channels.set(channelName, channel);
+
+    // Return unsubscribe function
+    return () => {
+      channel.unsubscribe();
+      this.channels.delete(channelName);
+    };
+  }
+
+  // Subscribe to public preset updates
+  subscribeToPublicPresets(
+    onInsert?: (preset: GraffitiPreset) => void,
+    onUpdate?: (preset: GraffitiPreset) => void
+  ): () => void {
+    const channelName = 'public-presets';
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'graffiti_presets',
+          filter: 'is_public=eq.true',
+        },
+        (payload) => {
+          onInsert?.(payload.new as GraffitiPreset);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'graffiti_presets',
+          filter: 'is_public=eq.true',
+        },
+        (payload) => {
+          onUpdate?.(payload.new as GraffitiPreset);
+        }
+      )
+      .subscribe();
+
+    this.channels.set(channelName, channel);
+
+    return () => {
+      channel.unsubscribe();
+      this.channels.delete(channelName);
+    };
+  }
+
+  // Cleanup all subscriptions
+  unsubscribeAll(): void {
+    for (const [name, channel] of this.channels) {
+      channel.unsubscribe();
+    }
+    this.channels.clear();
+  }
+}
+
+export const realtimeManager = new RealtimeManager();
+```
+
+### React Hook for Real-time Data
+```typescript
+import { useEffect, useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
+
+export const useUserPresets = () => {
+  const { user } = useAuthStore();
+  const [presets, setPresets] = useState<GraffitiPreset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setPresets([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | null = null;
+
+    const loadPresets = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const userPresets = await PresetRepository.getUserPresets(user.id);
+        setPresets(userPresets);
+
+        // Subscribe to real-time updates
+        unsubscribe = realtimeManager.subscribeToUserPresets(
+          user.id,
+          (newPreset) => {
+            setPresets(prev => [newPreset, ...prev]);
+          },
+          (updatedPreset) => {
+            setPresets(prev => 
+              prev.map(p => p.id === updatedPreset.id ? updatedPreset : p)
+            );
+          },
+          (deletedPreset) => {
+            setPresets(prev => 
+              prev.filter(p => p.id !== deletedPreset.id)
+            );
+          }
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load presets');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPresets();
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [user]);
+
+  return { presets, isLoading, error };
+};
+```
+
+## Analytics and Monitoring
+
+### Analytics Repository
+```typescript
+export class AnalyticsRepository {
+  // Track user events
+  static async trackEvent(
+    eventType: string,
+    eventData?: Record<string, any>,
+    sessionId?: string
+  ): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      await supabase
+        .from('graffiti_analytics')
+        .insert({
+          user_id: user?.id || null,
+          session_id: sessionId || 'anonymous',
+          event_type: eventType,
+          event_data: eventData || {},
+        });
+    } catch (error) {
+      // Don't throw analytics errors - just log them
+      console.warn('Analytics tracking failed:', error);
+    }
+  }
+
+  // Get user analytics (admin only)
+  static async getUserAnalytics(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<GraffitiAnalytics[]> {
+    let query = supabase
+      .from('graffiti_analytics')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (startDate) {
+      query = query.gte('created_at', startDate.toISOString());
+    }
+
+    if (endDate) {
+      query = query.lte('created_at', endDate.toISOString());
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch analytics: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  // Get aggregated analytics
+  static async getAnalyticsSummary(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<{
+    totalEvents: number;
+    uniqueUsers: number;
+    eventsByType: Record<string, number>;
+  }> {
+    // This would typically be done with a database function for performance
+    const { data, error } = await supabase.rpc('get_analytics_summary', {
+      start_date: startDate?.toISOString(),
+      end_date: endDate?.toISOString(),
+    });
+
+    if (error) {
+      throw new Error(`Failed to fetch analytics summary: ${error.message}`);
+    }
+
+    return data;
+  }
+}
+```
+
+### Database Function for Analytics
+```sql
+-- Analytics summary function
+CREATE OR REPLACE FUNCTION get_analytics_summary(
+  start_date TIMESTAMPTZ DEFAULT NULL,
+  end_date TIMESTAMPTZ DEFAULT NULL
+)
+RETURNS JSON AS $$
+DECLARE
+  result JSON;
+  total_events INTEGER;
+  unique_users INTEGER;
+  events_by_type JSON;
+BEGIN
+  -- Build base query conditions
+  WITH filtered_analytics AS (
+    SELECT *
+    FROM graffiti_analytics
+    WHERE (start_date IS NULL OR created_at >= start_date)
+      AND (end_date IS NULL OR created_at <= end_date)
+  )
+  SELECT 
+    COUNT(*) as total,
+    COUNT(DISTINCT user_id) as users,
+    JSON_OBJECT_AGG(event_type, event_count) as by_type
+  INTO total_events, unique_users, events_by_type
+  FROM (
+    SELECT 
+      event_type,
+      COUNT(*) as event_count
+    FROM filtered_analytics
+    GROUP BY event_type
+  ) event_counts;
+
+  result := JSON_BUILD_OBJECT(
+    'totalEvents', total_events,
+    'uniqueUsers', unique_users,
+    'eventsByType', events_by_type
+  );
+
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+## Migration Patterns
+
+### Migration Best Practices
+```typescript
+// Always use MCP tools for migrations
+import { mcp_supabase_apply_migration } from '@/lib/mcp';
+
+export const applyMigration = async (
+  projectId: string,
+  migrationName: string,
+  migrationSql: string
+) => {
+  try {
+    await mcp_supabase_apply_migration({
+      project_id: projectId,
+      name: migrationName,
+      query: migrationSql,
+    });
+    
+    console.log(`Migration ${migrationName} applied successfully`);
+  } catch (error) {
+    console.error(`Migration ${migrationName} failed:`, error);
+    throw error;
+  }
+};
+
+// Example migration
+const addPresetTagsMigration = `
+-- Add tags column to graffiti_presets
+ALTER TABLE graffiti_presets 
+ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+
+-- Add GIN index for tag searches
+CREATE INDEX IF NOT EXISTS idx_graffiti_presets_tags 
+ON graffiti_presets USING GIN(tags);
+
+-- Add constraint to limit number of tags
+ALTER TABLE graffiti_presets 
+ADD CONSTRAINT IF NOT EXISTS tags_limit 
+CHECK (array_length(tags, 1) <= 10);
+`;
+```
+
+### Rollback Strategies
+```sql
+-- Always include rollback instructions in migration comments
+/*
+Migration: add_preset_tags
+Description: Add tags functionality to graffiti presets
+Rollback: 
+  DROP INDEX IF EXISTS idx_graffiti_presets_tags;
+  ALTER TABLE graffiti_presets DROP CONSTRAINT IF EXISTS tags_limit;
+  ALTER TABLE graffiti_presets DROP COLUMN IF EXISTS tags;
+*/
+```
+
+## Performance Optimization
+
+### Query Optimization
+```typescript
+// Use proper indexing and query patterns
+export class OptimizedQueries {
+  // Efficient pagination with cursor-based approach
+  static async getPaginatedPresets(
+    cursor?: string,
+    limit = 20,
+    isPublic = true
+  ): Promise<{ presets: GraffitiPreset[]; nextCursor?: string }> {
+    let query = supabase
+      .from('graffiti_presets')
+      .select('*')
+      .eq('is_public', isPublic)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1); // Get one extra to check if there are more
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch presets: ${error.message}`);
+    }
+
+    const presets = data || [];
+    const hasMore = presets.length > limit;
+    
+    if (hasMore) {
+      presets.pop(); // Remove the extra item
+    }
+
+    const nextCursor = hasMore && presets.length > 0 
+      ? presets[presets.length - 1].created_at 
+      : undefined;
+
+    return { presets, nextCursor };
+  }
+
+  // Efficient search with full-text search
+  static async searchPresetsFullText(
+    searchTerm: string,
+    limit = 20
+  ): Promise<GraffitiPreset[]> {
+    const { data, error } = await supabase
+      .from('graffiti_presets')
+      .select('*')
+      .textSearch('name', searchTerm)
+      .eq('is_public', true)
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Search failed: ${error.message}`);
+    }
+
+    return data || [];
+  }
+}
+```
+
+These patterns ensure secure, performant, and maintainable database operations with Supabase in the graffiti generation application.

@@ -1,0 +1,599 @@
+---
+description: 
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+# React TypeScript Patterns
+
+## Component Structure
+
+### Component Props Interface
+```typescript
+// Always use interfaces for props
+interface ComponentProps {
+  // Required props first
+  value: string;
+  onChange: (value: string) => void;
+  
+  // Optional props with defaults
+  disabled?: boolean;
+  className?: string;
+  
+  // Event handlers with descriptive names
+  onComplete?: () => void;
+  onError?: (error: string) => void;
+}
+
+// Use React.FC with explicit props interface
+const Component: React.FC<ComponentProps> = ({
+  value,
+  onChange,
+  disabled = false,
+  className,
+  onComplete,
+  onError
+}) => {
+  // Component implementation
+};
+```
+
+### Custom Hooks Pattern
+```typescript
+// Always return an object with descriptive names
+export interface UseFeatureReturn {
+  // State
+  isLoading: boolean;
+  error: string | null;
+  data: DataType | null;
+  
+  // Actions
+  fetchData: () => Promise<void>;
+  resetError: () => void;
+  clearData: () => void;
+}
+
+export const useFeature = (): UseFeatureReturn => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<DataType | null>(null);
+  
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      // Implementation
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  return {
+    isLoading,
+    error,
+    data,
+    fetchData,
+    resetError: () => setError(null),
+    clearData: () => setData(null)
+  };
+};
+```
+
+## Error Handling Patterns
+
+### Component Error Handling
+```typescript
+const Component: React.FC<Props> = ({ onError }) => {
+  const [localError, setLocalError] = useState<string | null>(null);
+  
+  const handleAction = async () => {
+    try {
+      setLocalError(null);
+      // Risky operation
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setLocalError(errorMessage);
+      onError?.(errorMessage);
+      logger.error('Component action failed:', error);
+    }
+  };
+  
+  return (
+    <div>
+      {localError && (
+        <div className="bg-status-error-light border border-status-error-border text-status-error px-4 py-3 rounded text-sm">
+          {localError}
+        </div>
+      )}
+      {/* Component content */}
+    </div>
+  );
+};
+```
+
+### Async Operation Pattern
+```typescript
+const useAsyncOperation = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const executeOperation = useCallback(async (params: OperationParams) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await riskyOperation(params);
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Operation failed';
+      setError(message);
+      logger.error('Async operation failed:', error);
+      throw error; // Re-throw for caller handling
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  return { executeOperation, isLoading, error, resetError: () => setError(null) };
+};
+```
+
+## Performance Optimization
+
+### Memoization Patterns
+```typescript
+// Memoize expensive calculations
+const expensiveValue = useMemo(() => {
+  return heavyCalculation(dependencies);
+}, [dependencies]);
+
+// Memoize callback functions
+const handleChange = useCallback((value: string) => {
+  onChange(value);
+}, [onChange]);
+
+// Memoize components with custom comparison
+const MemoizedComponent = React.memo(Component, (prevProps, nextProps) => {
+  // Custom comparison logic
+  return prevProps.criticalProp === nextProps.criticalProp;
+});
+```
+
+### Conditional Rendering
+```typescript
+// Early returns for performance
+if (!data) {
+  return <LoadingSpinner />;
+}
+
+if (error) {
+  return <ErrorDisplay error={error} />;
+}
+
+// Use conditional rendering for expensive components
+{shouldRenderExpensiveComponent && (
+  <ExpensiveComponent data={data} />
+)}
+```
+
+## Form Handling
+
+### Form Component Pattern
+```typescript
+interface FormProps {
+  initialValues?: FormData;
+  onSubmit: (data: FormData) => Promise<void>;
+  onCancel?: () => void;
+}
+
+const Form: React.FC<FormProps> = ({ initialValues, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState<FormData>(initialValues || defaultValues);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const validateForm = useCallback((data: FormData): Record<string, string> => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!data.email) {
+      newErrors.email = 'Email is required';
+    } else if (!isValidEmail(data.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+    
+    return newErrors;
+  }, []);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const validationErrors = validateForm(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      setErrors({});
+      await onSubmit(formData);
+    } catch (error) {
+      setErrors({ submit: error instanceof Error ? error.message : 'Submission failed' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+    </form>
+  );
+};
+```
+
+### Input Component Pattern
+```typescript
+interface InputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  type?: 'text' | 'email' | 'password';
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+}
+
+const Input: React.FC<InputProps> = ({
+  label,
+  value,
+  onChange,
+  error,
+  type = 'text',
+  placeholder,
+  disabled = false,
+  required = false
+}) => {
+  const inputId = useId();
+  
+  return (
+    <div className="space-y-2">
+      <label htmlFor={inputId} className="block text-sm font-medium">
+        {label}
+        {required && <span className="text-status-error ml-1">*</span>}
+      </label>
+      <input
+        id={inputId}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={cn(
+          "w-full px-3 py-2 border rounded-md",
+          error ? "border-status-error" : "border-gray-300",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      />
+      {error && (
+        <p className="text-sm text-status-error">{error}</p>
+      )}
+    </div>
+  );
+};
+```
+
+## TypeScript Best Practices
+
+### Type Definitions
+```typescript
+// Use union types for limited options
+type Theme = 'light' | 'dark' | 'auto';
+type Status = 'idle' | 'loading' | 'success' | 'error';
+
+// Use interfaces for object shapes
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: Date;
+  preferences: UserPreferences;
+}
+
+// Use generic types for reusable patterns
+interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  message?: string;
+}
+
+// Use utility types for transformations
+type CreateUserRequest = Omit<User, 'id' | 'createdAt'>;
+type UpdateUserRequest = Partial<Pick<User, 'name' | 'preferences'>>;
+```
+
+### Type Guards
+```typescript
+// Type guard functions
+const isError = (value: unknown): value is Error => {
+  return value instanceof Error;
+};
+
+const isValidUser = (value: unknown): value is User => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'email' in value &&
+    typeof (value as any).id === 'string' &&
+    typeof (value as any).email === 'string'
+  );
+};
+
+// Usage in components
+const handleApiResponse = (response: unknown) => {
+  if (isValidUser(response)) {
+    // TypeScript knows response is User here
+    setUser(response);
+  } else {
+    setError('Invalid user data received');
+  }
+};
+```
+
+### Event Handling Types
+```typescript
+// Proper event handler typing
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setValue(e.target.value);
+};
+
+const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  // Handle submission
+};
+
+const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.stopPropagation();
+  // Handle click
+};
+
+// Custom event handlers
+type CustomHandler = (value: string, metadata?: Record<string, any>) => void;
+```
+
+## Component Composition
+
+### Higher-Order Component Pattern
+```typescript
+interface WithLoadingProps {
+  isLoading: boolean;
+}
+
+function withLoading<P extends object>(
+  Component: React.ComponentType<P>
+): React.FC<P & WithLoadingProps> {
+  return ({ isLoading, ...props }) => {
+    if (isLoading) {
+      return <LoadingSpinner />;
+    }
+    
+    return <Component {...(props as P)} />;
+  };
+}
+
+// Usage
+const EnhancedComponent = withLoading(MyComponent);
+```
+
+### Render Props Pattern
+```typescript
+interface DataFetcherProps<T> {
+  url: string;
+  children: (data: T | null, loading: boolean, error: string | null) => React.ReactNode;
+}
+
+function DataFetcher<T>({ url, children }: DataFetcherProps<T>) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    fetchData(url)
+      .then(setData)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [url]);
+  
+  return <>{children(data, loading, error)}</>;
+}
+
+// Usage
+<DataFetcher<User> url="/api/user">
+  {(user, loading, error) => (
+    loading ? <LoadingSpinner /> :
+    error ? <ErrorDisplay error={error} /> :
+    user ? <UserProfile user={user} /> :
+    <div>No user found</div>
+  )}
+</DataFetcher>
+```
+
+## Testing Patterns
+
+### Component Testing
+```typescript
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
+
+describe('Component', () => {
+  const defaultProps = {
+    value: 'test',
+    onChange: vi.fn(),
+  };
+  
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  
+  it('renders with initial value', () => {
+    render(<Component {...defaultProps} />);
+    expect(screen.getByDisplayValue('test')).toBeInTheDocument();
+  });
+  
+  it('calls onChange when value changes', async () => {
+    render(<Component {...defaultProps} />);
+    
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'new value' } });
+    
+    await waitFor(() => {
+      expect(defaultProps.onChange).toHaveBeenCalledWith('new value');
+    });
+  });
+  
+  it('handles error state correctly', () => {
+    render(<Component {...defaultProps} error="Test error" />);
+    expect(screen.getByText('Test error')).toBeInTheDocument();
+  });
+});
+```
+
+### Hook Testing
+```typescript
+import { renderHook, act } from '@testing-library/react';
+
+describe('useFeature', () => {
+  it('initializes with correct default state', () => {
+    const { result } = renderHook(() => useFeature());
+    
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBe(null);
+    expect(result.current.data).toBe(null);
+  });
+  
+  it('handles async operations correctly', async () => {
+    const { result } = renderHook(() => useFeature());
+    
+    act(() => {
+      result.current.fetchData();
+    });
+    
+    expect(result.current.isLoading).toBe(true);
+    
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+});
+```
+
+## Project-Specific Patterns
+
+### SVG Component Pattern
+```typescript
+interface SvgComponentProps {
+  svgContent: string;
+  className?: string;
+  style?: React.CSSProperties;
+  onLoad?: () => void;
+  onError?: (error: string) => void;
+}
+
+const SvgComponent: React.FC<SvgComponentProps> = ({
+  svgContent,
+  className,
+  style,
+  onLoad,
+  onError
+}) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  useEffect(() => {
+    try {
+      // Validate SVG content
+      if (!svgContent || !svgContent.includes('<svg')) {
+        throw new Error('Invalid SVG content');
+      }
+      
+      setIsLoaded(true);
+      onLoad?.();
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : 'SVG load failed');
+    }
+  }, [svgContent, onLoad, onError]);
+  
+  if (!isLoaded) {
+    return <div className="animate-pulse bg-gray-200 rounded" />;
+  }
+  
+  return (
+    <div
+      className={className}
+      style={style}
+      dangerouslySetInnerHTML={{ __html: svgContent }}
+    />
+  );
+};
+```
+
+### Customization Control Pattern
+```typescript
+interface ControlProps<T> {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options?: Array<{ label: string; value: T }>;
+  disabled?: boolean;
+}
+
+function Control<T extends string | number>({
+  label,
+  value,
+  onChange,
+  options,
+  disabled = false
+}: ControlProps<T>) {
+  if (options) {
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">{label}</label>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as T)}
+          disabled={disabled}
+          className="w-full px-3 py-2 border rounded-md"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+  
+  // Handle other input types based on value type
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium">{label}</label>
+      <input
+        type={typeof value === 'number' ? 'number' : 'text'}
+        value={value}
+        onChange={(e) => {
+          const newValue = typeof value === 'number' 
+            ? Number(e.target.value) as T
+            : e.target.value as T;
+          onChange(newValue);
+        }}
+        disabled={disabled}
+        className="w-full px-3 py-2 border rounded-md"
+      />
+    </div>
+  );
+}
+```
+
+These patterns ensure consistent, type-safe, and maintainable React components throughout the graffiti generation application.

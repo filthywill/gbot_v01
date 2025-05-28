@@ -1,4 +1,7 @@
 import { ProcessedSvg, OverlapRule } from '../types';
+import { DEV_CONFIG } from './devConfig';
+import { getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/letterRules';
+import { getLetterSvg } from './letterUtils';
 
 // Create a space SVG object with valid SVG content
 export function createSpaceSvg(): ProcessedSvg {
@@ -28,6 +31,69 @@ export function findOptimalOverlap(
 ): number {
   if (prev.isSpace || current.isSpace) return 0;
   
+  const prevLetter = /[a-zA-Z]/.test(prev.letter) ? prev.letter.toLowerCase() : prev.letter;
+  const currentLetter = /[a-zA-Z]/.test(current.letter) ? current.letter.toLowerCase() : current.letter;
+  
+  const start = __DEV__ ? performance.now() : 0;
+  
+  // Check if we should use runtime calculation (development mode)
+  const useRuntime = DEV_CONFIG.getRuntimeOverlapEnabled();
+  
+  if (__DEV__) {
+    console.group(`🔧 Overlap Calculation: ${prevLetter}→${currentLetter}`);
+    console.log(`Mode: ${useRuntime ? '🔬 RUNTIME (Pixel Analysis)' : '📊 LOOKUP TABLE'}`);
+  }
+  
+  let result: number;
+  
+  if (useRuntime) {
+    // RUNTIME MODE: Use pixel analysis
+    if (__DEV__) {
+      console.log('🔬 Using runtime pixel analysis...');
+    }
+    result = calculateOptimalOverlapFromPixels(prev, current, overlapRules, defaultOverlap, overlapExceptions);
+  } else {
+    // LOOKUP MODE: Try lookup table first, fallback to rule-based
+    if (__DEV__) {
+      console.log('📊 Checking lookup table...');
+    }
+    
+    // Check if the lookup table has this combination
+    const hasLookupValue = COMPLETE_OVERLAP_LOOKUP[prevLetter]?.[currentLetter] !== undefined;
+    
+    if (hasLookupValue) {
+      const lookupValue = getOverlapValue(prevLetter, currentLetter);
+      
+      if (__DEV__) {
+        console.log(`✅ Found in lookup table: ${lookupValue}`);
+      }
+      result = lookupValue;
+    } else {
+      if (__DEV__) {
+        console.log('⚠️ Not found in lookup table, using rule-based calculation');
+      }
+      result = calculateRuleBasedOverlap(prev, current, overlapRules, defaultOverlap, overlapExceptions);
+    }
+  }
+  
+  if (__DEV__) {
+    const duration = performance.now() - start;
+    console.log(`⏱️ Calculation took: ${duration.toFixed(3)}ms`);
+    console.log(`📐 Final overlap: ${result.toFixed(3)}`);
+    console.groupEnd();
+  }
+  
+  return result;
+}
+
+// Renamed original logic for clarity
+function calculateOptimalOverlapFromPixels(
+  prev: ProcessedSvg, 
+  current: ProcessedSvg,
+  overlapRules: Record<string, OverlapRule>,
+  defaultOverlap: OverlapRule,
+  overlapExceptions: Record<string, string[]>
+): number {
   // Only convert to lowercase if it's a letter
   const prevLetter = /[a-zA-Z]/.test(prev.letter) ? prev.letter.toLowerCase() : prev.letter;
   const currentLetter = /[a-zA-Z]/.test(current.letter) ? current.letter.toLowerCase() : current.letter;
@@ -76,6 +142,35 @@ export function findOptimalOverlap(
   }
   
   return minOverlap;
+}
+
+// Helper function for rule-based overlap calculation (fallback when lookup table doesn't have a value)
+function calculateRuleBasedOverlap(
+  prev: ProcessedSvg,
+  current: ProcessedSvg,
+  overlapRules: Record<string, OverlapRule>,
+  defaultOverlap: OverlapRule,
+  overlapExceptions: Record<string, string[]>
+): number {
+  const prevLetter = /[a-zA-Z]/.test(prev.letter) ? prev.letter.toLowerCase() : prev.letter;
+  const currentLetter = /[a-zA-Z]/.test(current.letter) ? current.letter.toLowerCase() : current.letter;
+  
+  const rules = overlapRules[prevLetter] || defaultOverlap;
+  let maxOverlap = rules.maxOverlap;
+  
+  // Check for special case overlaps
+  if (rules.specialCases && rules.specialCases[currentLetter]) {
+    maxOverlap = rules.specialCases[currentLetter];
+  }
+  
+  // Check if current letter is in the exceptions list for the previous letter
+  const exceptions = overlapExceptions[prevLetter] || [];
+  if (exceptions.includes(currentLetter)) {
+    // Reduce overlap for exception pairs
+    maxOverlap = Math.max(rules.minOverlap, maxOverlap * 0.7);
+  }
+  
+  return maxOverlap;
 }
 
 // Process an SVG string into a ProcessedSvg object
@@ -291,7 +386,7 @@ export async function processSvg(
     };
     
     // Return the processed SVG data
-    return {
+    const processedSvg = {
       svg: svg.outerHTML,
       width: 200,
       height: 200,
@@ -303,6 +398,8 @@ export async function processSvg(
       rotation,
       isSpace: false
     };
+    
+    return processedSvg;
   } catch (error) {
     console.error(`Error processing SVG for letter "${letter}":`, error);
     throw error;
