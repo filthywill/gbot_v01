@@ -166,3 +166,4 @@ Use browser tools for debugging and optimization:
 | State Management | zustand-state-management.mdc | Store patterns, persistence, performance | Browser Tools for debugging state changes |
 
 These rules are living documents that evolve with the project. They represent the collective knowledge and best practices developed through building this graffiti generation application.
+

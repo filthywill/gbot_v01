@@ -8,6 +8,7 @@ import { useGraffitiStore } from '../store/useGraffitiStore';
 import { checkRateLimit } from '../lib/rateLimit';
 import logger from '../lib/logger';
 import { showError, showWarning } from '../lib/toast';
+import { getProcessedSvgFromLookupTable, isLookupAvailable } from '../utils/svgLookup';
 
 const BATCH_SIZE = 5; // Process 5 letters at a time
 
@@ -101,63 +102,86 @@ export const useGraffitiGeneratorWithZustand = () => {
     `;
   };
   
+  // Check if lookup is available for current style
+  const isLookupEnabled = isLookupAvailable(selectedStyle);
+  
+  // Process a single letter using lookup or fallback
+  const processLetter = async (
+    letter: string,
+    index: number,
+    text: string,
+    useAlternate: boolean,
+    isFirst: boolean,
+    isLast: boolean
+  ): Promise<ProcessedSvg> => {
+    // Handle spaces
+    if (letter === ' ') {
+      return createSpaceSvg();
+    }
+
+    // Determine variant
+    const variant = useAlternate ? 'alternate' : (isFirst ? 'first' : (isLast ? 'last' : 'standard')) as 'standard' | 'alternate' | 'first' | 'last';
+    
+    // Calculate rotation
+    const prevLetter = index > 0 ? text[index - 1] : null;
+    const rotation = getLetterRotation(letter, prevLetter);
+
+    // Try lookup first if available
+    if (isLookupEnabled) {
+      try {
+        const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, rotation, {
+          logPerformance: false // Reduce log noise during generation
+        });
+        
+        if (lookupResult) {
+          return lookupResult;
+        }
+      } catch (error) {
+        console.warn(`🔍 Lookup failed for '${letter}', falling back to runtime:`, error);
+      }
+    }
+
+    // Fallback to runtime processing
+    const cacheKey = `${letter}-${variant}-${selectedStyle}-${rotation}`;
+    const cachedSvg = getCachedSvg(cacheKey);
+    if (cachedSvg) {
+      return cachedSvg;
+    }
+
+    try {
+      const svgPath = await getLetterSvg(letter, useAlternate, isFirst, isLast, selectedStyle);
+      const svgContent = await fetchSvg(svgPath);
+      const processed = await processSvg(svgContent, letter, rotation);
+      
+      // Cache for future use
+      cacheSvg(cacheKey, processed);
+      return processed;
+    } catch (error) {
+      console.warn(`Error processing letter '${letter}', using placeholder:`, error);
+      const svgContent = createPlaceholderSvg(letter);
+      return processSvg(svgContent, letter, rotation);
+    }
+  };
+  
   // Process a batch of letters in parallel with optimized caching
   const processBatch = async (letters: { letter: string, index: number, text: string }[]): Promise<ProcessedSvg[]> => {
+    const startTime = performance.now();
+    const method = isLookupEnabled ? 'Lookup System' : 'Runtime Processing';
+    
+    console.log(`🚀 Processing ${letters.length} letters using: ${method}`);
+    
     const results: ProcessedSvg[] = [];
     
     // Process letters in smaller chunks to avoid overwhelming the browser
     for (let i = 0; i < letters.length; i += BATCH_SIZE) {
       const batch = letters.slice(i, i + BATCH_SIZE);
       const batchPromises = batch.map(async ({ letter, index, text }) => {
-        // For spaces, return immediately with a space SVG
-        if (letter === ' ') {
-          return createSpaceSvg();
-        }
-        
-        // Determine letter variants and create cache key
+        // Determine letter variants
         const useAlternate = shouldUseAlternate(letter, index, text.split(''));
         const isFirst = index === 0;
         const isLast = index === text.length - 1;
-        const cacheKey = `${letter}-${useAlternate ? 'alt' : 'std'}-${isFirst ? 'first' : ''}-${isLast ? 'last' : ''}-${selectedStyle}`;
         
-        // Check processed SVG cache first
-        const cachedSvg = getCachedSvg(cacheKey);
-        if (cachedSvg) {
-          const prevLetter = index > 0 ? text[index - 1] : null;
-          const rotation = getLetterRotation(letter, prevLetter);
-          return { ...cachedSvg, rotation };
-        }
-
-        try {
-          // Get the appropriate SVG path
-          const svgPath = await getLetterSvg(letter, useAlternate, isFirst, isLast, selectedStyle);
-          
-          try {
-            // Fetch and process the SVG
-            const svgContent = await fetchSvg(svgPath);
-            const prevLetter = index > 0 ? text[index - 1] : null;
-            const rotation = getLetterRotation(letter, prevLetter);
-            const processed = await processSvg(svgContent, letter, rotation);
-            
-            // Cache the processed SVG
-            cacheSvg(cacheKey, processed);
-            return processed;
-          } catch (fetchErr) {
-            // If fetching fails, try standard version as fallback
-            if (svgPath !== letterSvgs[letter] && letterSvgs[letter]) {
-              const standardSvgText = await fetchSvg(letterSvgs[letter]);
-              const processed = await processSvg(standardSvgText, letter);
-              const prevLetter = index > 0 ? text[index - 1] : null;
-              const rotation = prevLetter ? getLetterRotation(letter, prevLetter) : 0;
-              return { ...processed, rotation };
-            }
-            throw fetchErr;
-          }
-        } catch (err) {
-          console.warn(`Error processing letter '${letter}', using placeholder:`, err);
-          const svgContent = createPlaceholderSvg(letter);
-          return processSvg(svgContent, letter, 0);
-        }
+        return processLetter(letter, index, text, useAlternate, isFirst, isLast);
       });
 
       // Wait for all letters in this batch to be processed
@@ -166,9 +190,12 @@ export const useGraffitiGeneratorWithZustand = () => {
       
       // Add a small delay between batches to prevent UI blocking
       if (i + BATCH_SIZE < letters.length) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 5));
       }
     }
+    
+    // Track performance
+    trackProcessingTime(startTime, method, letters.length);
 
     return results;
   };
@@ -390,6 +417,14 @@ export const useGraffitiGeneratorWithZustand = () => {
       }, 0);
     }
   }, [generateGraffiti, storeHandleUndoRedo]);
+  
+  // Performance tracking
+  const trackProcessingTime = (startTime: number, method: string, letterCount: number) => {
+    const duration = performance.now() - startTime;
+    const perLetter = duration / letterCount;
+    console.log(`🎯 ${method}: ${duration.toFixed(2)}ms total, ${perLetter.toFixed(2)}ms/letter`);
+    return { duration, perLetter };
+  };
   
   return {
     // State

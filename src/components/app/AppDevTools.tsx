@@ -1,6 +1,9 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { OverlapDebugPanel } from '../OverlapDebugPanel';
+import { SvgProcessingPanel } from '../dev/SvgProcessingPanel';
+import { LookupIntegrationTest } from '../dev/LookupIntegrationTest';
+import { LookupPerformanceTest } from '../dev/LookupPerformanceTest';
 import { DevColorPanel } from '../ui/dev-color-panel';
 import { isDebugPanelEnabled } from '../../lib/debug';
 
@@ -37,8 +40,13 @@ export function AppDevTools({
   
   return (
     <>
-      {/* Debug panels */}
+      {/* Debug panels - conditional on debug panel enabled */}
       {isDebugPanelEnabled() && <OverlapDebugPanel />}
+      {isDebugPanelEnabled() && <SvgProcessingPanel />}
+      
+      {/* Lookup test panels - always available in dev mode but self-contained */}
+      <LookupIntegrationTest />
+      <LookupPerformanceTest />
       
       {/* Color panel (toggled by debug button) */}
       {showColorPanel && <DevColorPanel />}
