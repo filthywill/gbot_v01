@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { ProcessedSvg, HistoryState } from '../types';
 import { useSvgCache } from './useSvgCache';
-import { getLetterSvg, fetchSvg, shouldUseAlternate, getLetterRotation } from '../utils/letterUtils';
+import { getLetterSvg, fetchSvg, shouldUseAlternate } from '../utils/letterUtils';
 import { createSpaceSvg, processSvg } from '../utils/svgUtils';
 import { letterSvgs } from '../data/letterMappings';
 import { useGraffitiStore } from '../store/useGraffitiStore';
@@ -122,14 +122,10 @@ export const useGraffitiGeneratorWithZustand = () => {
     // Determine variant
     const variant = useAlternate ? 'alternate' : (isFirst ? 'first' : (isLast ? 'last' : 'standard')) as 'standard' | 'alternate' | 'first' | 'last';
     
-    // Calculate rotation
-    const prevLetter = index > 0 ? text[index - 1] : null;
-    const rotation = getLetterRotation(letter, prevLetter);
-
     // Try lookup first if available
     if (isLookupEnabled) {
       try {
-        const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, rotation, {
+        const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, 0, {
           logPerformance: false // Reduce log noise during generation
         });
         
@@ -142,7 +138,7 @@ export const useGraffitiGeneratorWithZustand = () => {
     }
 
     // Fallback to runtime processing
-    const cacheKey = `${letter}-${variant}-${selectedStyle}-${rotation}`;
+    const cacheKey = `${letter}-${variant}-${selectedStyle}`;
     const cachedSvg = getCachedSvg(cacheKey);
     if (cachedSvg) {
       return cachedSvg;
@@ -151,7 +147,7 @@ export const useGraffitiGeneratorWithZustand = () => {
     try {
       const svgPath = await getLetterSvg(letter, useAlternate, isFirst, isLast, selectedStyle);
       const svgContent = await fetchSvg(svgPath);
-      const processed = await processSvg(svgContent, letter, rotation);
+      const processed = await processSvg(svgContent, letter, 0);
       
       // Cache for future use
       cacheSvg(cacheKey, processed);
@@ -159,7 +155,7 @@ export const useGraffitiGeneratorWithZustand = () => {
     } catch (error) {
       console.warn(`Error processing letter '${letter}', using placeholder:`, error);
       const svgContent = createPlaceholderSvg(letter);
-      return processSvg(svgContent, letter, rotation);
+      return processSvg(svgContent, letter, 0);
     }
   };
   

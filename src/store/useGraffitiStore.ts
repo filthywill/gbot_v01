@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { ProcessedSvg, CustomizationOptions, HistoryState, OverlapRule } from '../types';
 import { GRAFFITI_STYLES } from '../data/styles';
 import { findOptimalOverlap } from '../utils/svgUtils';
-import { LETTER_OVERLAP_RULES, DEFAULT_OVERLAP, overlapExceptions, LETTER_ROTATION_RULES } from '../data/letterRules';
+import { LETTER_OVERLAP_RULES, DEFAULT_OVERLAP, overlapExceptions } from '../data/letterRules';
 import { DEFAULT_CUSTOMIZATION_OPTIONS } from '../data/stylePresets';
+import { getOverlapValue } from '../data/generatedOverlapLookup';
 
 interface GraffitiState {
   // Input and display state
@@ -35,7 +37,6 @@ interface GraffitiState {
   overlapRules: Record<string, OverlapRule>;
   defaultOverlap: OverlapRule;
   overlapExceptions: Record<string, string[]>;
-  rotationRules: Record<string, Record<string, number>>;
   
   // Actions
   setInputText: (text: string) => void;
@@ -64,6 +65,60 @@ const defaultCustomizationOptions: CustomizationOptions = {
   ...DEFAULT_CUSTOMIZATION_OPTIONS as CustomizationOptions
 };
 
+// Helper function to convert lookup table data to OverlapRule format
+const createOverlapRulesFromLookup = (): Record<string, OverlapRule> => {
+  const letters = Array.from('abcdefghijklmnopqrstuvwxyz0123456789');
+  const rules: Record<string, OverlapRule> = {};
+  
+  for (const letter of letters) {
+    // Get all overlap values for this letter from the lookup table
+    const overlapValues = letters
+      .map(targetLetter => getOverlapValue(letter, targetLetter))
+      .filter(val => val !== 0.12); // Filter out fallback values
+    
+    if (overlapValues.length === 0) {
+      // If no lookup values found, use defaults
+      rules[letter] = {
+        minOverlap: DEFAULT_OVERLAP.minOverlap,
+        maxOverlap: DEFAULT_OVERLAP.maxOverlap,
+        specialCases: {}
+      };
+      continue;
+    }
+    
+    // Calculate min/max from lookup values
+    const minOverlap = Math.min(...overlapValues);
+    const maxOverlap = Math.max(...overlapValues);
+    
+    // Find special cases (values that differ from the mode/most common value)
+    const valueCounts = overlapValues.reduce((acc, val) => {
+      acc[val] = (acc[val] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+    
+    const mostCommonValue = Object.entries(valueCounts)
+      .sort(([,a], [,b]) => b - a)[0]?.[0];
+    const commonValue = mostCommonValue ? parseFloat(mostCommonValue) : maxOverlap;
+    
+    // Identify special cases (letters with non-standard overlap)
+    const specialCases: Record<string, number> = {};
+    letters.forEach(targetLetter => {
+      const value = getOverlapValue(letter, targetLetter);
+      if (value !== 0.12 && Math.abs(value - commonValue) > 0.001) {
+        specialCases[targetLetter] = value;
+      }
+    });
+    
+    rules[letter] = {
+      minOverlap,
+      maxOverlap: commonValue, // Use most common value as maxOverlap
+      specialCases
+    };
+  }
+  
+  return rules;
+};
+
 export const useGraffitiStore = create<GraffitiState>((set, get) => ({
   // Initial state
   inputText: '',
@@ -82,11 +137,10 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
   hasInitialGeneration: false,
   customizationOptions: defaultCustomizationOptions,
   
-  // Initialize overlap rules from letterRules.ts
-  overlapRules: LETTER_OVERLAP_RULES,
+  // Initialize overlap rules from lookup table (single source of truth)
+  overlapRules: createOverlapRulesFromLookup(),
   defaultOverlap: DEFAULT_OVERLAP,
   overlapExceptions: overlapExceptions,
-  rotationRules: LETTER_ROTATION_RULES,
   
   // Actions
   setInputText: (text) => set({ inputText: text }),
@@ -267,11 +321,10 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
       hasInitialGeneration: false,
       customizationOptions: defaultCustomizationOptions,
       
-      // Initialize overlap rules from letterRules.ts
-      overlapRules: LETTER_OVERLAP_RULES,
+      // Initialize overlap rules from lookup table (single source of truth)
+      overlapRules: createOverlapRulesFromLookup(),
       defaultOverlap: DEFAULT_OVERLAP,
-      overlapExceptions: overlapExceptions,
-      rotationRules: LETTER_ROTATION_RULES
+      overlapExceptions: overlapExceptions
     });
   },
   

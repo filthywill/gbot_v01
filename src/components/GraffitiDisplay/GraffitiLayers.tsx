@@ -80,7 +80,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               width: '200px',
               height: '200px',
               zIndex: 1, // Lowest z-index for shield
-              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+              transform: `scale(${item.scale})`,
               transformOrigin: 'center center',
               overflow: 'visible',
               ...animationStyle
@@ -123,7 +123,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               style={{
                 width: '100%',
                 height: '100%',
-                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transform: `scale(${item.scale})`,
                 transformOrigin: 'center center',
                 ...animationStyle
               }}
@@ -164,7 +164,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               style={{
                 width: '100%',
                 height: '100%',
-                transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+                transform: `scale(${item.scale})`,
                 transformOrigin: 'center center',
                 ...animationStyle
               }}
@@ -195,7 +195,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
               width: '200px',
               height: '200px',
               zIndex: 4, // z-index for stamp
-              transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+              transform: `scale(${item.scale})`,
               transformOrigin: 'center center',
               overflow: 'visible',
               ...animationStyle
@@ -224,7 +224,7 @@ const GraffitiLayers: React.FC<GraffitiLayersProps> = ({
             width: '200px',
             height: '200px',
             zIndex: 5, // Highest z-index for main content
-            transform: `scale(${item.scale}) rotate(${item.rotation || 0}deg)`,
+            transform: `scale(${item.scale})`,
             transformOrigin: 'center center',
             overflow: 'visible',
             ...animationStyle

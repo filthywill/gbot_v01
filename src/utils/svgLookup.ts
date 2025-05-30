@@ -32,8 +32,7 @@ const processedSvgCache = new Map<string, ProcessedSvg>();
  * Note: Lookup data doesn't include pixel analysis, so we need to handle this appropriately
  */
 function convertLookupToProcessedSvg(
-  lookupData: any,
-  rotation: number = 0
+  lookupData: any
 ): ProcessedSvg {
   // For now, we'll use simplified pixel data until we can implement proper conversion
   // In a full implementation, we would either:
@@ -77,8 +76,7 @@ function convertLookupToProcessedSvg(
     pixelData,
     verticalPixelRanges,
     scale: 1,
-    letter: lookupData.letter,
-    rotation
+    letter: lookupData.letter
   };
 }
 
@@ -89,14 +87,13 @@ export const getProcessedSvgFromLookupTable = async (
   letter: string,
   style: string = 'straight',
   variant: 'standard' | 'alternate' | 'first' | 'last' = 'standard',
-  rotation: number = 0,
   config: Partial<LookupConfig> = {}
 ): Promise<ProcessedSvg> => {
   const startTime = performance.now();
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
   // Create cache key
-  const cacheKey = `${letter}-${style}-${variant}-${rotation}`;
+  const cacheKey = `${letter}-${style}-${variant}`;
   
   // Check cache first
   if (finalConfig.cacheResults && processedSvgCache.has(cacheKey)) {
@@ -114,7 +111,7 @@ export const getProcessedSvgFromLookupTable = async (
       const lookupData = getProcessedSvgFromLookup(letter, style, variant);
       
       if (lookupData) {
-        const processed = convertLookupToProcessedSvg(lookupData, rotation);
+        const processed = convertLookupToProcessedSvg(lookupData);
         
         // Cache the result
         if (finalConfig.cacheResults) {
@@ -153,7 +150,7 @@ export const getProcessedSvgFromLookupTable = async (
       }
 
       // Process using development function
-      const processed = await processSvg(svgContent, letter, rotation);
+      const processed = await processSvg(svgContent, letter);
       
       // Cache the result
       if (finalConfig.cacheResults) {
@@ -187,8 +184,7 @@ export const getProcessedSvgFromLookupTable = async (
       pixelData: Array(200).fill(null).map(() => Array(200).fill(false)),
       verticalPixelRanges: Array(200).fill({ top: 0, bottom: 199, density: 0 }),
       scale: 1,
-      letter,
-      rotation
+      letter
     };
     
     return placeholder;
@@ -207,8 +203,7 @@ export const createSpaceSvg = (): ProcessedSvg => {
     pixelData: Array(200).fill(null).map(() => Array(50).fill(false)),
     verticalPixelRanges: Array(50).fill({ top: 0, bottom: 199, density: 0 }),
     scale: 1,
-    letter: ' ',
-    rotation: 0
+    letter: ' '
   };
 };
 

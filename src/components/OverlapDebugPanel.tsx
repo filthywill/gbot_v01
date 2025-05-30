@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useGraffitiStore } from '../store/useGraffitiStore';
-import { LETTER_OVERLAP_RULES, getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/letterRules';
+import { getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/generatedOverlapLookup';
 import { Minimize2, Maximize2, Download, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { DEV_CONFIG } from '../utils/devConfig';
@@ -79,7 +79,7 @@ export function OverlapDebugPanel() {
       const svgContent = await response.text();
 
       // Process SVG with full resolution for accurate pixel analysis
-      const processedSvg = await processSvg(svgContent, char, 0, 200); // Full resolution for accuracy
+      const processedSvg = await processSvg(svgContent, char, 200); // Full resolution for accuracy
       
       // Validate that we have proper pixel data
       if (!processedSvg.verticalPixelRanges || processedSvg.verticalPixelRanges.length === 0) {
@@ -136,7 +136,6 @@ export function OverlapDebugPanel() {
         verticalPixelRanges: fallbackVerticalRanges,
         scale: 1,
         letter: char,
-        rotation: 0,
         isSpace: false
       };
     }
@@ -332,10 +331,71 @@ export const validateAgainstSpecialCases = (
   };
 
   const handleCopyResults = () => {
+    if (exportResults) {
+      const code = generateTypescriptCode(exportResults);
+      copyToClipboard(code);
+    }
+  };
+
+  const handleAutoUpdateFile = async () => {
     if (!exportResults) return;
-    
-    const code = generateTypescriptCode(exportResults);
-    copyToClipboard(code);
+
+    try {
+      const code = generateTypescriptCode(exportResults);
+      
+      // Check if File System Access API is available
+      if ('showSaveFilePicker' in window) {
+        try {
+          // Try to get a file handle for the specific file
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: 'generatedOverlapLookup.ts',
+            types: [{
+              description: 'TypeScript files',
+              accept: { 'text/typescript': ['.ts'] }
+            }]
+          });
+          
+          const writable = await fileHandle.createWritable();
+          await writable.write(code);
+          await writable.close();
+          
+          if (__DEV__) {
+            console.log('✅ File updated successfully!');
+          }
+          
+          // Show success message
+          alert('✅ generatedOverlapLookup.ts updated successfully!\n\nThe file has been saved. Your app will use the new values after a refresh.');
+          
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') {
+            // User cancelled - that's fine
+            return;
+          }
+          throw err;
+        }
+      } else {
+        // Fallback: Create download with specific filename
+        const blob = new Blob([code], { type: 'text/typescript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'generatedOverlapLookup.ts';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('📁 File downloaded as generatedOverlapLookup.ts\n\nPlease replace the existing file in src/data/ and refresh your app.');
+      }
+      
+    } catch (error) {
+      console.error('Error updating file:', error);
+      alert('❌ Error updating file. Falling back to clipboard copy.');
+      
+      // Fallback to clipboard
+      const code = generateTypescriptCode(exportResults);
+      copyToClipboard(code);
+    }
   };
 
   const handleCloseExport = () => {
@@ -378,42 +438,52 @@ export const validateAgainstSpecialCases = (
     setModifiedLetters(prev => new Set(prev).add(selectedLetter));
   };
 
-  const handleSaveLetter = () => {
-    if (!selectedLetter) return;
+  // Helper function to extract overlap rule from lookup table
+  const getOriginalRuleFromLookup = (letter: string) => {
+    const allLetters = Array.from('abcdefghijklmnopqrstuvwxyz0123456789');
     
-    const rule = overlapRules[selectedLetter];
-    if (!rule) return;
-
-    // Format special cases
-    const specialCases = rule.specialCases || {};
-    const specialCaseEntries = Object.entries(specialCases);
-    const formattedSpecialCases = specialCaseEntries.length > 0 
-      ? specialCaseEntries
-          .map(([letter, value]) => `      ${letter}: ${value.toFixed(2)}`)
-          .join(',\n')
-      : '';
-
-    // Create the rule string
-    const ruleString = `  ${selectedLetter}: {
-    minOverlap: ${rule.minOverlap.toFixed(2)},
-    maxOverlap: ${rule.maxOverlap.toFixed(2)},
-    specialCases: {
-${formattedSpecialCases}
-    },
-  },`;
-
-    // Log the changes that would be made
-    if (__DEV__) {
-      console.log('Saving changes for letter:', selectedLetter);
-      console.log('New rule:', ruleString);
+    // Get all overlap values for this letter from the lookup table
+    const overlapValues = allLetters
+      .map(targetLetter => getOverlapValue(letter, targetLetter))
+      .filter(val => val !== 0.12); // Filter out fallback values
+    
+    if (overlapValues.length === 0) {
+      // If no lookup values found, use defaults
+      return {
+        minOverlap: defaultOverlap.minOverlap,
+        maxOverlap: defaultOverlap.maxOverlap,
+        specialCases: {}
+      };
     }
-
-    // Clear modified state for this letter
-    setModifiedLetters(prev => {
-      const next = new Set(prev);
-      next.delete(selectedLetter);
-      return next;
+    
+    // Calculate min/max from lookup values
+    const minOverlap = Math.min(...overlapValues);
+    const maxOverlap = Math.max(...overlapValues);
+    
+    // Find special cases (values that differ from the mode/most common value)
+    const valueCounts = overlapValues.reduce((acc, val) => {
+      acc[val] = (acc[val] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+    
+    const mostCommonValue = Object.entries(valueCounts)
+      .sort(([,a], [,b]) => b - a)[0]?.[0];
+    const commonValue = mostCommonValue ? parseFloat(mostCommonValue) : maxOverlap;
+    
+    // Identify special cases (letters with non-standard overlap)
+    const specialCases: Record<string, number> = {};
+    allLetters.forEach(targetLetter => {
+      const value = getOverlapValue(letter, targetLetter);
+      if (value !== 0.12 && Math.abs(value - commonValue) > 0.001) {
+        specialCases[targetLetter] = value;
+      }
     });
+    
+    return {
+      minOverlap,
+      maxOverlap: commonValue, // Use most common value as maxOverlap
+      specialCases
+    };
   };
 
   const handleResetLetter = async () => {
@@ -431,39 +501,23 @@ ${formattedSpecialCases}
     }
     
     try {
-      const originalRule = LETTER_OVERLAP_RULES[selectedLetter];
-      if (!originalRule) {
-        if (__DEV__) {
-          console.warn('⚠️ No original rule found for letter:', selectedLetter);
-          // Use default values if no original rule exists
-          const defaultRule = {
-            minOverlap: defaultOverlap.minOverlap,
-            maxOverlap: defaultOverlap.maxOverlap,
-            specialCases: {}
-          };
-          
-          if (__DEV__) {
-            console.log('📊 Using default rule:', defaultRule);
-          }
-          updateOverlapRule(selectedLetter, defaultRule);
-        }
-      } else {
-        if (__DEV__) {
-          console.log('📊 Original rule found:', originalRule);
-          
-          // Create a complete reset with all original values
-          const resetRule = {
-            minOverlap: originalRule.minOverlap,
-            maxOverlap: originalRule.maxOverlap,
-            specialCases: originalRule.specialCases ? { ...originalRule.specialCases } : {}
-          };
-          
-          if (__DEV__) {
-            console.log('📊 Resetting to:', resetRule);
-          }
-          updateOverlapRule(selectedLetter, resetRule);
-        }
+      const originalRule = getOriginalRuleFromLookup(selectedLetter);
+      
+      if (__DEV__) {
+        console.log('📊 Original rule from lookup table:', originalRule);
       }
+      
+      // Create a complete reset with all original values
+      const resetRule = {
+        minOverlap: originalRule.minOverlap,
+        maxOverlap: originalRule.maxOverlap,
+        specialCases: originalRule.specialCases ? { ...originalRule.specialCases } : {}
+      };
+      
+      if (__DEV__) {
+        console.log('📊 Resetting to:', resetRule);
+      }
+      updateOverlapRule(selectedLetter, resetRule);
 
       // Clear modified state for this letter
       setModifiedLetters(prev => {
@@ -507,49 +561,17 @@ ${formattedSpecialCases}
 
   // Helper function to create a mock ProcessedSvg for testing
   const createMockProcessedSvg = (letter: string) => {
-    const pixelData: boolean[][] = Array(200).fill(null).map(() => Array(200).fill(false));
-    const verticalPixelRanges: Array<{ top: number, bottom: number, density: number }> = Array(200).fill(null);
-    
-    // Create a simple rectangular shape
-    const bounds = { left: 50, right: 150, top: 50, bottom: 150 };
-    
-    // Fill pixel data
-    for (let y = bounds.top; y < bounds.bottom; y++) {
-      for (let x = bounds.left; x < bounds.right; x++) {
-        if (y < 200 && x < 200) {
-          pixelData[y][x] = true;
-        }
-      }
-    }
-    
-    // Create vertical pixel ranges
-    for (let x = 0; x < 200; x++) {
-      if (x >= bounds.left && x < bounds.right) {
-        verticalPixelRanges[x] = { 
-          top: bounds.top, 
-          bottom: bounds.bottom - 1, 
-          density: 1.0 
-        };
-      } else {
-        verticalPixelRanges[x] = { 
-          top: 0, 
-          bottom: 199, 
-          density: 0 
-        };
-      }
-    }
-    
+    const mockSvg = `<svg width="200" height="200"><text x="100" y="100" text-anchor="middle">${letter}</text></svg>`;
     return {
-      svg: `<svg><rect/></svg>`,
+      svg: mockSvg,
       width: 200,
       height: 200,
-      bounds,
-      pixelData,
-      verticalPixelRanges,
+      bounds: { left: 20, right: 180, top: 20, bottom: 180 },
+      pixelData: Array(200).fill(null).map(() => Array(200).fill(false)),
+      verticalPixelRanges: Array(200).fill({ top: 20, bottom: 180, density: 0.5 }),
       scale: 1,
-      letter,
-      rotation: 0,
-      isSpace: false,
+      letter: letter,
+      isSpace: false
     };
   };
 
@@ -668,13 +690,17 @@ ${formattedSpecialCases}
       ) : (
         <>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium text-gray-900">Overlap Debug</h3>
+            <div>
+              <h3 className="font-medium text-gray-900">Overlap Debug</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Reset uses lookup table values</p>
+            </div>
             <div className="flex items-center space-x-2 text-xs">
               {selectedLetter && (
                 <>
                   <button
                     onClick={handleResetLetter}
                     disabled={isResetting}
+                    title="Reset to values from lookup table (generatedOverlapLookup.ts)"
                     className={cn(
                       "text-xs px-2 py-1 rounded transition-colors",
                       isResetting 
@@ -684,14 +710,6 @@ ${formattedSpecialCases}
                   >
                     {isResetting ? '🔄 Resetting...' : 'Reset'}
                   </button>
-                  {modifiedLetters.has(selectedLetter) && (
-                    <button
-                      onClick={handleSaveLetter}
-                      className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
-                    >
-                      Save
-                    </button>
-                  )}
                 </>
               )}
               <button
@@ -810,7 +828,7 @@ ${formattedSpecialCases}
                     Export Lookup Table
                   </label>
                   <p className="text-xs text-green-700">
-                    Generate complete 1,296 combinations
+                    Generate and auto-update lookup file
                   </p>
                 </div>
                 {!exportProgress && !exportResults && (
@@ -865,12 +883,18 @@ ${formattedSpecialCases}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-green-700 font-medium">
-                      Export Complete! 
+                      Export Complete! Ready to update file.
                     </span>
                     <div className="flex gap-1">
                       <button
-                        onClick={handleCopyResults}
+                        onClick={handleAutoUpdateFile}
                         className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                      >
+                        Update File
+                      </button>
+                      <button
+                        onClick={handleCopyResults}
+                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
                       >
                         Copy Code
                       </button>

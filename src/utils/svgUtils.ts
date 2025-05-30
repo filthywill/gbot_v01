@@ -1,6 +1,6 @@
 import { ProcessedSvg, OverlapRule } from '../types';
 import { DEV_CONFIG } from './devConfig';
-import { getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/letterRules';
+import { getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/generatedOverlapLookup';
 import { getLetterSvg } from './letterUtils';
 
 // Create a space SVG object with valid SVG content
@@ -177,7 +177,6 @@ function calculateRuleBasedOverlap(
 export async function processSvg(
   svgText: string, 
   letter: string, 
-  rotation: number = 0,
   resolution: number = 200
 ): Promise<ProcessedSvg> {
   try {
@@ -227,30 +226,6 @@ export async function processSvg(
     }
     if (!svg.hasAttribute('height')) {
       svg.setAttribute('height', '200');
-    }
-    
-    // Apply rotation if needed
-    if (rotation !== 0) {
-      // Find or create a group to apply rotation
-      let g = svg.querySelector('g');
-      if (!g) {
-        g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        // Move all children to the group
-        while (svg.firstChild) {
-          if (svg.firstChild.nodeType === Node.ELEMENT_NODE && 
-              (svg.firstChild as Element).tagName.toLowerCase() !== 'defs') {
-            g.appendChild(svg.firstChild);
-          } else {
-            // Skip non-element nodes or defs
-            svg.removeChild(svg.firstChild);
-          }
-        }
-        svg.appendChild(g);
-      }
-      
-      // Apply rotation transform
-      const transform = g.getAttribute('transform') || '';
-      g.setAttribute('transform', `${transform} rotate(${rotation}, 100, 100)`);
     }
     
     // Create a canvas for pixel analysis
@@ -395,7 +370,6 @@ export async function processSvg(
       verticalPixelRanges,
       scale: 1,
       letter,
-      rotation,
       isSpace: false
     };
     

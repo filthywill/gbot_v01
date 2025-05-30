@@ -29,7 +29,6 @@ export interface ProcessedSvg {
   scale: number;
   letter: string;
   isSpace?: boolean;
-  rotation?: number;
 }
 
 export interface LetterPair {

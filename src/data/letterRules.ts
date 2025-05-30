@@ -1,12 +1,18 @@
 import { OverlapRule } from '../types';
 
-// Default overlap settings
+// IMPORTANT: This file serves as the FALLBACK and INITIALIZATION source for overlap rules
+// - Used to initialize Zustand store on app start and reset
+// - Used as fallback when lookup table doesn't have a value  
+// - Used by OverlapDebugPanel for "reset to original" functionality
+// - The lookup table in generatedOverlapLookup.ts takes PRIORITY during actual graffiti generation
+
+// Default overlap settings - used as ultimate fallback
 export const DEFAULT_OVERLAP: OverlapRule = {
   minOverlap: 0.04,
   maxOverlap: 0.12,
 };
 
-// Letter-specific overlap rules
+// Letter-specific overlap rules - LEGACY/FALLBACK (prefer generatedOverlapLookup.ts)
 export const LETTER_OVERLAP_RULES: Record<string, OverlapRule> = {
   a: {
     minOverlap: 0.04,
@@ -743,12 +749,8 @@ export const overlapExceptions: Record<string, string[]> = {
   d: [],
 };
 
-// Letter-specific rotation rules
-export const LETTER_ROTATION_RULES: Record<string, Record<string, number>> = {
-  r: {
-    c: -0, // Specific rotation for 'c' following 'r'
-  },
-};
-
-// Export lookup table functions for hybrid overlap system
-export { COMPLETE_OVERLAP_LOOKUP, getOverlapValue, validateAgainstSpecialCases } from './generatedOverlapLookup';
+// Note: Overlap lookup functionality has been moved to generatedOverlapLookup.ts
+// This file now only contains:
+// - DEFAULT_OVERLAP: fallback overlap settings
+// - overlapExceptions: special exceptions to overlap rules
+// - LETTER_OVERLAP_RULES: legacy rules (only used by OverlapDebugPanel for "reset to original")

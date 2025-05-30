@@ -1,5 +1,4 @@
 import { letterSvgs, firstLetterSvgs, lastLetterSvgs } from '../data/letterMappings';
-import { LETTER_ROTATION_RULES } from '../data/letterRules';
 import { svgMemoryCache, generateSvgCacheKey } from './svgCache';
 
 // Check if a specific SVG file exists
@@ -156,12 +155,4 @@ export function shouldUseAlternate(letter: string, index: number, letters: strin
   
   // For other letters with alternates (if any are added in the future)
   return false;
-}
-
-// Get letter-specific rotation
-export function getLetterRotation(letter: string, prevLetter: string | null): number {
-  if (!prevLetter) return 0;
-  
-  const rules = LETTER_ROTATION_RULES[prevLetter.toLowerCase()];
-  return rules && rules[letter.toLowerCase()] ? rules[letter.toLowerCase()] : 0;
 }
