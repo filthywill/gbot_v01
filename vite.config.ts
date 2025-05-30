@@ -120,6 +120,9 @@ export default defineConfig(({ mode }) => {
       __APP_ENV__: JSON.stringify(env.APP_ENV || mode),
       __DEV__: JSON.stringify(mode === 'development'),
       __PROD__: JSON.stringify(mode === 'production'),
+      // SVG Processing build flags
+      __DEV_SVG_PROCESSING__: JSON.stringify(mode === 'development'),
+      __PROD_LOOKUP_ONLY__: JSON.stringify(mode === 'production'),
     }
   };
 });

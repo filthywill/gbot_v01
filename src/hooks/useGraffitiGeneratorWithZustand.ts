@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ProcessedSvg, HistoryState } from '../types';
 import { useSvgCache } from './useSvgCache';
 import { getLetterSvg, fetchSvg, shouldUseAlternate } from '../utils/letterUtils';
-import { createSpaceSvg, processSvg } from '../utils/svgUtils';
+import { createSpaceSvg } from '../utils/svgUtils';
+import { processSvg } from '../utils/svgProcessing';
 import { letterSvgs } from '../data/letterMappings';
 import { useGraffitiStore } from '../store/useGraffitiStore';
 import { checkRateLimit } from '../lib/rateLimit';
@@ -50,38 +51,40 @@ export const useGraffitiGeneratorWithZustand = () => {
   
   // Preload common letters when the component mounts or style changes
   useEffect(() => {
-    // Clear the processed letters set when style changes
+    // Clear processed letters when style changes
     processedLettersRef.current.clear();
     
-    // Preload common letters in the background
-    const preloadCommonLetters = async () => {
-      // Common letters to preload - prioritize most common English letters
-      const commonLetters = 'etaoinsrhdlucmfywgpbvkjxqz';
-      
-      // Preload in the background without blocking UI
-      for (const letter of commonLetters) {
-        if (letterSvgs[letter]) {
-          try {
-            // Create standard and alternate versions
-            const standardSvgPath = await getLetterSvg(letter, false, false, false, selectedStyle);
-            const alternateSvgPath = await getLetterSvg(letter, true, false, false, selectedStyle);
-            
-            // Preload both versions
-            preloadSvg(letter, standardSvgPath, selectedStyle);
-            preloadSvg(letter, alternateSvgPath, selectedStyle);
-            
-            // Add to processed set
-            processedLettersRef.current.add(`${letter}-std-false-false-${selectedStyle}`);
-            processedLettersRef.current.add(`${letter}-alt-false-false-${selectedStyle}`);
-          } catch (err) {
-            // Silently continue if preloading fails
-            console.debug(`Preload failed for letter ${letter}:`, err);
+    // Preload common letters in the background (Development only)
+    if (!__PROD_LOOKUP_ONLY__) {
+      const preloadCommonLetters = async () => {
+        // Common letters to preload - prioritize most common English letters
+        const commonLetters = 'etaoinsrhdlucmfywgpbvkjxqz';
+        
+        // Preload in the background without blocking UI
+        for (const letter of commonLetters) {
+          if (letterSvgs[letter]) {
+            try {
+              // Create standard and alternate versions
+              const standardSvgPath = await getLetterSvg(letter, false, false, false, selectedStyle);
+              const alternateSvgPath = await getLetterSvg(letter, true, false, false, selectedStyle);
+              
+              // Preload both versions
+              preloadSvg(letter, standardSvgPath, selectedStyle);
+              preloadSvg(letter, alternateSvgPath, selectedStyle);
+              
+              // Add to processed set
+              processedLettersRef.current.add(`${letter}-std-false-false-${selectedStyle}`);
+              processedLettersRef.current.add(`${letter}-alt-false-false-${selectedStyle}`);
+            } catch (err) {
+              // Silently continue if preloading fails
+              console.debug(`Preload failed for letter ${letter}:`, err);
+            }
           }
         }
-      }
-    };
-    
-    preloadCommonLetters();
+      };
+      
+      preloadCommonLetters();
+    }
     
     // Clear cache when style changes to prevent stale data
     return () => {
@@ -100,6 +103,42 @@ export const useGraffitiGeneratorWithZustand = () => {
         <text x="50" y="55" font-family="Arial" font-size="40" text-anchor="middle" fill="#ff0000">${letter}</text>
       </svg>
     `;
+  };
+  
+  // Create a production-ready placeholder when lookup completely fails
+  const createProductionPlaceholder = (letter: string): ProcessedSvg => {
+    // Create a styled placeholder that matches the graffiti aesthetic
+    const placeholderSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+        <defs>
+          <linearGradient id="placeholderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#6B7280;stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:#4B5563;stop-opacity:0.6" />
+          </linearGradient>
+        </defs>
+        <rect x="20" y="40" width="160" height="120" rx="8" fill="url(#placeholderGrad)" stroke="#374151" stroke-width="2"/>
+        <text x="100" y="110" font-family="Arial, sans-serif" font-size="60" font-weight="bold" text-anchor="middle" fill="#E5E7EB">${letter}</text>
+        <text x="100" y="30" font-family="Arial, sans-serif" font-size="10" text-anchor="middle" fill="#9CA3AF">LOOKUP UNAVAILABLE</text>
+      </svg>
+    `;
+    
+    // Return a ProcessedSvg that matches the expected structure
+    return {
+      svg: placeholderSvg,
+      width: 200,
+      height: 200,
+      bounds: {
+        left: 20,
+        right: 180,
+        top: 40,
+        bottom: 160
+      },
+      pixelData: [], // Empty for placeholder
+      verticalPixelRanges: [{ top: 40, bottom: 160, density: 0.5 }],
+      scale: 1,
+      letter: letter,
+      isSpace: false
+    };
   };
   
   // Check if lookup is available for current style
@@ -122,10 +161,10 @@ export const useGraffitiGeneratorWithZustand = () => {
     // Determine variant
     const variant = useAlternate ? 'alternate' : (isFirst ? 'first' : (isLast ? 'last' : 'standard')) as 'standard' | 'alternate' | 'first' | 'last';
     
-    // Try lookup first if available
+    // Production-optimized lookup-first approach
     if (isLookupEnabled) {
       try {
-        const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, 0, {
+        const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, {
           logPerformance: false // Reduce log noise during generation
         });
         
@@ -133,38 +172,88 @@ export const useGraffitiGeneratorWithZustand = () => {
           return lookupResult;
         }
       } catch (error) {
-        console.warn(`🔍 Lookup failed for '${letter}', falling back to runtime:`, error);
+        console.warn(`🔍 Lookup failed for '${letter}' (${variant}), attempting fallback strategies:`, error);
+      }
+      
+      // Fallback strategy 1: Try different variants if the requested one fails
+      if (variant !== 'standard') {
+        try {
+          const fallbackResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, 'standard', {
+            logPerformance: false
+          });
+          
+          if (fallbackResult) {
+            console.log(`✅ Using 'standard' variant as fallback for '${letter}' (requested: ${variant})`);
+            return fallbackResult;
+          }
+        } catch (fallbackError) {
+          console.warn(`❌ Standard variant fallback also failed for '${letter}':`, fallbackError);
+        }
+      }
+      
+      // Fallback strategy 2: Try alternate if standard failed
+      if (variant === 'standard') {
+        try {
+          const alternateResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, 'alternate', {
+            logPerformance: false
+          });
+          
+          if (alternateResult) {
+            console.log(`✅ Using 'alternate' variant as fallback for '${letter}'`);
+            return alternateResult;
+          }
+        } catch (alternateError) {
+          console.warn(`❌ Alternate variant fallback also failed for '${letter}':`, alternateError);
+        }
       }
     }
 
-    // Fallback to runtime processing
-    const cacheKey = `${letter}-${variant}-${selectedStyle}`;
-    const cachedSvg = getCachedSvg(cacheKey);
-    if (cachedSvg) {
-      return cachedSvg;
-    }
+    // Production vs Development handling
+    if (__PROD_LOOKUP_ONLY__) {
+      // Production: Create a visually appealing placeholder when lookup completely fails
+      console.warn(`🚨 PRODUCTION: All lookup strategies failed for '${letter}', using styled placeholder`);
+      const placeholderSvg = createProductionPlaceholder(letter);
+      return placeholderSvg;
+    } else {
+      // Development: Fall back to runtime processing
+      const cacheKey = `${letter}-${variant}-${selectedStyle}`;
+      const cachedSvg = getCachedSvg(cacheKey);
+      if (cachedSvg) {
+        return cachedSvg;
+      }
 
-    try {
-      const svgPath = await getLetterSvg(letter, useAlternate, isFirst, isLast, selectedStyle);
-      const svgContent = await fetchSvg(svgPath);
-      const processed = await processSvg(svgContent, letter, 0);
-      
-      // Cache for future use
-      cacheSvg(cacheKey, processed);
-      return processed;
-    } catch (error) {
-      console.warn(`Error processing letter '${letter}', using placeholder:`, error);
-      const svgContent = createPlaceholderSvg(letter);
-      return processSvg(svgContent, letter, 0);
+      try {
+        const svgPath = await getLetterSvg(letter, useAlternate, isFirst, isLast, selectedStyle);
+        const svgContent = await fetchSvg(svgPath);
+        const processed = await processSvg(svgContent, letter, 200);
+        
+        // Cache for future use
+        cacheSvg(cacheKey, processed);
+        return processed;
+      } catch (error) {
+        console.warn(`Error processing letter '${letter}' in development, using placeholder:`, error);
+        const svgContent = createPlaceholderSvg(letter);
+        return processSvg(svgContent, letter, 200);
+      }
     }
   };
   
   // Process a batch of letters in parallel with optimized caching
   const processBatch = async (letters: { letter: string, index: number, text: string }[]): Promise<ProcessedSvg[]> => {
     const startTime = performance.now();
-    const method = isLookupEnabled ? 'Lookup System' : 'Runtime Processing';
     
-    console.log(`🚀 Processing ${letters.length} letters using: ${method}`);
+    // Performance tracking for development
+    if (!__PROD_LOOKUP_ONLY__) {
+      // More accurate method detection for performance tracking
+      let method: string;
+      if (isLookupEnabled) {
+        method = 'Development Lookup + Runtime Fallback';
+      } else {
+        method = 'Development Runtime Processing';
+      }
+      
+      console.log(`🚀 Processing ${letters.length} letters using: ${method}`);
+    }
     
     const results: ProcessedSvg[] = [];
     
@@ -190,8 +279,11 @@ export const useGraffitiGeneratorWithZustand = () => {
       }
     }
     
-    // Track performance
-    trackProcessingTime(startTime, method, letters.length);
+    // Track performance (development only)
+    if (!__PROD_LOOKUP_ONLY__) {
+      const method = isLookupEnabled ? 'Development Lookup + Runtime Fallback' : 'Development Runtime Processing';
+      trackProcessingTime(startTime, method, letters.length);
+    }
 
     return results;
   };
@@ -265,9 +357,9 @@ export const useGraffitiGeneratorWithZustand = () => {
       // 6. Finally, set generating to false
       setIsGenerating(false);
       
-      // 7. Pre-process next potential letters
+      // 7. Pre-process next potential letters (Development only)
       // Predict what the user might type next and preload those letters
-      if (text.length > 0) {
+      if (!__PROD_LOOKUP_ONLY__ && text.length > 0) {
         const lastLetter = text[text.length - 1].toLowerCase();
         const commonFollowingLetters: Record<string, string> = {
           'e': 'rndsalm', 't': 'hoiearu', 'a': 'nrltscb', 'o': 'nrufmwp',
@@ -327,8 +419,8 @@ export const useGraffitiGeneratorWithZustand = () => {
   const handleInputTextChange = useCallback((text: string) => {
     setDisplayInputText(text);
     
-    // Predictively preload the current text in the background
-    if (text.trim()) {
+    // Predictively preload the current text in the background (Development only)
+    if (!__PROD_LOOKUP_ONLY__ && text.trim()) {
       setTimeout(() => {
         const normalizedText = text.trim().toLowerCase();
         
@@ -416,10 +508,13 @@ export const useGraffitiGeneratorWithZustand = () => {
   
   // Performance tracking
   const trackProcessingTime = (startTime: number, method: string, letterCount: number) => {
-    const duration = performance.now() - startTime;
-    const perLetter = duration / letterCount;
-    console.log(`🎯 ${method}: ${duration.toFixed(2)}ms total, ${perLetter.toFixed(2)}ms/letter`);
-    return { duration, perLetter };
+    if (!__PROD_LOOKUP_ONLY__) {
+      const duration = performance.now() - startTime;
+      const perLetter = duration / letterCount;
+      console.log(`🎯 ${method}: ${duration.toFixed(2)}ms total, ${perLetter.toFixed(2)}ms/letter`);
+      return { duration, perLetter };
+    }
+    return { duration: 0, perLetter: 0 };
   };
   
   return {
