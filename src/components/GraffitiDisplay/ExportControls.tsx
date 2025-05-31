@@ -11,6 +11,7 @@ interface ExportControlsProps {
 
 /**
  * Component for export controls (copy to clipboard, save as PNG, save as SVG)
+ * Uses z-40 to stay below modals (z-50) but above regular content
  */
 const ExportControls: React.FC<ExportControlsProps> = ({
   onCopyToPngClipboard,
@@ -24,7 +25,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({
   const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
   
   return (
-    <div className="absolute top-2 left-2 z-50 flex space-x-1">
+    <div className="absolute top-2 left-2 z-40 flex space-x-1">
       {/* Share Button - Hidden for now */}
       {false && onShare && (
         <button

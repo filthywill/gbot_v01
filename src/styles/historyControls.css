@@ -1,4 +1,14 @@
 /* src/styles/historyControls.css */
+
+/*
+ * History Controls Styling
+ * 
+ * Z-index Strategy:
+ * - History controls use z-40 to stay below modals (z-50)
+ * - This ensures they're properly layered behind auth modals and other overlays
+ * - But still above regular content (which typically uses z-0 to z-30)
+ */
+
 .history-control-button {
   transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
   transform-origin: center;
@@ -38,6 +48,8 @@
   animation: fadeIn 0.3s ease-out forwards;
   opacity: 0.85;
   transition: opacity 0.2s ease-in-out;
+  /* Ensure proper stacking below modals */
+  z-index: 40;
 }
 
 .history-controls-container:hover {

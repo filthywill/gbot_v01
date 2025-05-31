@@ -2,10 +2,29 @@
 
 /* Force CSS refresh: v1.0.2 */
 
+/* Tailwind CSS imports */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Z-INDEX STRATEGY
+ * 
+ * To maintain consistent layering throughout the application:
+ * 
+ * z-0 to z-30    - Regular content, UI elements, cards, panels
+ * z-40          - Floating UI elements (history controls, export controls, tooltips)
+ * z-50          - Modals, overlays, dialogs, notifications, verification banners
+ * z-60          - Critical system alerts, error boundaries
+ * 
+ * Always use z-40 for graffiti display controls to ensure they stay below modals.
+ */
+
 :root {
   --font-weight-labels: 20;
   --font-weight-headings: 500;
   --font-weight-values: 600;
+  --brand-font-size-text: 10px;
   
   /* Brand primary colors - Evenly distributed purple scale */
   --brand-primary-50: #d8b4fe;  /* Lightest purple - fixed value */

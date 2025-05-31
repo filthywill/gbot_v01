@@ -56,7 +56,7 @@ const HistoryControls: React.FC<HistoryControlsProps> = ({
 
   return (
     <div 
-      className="z-50 flex gap-1 history-controls-container"
+      className="z-40 flex gap-1 history-controls-container"
       style={{ 
         position: 'absolute',
         bottom: '8px',
