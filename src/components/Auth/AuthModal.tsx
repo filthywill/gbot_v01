@@ -14,7 +14,7 @@ import VerificationCodeInput from './VerificationCodeInput';
 // Use the type from AUTH_VIEWS
 type AuthMode = typeof AUTH_VIEWS[keyof typeof AUTH_VIEWS];
 
-export function AuthModal({
+export default function AuthModal({
   isOpen,
   onClose,
   initialView = AUTH_VIEWS.SIGN_IN,
@@ -364,6 +364,4 @@ export function AuthModal({
       </DialogContent>
     </Dialog>
   );
-}
-
-export default AuthModal; 
+} 

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import App from '../App';
-import PrivacyPolicy from '../pages/PrivacyPolicy';
-import TermsOfService from '../pages/TermsOfService';
+// Lazy load legal and settings pages for better bundle splitting
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('../pages/TermsOfService'));
+const AccountSettings = lazy(() => import('../pages/AccountSettings'));
 import ResetPasswordPage from '../pages/auth/reset-password';
 import TokenDebugPage from '../pages/TokenDebugPage';
 import VerificationDebug from '../pages/VerificationDebug';
 import VerifyRedirect from '../pages/auth/verify-redirect';
-import AccountSettings from '../pages/AccountSettings';
 import { ProtectedRoute } from './Auth';
 import NotificationProvider from './ui/NotificationProvider';
 // Use dynamic imports instead of static imports to avoid build failures
@@ -186,13 +187,31 @@ const Router: React.FC = () => {
   } else if (pathStartsWith('/privacy-policy')) {
     return (
       <NotificationProvider>
-        <PrivacyPolicy />
+        <Suspense fallback={
+          <div className="min-h-screen bg-app flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-primary">Loading Privacy Policy...</p>
+            </div>
+          </div>
+        }>
+          <PrivacyPolicy />
+        </Suspense>
       </NotificationProvider>
     );
   } else if (pathStartsWith('/terms-of-service')) {
     return (
       <NotificationProvider>
-        <TermsOfService />
+        <Suspense fallback={
+          <div className="min-h-screen bg-app flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-primary">Loading Terms of Service...</p>
+            </div>
+          </div>
+        }>
+          <TermsOfService />
+        </Suspense>
       </NotificationProvider>
     );
   } else if (pathStartsWith('/token-debug')) {
@@ -206,9 +225,18 @@ const Router: React.FC = () => {
     logger.info('Rendering protected AccountSettings component');
     return (
       <NotificationProvider>
-      <ProtectedRoute redirectTo="/auth/login">
-        <AccountSettings />
-      </ProtectedRoute>
+        <ProtectedRoute redirectTo="/auth/login">
+          <Suspense fallback={
+            <div className="min-h-screen bg-app flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-primary">Loading Account Settings...</p>
+              </div>
+            </div>
+          }>
+            <AccountSettings />
+          </Suspense>
+        </ProtectedRoute>
       </NotificationProvider>
     );
   } else if (pathStartsWith('/auth/reset-password')) {

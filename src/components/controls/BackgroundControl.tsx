@@ -9,7 +9,11 @@ interface BackgroundControlProps {
   onColorComplete?: () => void;
 }
 
-export const BackgroundControl: React.FC<BackgroundControlProps> = ({
+/**
+ * BackgroundControl component for background customization
+ * Memoized to prevent unnecessary re-renders during background interactions
+ */
+export const BackgroundControl: React.FC<BackgroundControlProps> = React.memo(({
   enabled,
   onToggle,
   color,
@@ -20,12 +24,12 @@ export const BackgroundControl: React.FC<BackgroundControlProps> = ({
     <ControlItem
       label="BG"
       hasToggle={true}
+      hasColorPicker={true}
       enabled={enabled}
       onToggle={onToggle}
-      hasColorPicker={true}
       color={color}
       onColorChange={onColorChange}
       onColorComplete={onColorComplete}
     />
   );
-}; 
+}); 

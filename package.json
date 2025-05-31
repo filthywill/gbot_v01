@@ -51,7 +51,7 @@
     "simplify-path": "^1.1.0",
     "svgpath": "^2.6.0",
     "tailwind-merge": "^3.2.0",
-    "zustand": "^5.0.3",
+    "zustand": "^4.5.7",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {

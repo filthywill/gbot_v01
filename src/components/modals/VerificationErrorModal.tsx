@@ -1,4 +1,6 @@
 import React from 'react';
+import { Dialog, DialogContent } from '../ui/dialog';
+import { cn } from '../../lib/utils';
 
 /**
  * Props for the VerificationErrorModal component
@@ -13,33 +15,54 @@ interface VerificationErrorModalProps {
 }
 
 /**
- * Modal displayed when email verification fails
- * Shows the error message and provides guidance on next steps
+ * VerificationErrorModal - Shows when email verification fails
+ * Memoized to prevent unnecessary re-renders when app state changes
  */
 export function VerificationErrorModal({
   isOpen,
   errorMessage,
   onClose
 }: VerificationErrorModalProps) {
-  if (!isOpen || !errorMessage) return null;
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-        <h2 className="text-xl font-bold text-status-error mb-4">Verification Failed</h2>
-        <p className="text-brand-neutral-700 mb-4">{errorMessage}</p>
-        <p className="text-brand-neutral-700 mb-4">Please try signing in directly or contact support for assistance.</p>
-        <div className="flex justify-end">
-          <button 
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          
+          <h2 className="text-xl font-semibold text-brand-neutral-900 mb-2">
+            Verification Failed
+          </h2>
+          
+          <p className="text-brand-neutral-600 mb-2">
+            We couldn't verify your email address.
+          </p>
+          
+          {errorMessage && (
+            <p className="text-sm text-red-600 mb-6 bg-red-50 p-3 rounded-md">
+              {errorMessage}
+            </p>
+          )}
+          
+          <button
             onClick={onClose}
-            className="px-4 py-2 bg-brand-primary-600 text-white rounded hover:bg-brand-primary-700 transition-colors"
+            className={cn(
+              "w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm",
+              "text-sm font-medium text-white bg-red-600 hover:bg-red-700",
+              "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500",
+              "transition-all duration-200 ease-in-out"
+            )}
           >
             Close
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export default VerificationErrorModal; 
+// Memoize to prevent unnecessary re-renders
+export default React.memo(VerificationErrorModal); 

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
-import AuthModal from './AuthModal';
+// Lazy load AuthModal for better bundle splitting
+const AuthModal = React.lazy(() => import('./AuthModal'));
 import { cn } from '../../lib/utils';
 import { AUTH_VIEWS, AuthView } from '../../lib/auth/constants';
 import ProfileMenu from './ProfileMenu';
@@ -102,11 +103,24 @@ const AuthHeader: React.FC = () => {
       
       {/* Render the auth modal when needed with the appropriate initial mode */}
       {showAuthModal && (
-        <AuthModal 
-          isOpen={showAuthModal} 
-          onClose={handleCloseModal}
-          initialView={authView}
-        />
+        <React.Suspense 
+          fallback={
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-container rounded-lg p-6 shadow-xl">
+                <div className="flex items-center space-x-3">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-primary">Loading...</span>
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <AuthModal 
+            isOpen={showAuthModal} 
+            onClose={handleCloseModal}
+            initialView={authView}
+          />
+        </React.Suspense>
       )}
     </div>
   );

@@ -51,6 +51,9 @@ interface AppMainContentProps {
 /**
  * AppMainContent component that displays the main content section of the app
  * Extracted from App.tsx for better component separation
+ * 
+ * Memoized to prevent unnecessary re-renders when parent App component updates
+ * but props haven't changed (e.g., during auth state changes, modal operations)
  */
 export function AppMainContent({
   // Input and generation state
@@ -167,4 +170,6 @@ export function AppMainContent({
   );
 }
 
-export default AppMainContent; 
+// Memoize to prevent unnecessary re-renders when parent App component updates
+// but AppMainContent props haven't changed (e.g., during auth state changes)
+export default React.memo(AppMainContent); 

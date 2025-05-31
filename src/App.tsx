@@ -7,7 +7,8 @@ import { isDevelopment } from './lib/env';
 import logger from './lib/logger';
 import { AuthProvider, VerificationBanner } from './components/Auth';
 import useAuthStore from './store/useAuthStore';
-import { AuthModal } from './components/Auth';
+// Lazy load AuthModal for better bundle splitting
+const AuthModal = React.lazy(() => import('./components/Auth/AuthModal'));
 import { useEmailVerification } from './hooks/auth/useEmailVerification';
 import { useAuthModalState } from './hooks/auth/useAuthModalState';
 import { AppHeader, AppFooter, AppDevTools, AppMainContent } from './components/app';
@@ -112,6 +113,19 @@ function App() {
     }
   }, [error]);
 
+  // Memoize modal close handlers to prevent unnecessary re-renders
+  const handleCloseVerificationModal = React.useCallback(() => {
+    setShowVerificationModal(false);
+  }, [setShowVerificationModal]);
+
+  const handleCloseVerificationError = React.useCallback(() => {
+    setVerificationError(null);
+  }, [setVerificationError]);
+
+  const handleCloseAuthModal = React.useCallback(() => {
+    setShowAuthModal(false);
+  }, [setShowAuthModal]);
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-app text-primary">
@@ -171,7 +185,7 @@ function App() {
         {showVerificationModal && (
           <VerificationSuccessModal 
             isOpen={showVerificationModal} 
-            onClose={() => setShowVerificationModal(false)} 
+            onClose={handleCloseVerificationModal} 
           />
         )}
         
@@ -180,7 +194,7 @@ function App() {
           <VerificationErrorModal 
             isOpen={!!verificationError} 
             errorMessage={verificationError} 
-            onClose={() => setVerificationError(null)} 
+            onClose={handleCloseVerificationError} 
           />
         )}
         
@@ -189,12 +203,25 @@ function App() {
         
         {/* Authentication Modal - Used for login, signup, and password reset */}
         {showAuthModal && (
-          <AuthModal
-            isOpen={showAuthModal}
-            onClose={() => setShowAuthModal(false)}
-            initialView={authModalMode}
-            verificationEmail={verificationEmail}
-          />
+          <React.Suspense 
+            fallback={
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-container rounded-lg p-6 shadow-xl">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-primary">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={handleCloseAuthModal}
+              initialView={authModalMode}
+              verificationEmail={verificationEmail}
+            />
+          </React.Suspense>
         )}
       </div>
     </AuthProvider>

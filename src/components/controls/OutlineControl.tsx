@@ -13,7 +13,11 @@ interface OutlineControlProps {
   onSliderComplete?: () => void;
 }
 
-export const OutlineControl: React.FC<OutlineControlProps> = ({
+/**
+ * OutlineControl component for stroke/outline customization
+ * Memoized to prevent unnecessary re-renders during outline interactions
+ */
+export const OutlineControl: React.FC<OutlineControlProps> = React.memo(({
   enabled,
   onToggle,
   color,
@@ -42,4 +46,4 @@ export const OutlineControl: React.FC<OutlineControlProps> = ({
       sliderLabel="Size"
     />
   );
-}; 
+}); 

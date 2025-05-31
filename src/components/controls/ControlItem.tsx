@@ -32,7 +32,11 @@ interface ControlItemProps {
   sliderLabel?: string;
 }
 
-export const ControlItem: React.FC<ControlItemProps> = ({
+/**
+ * ControlItem component - A reusable control component with toggle, color picker, and slider
+ * Memoized to prevent unnecessary re-renders during frequent customization interactions
+ */
+export const ControlItem: React.FC<ControlItemProps> = React.memo(({
   label,
   hasToggle = false,
   hasColorPicker = false,
@@ -103,4 +107,4 @@ export const ControlItem: React.FC<ControlItemProps> = ({
       {sliderContent}
     </ControlContainer>
   );
-}; 
+}); 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import useAuthStore from '../../store/useAuthStore';
 import usePreferencesStore from '../../store/usePreferencesStore';
@@ -213,7 +213,7 @@ export function useEmailVerification(options: UseEmailVerificationOptions = {}):
   };
 
   // Handle resuming verification from banner
-  const handleResumeVerification = (email: string) => {
+  const handleResumeVerification = useCallback((email: string) => {
     logger.debug('Resuming verification for email:', email);
     
     // Log state transitions for debugging
@@ -242,7 +242,13 @@ export function useEmailVerification(options: UseEmailVerificationOptions = {}):
     } else {
       logger.warn('Modal control functions not provided to useEmailVerification, cannot open verification modal');
     }
-  };
+  }, [
+    verificationEmail, 
+    pendingVerification, 
+    setVerificationEmail, 
+    setShowAuthModal, 
+    setAuthModalMode
+  ]);
 
   // Check for pending verification on component mount
   useEffect(() => {

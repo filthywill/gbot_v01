@@ -7,7 +7,11 @@ interface FillControlProps {
   onColorComplete?: () => void;
 }
 
-export const FillControl: React.FC<FillControlProps> = ({
+/**
+ * FillControl component for selecting fill color
+ * Memoized to prevent unnecessary re-renders during color picker interactions
+ */
+export const FillControl: React.FC<FillControlProps> = React.memo(({
   color,
   onColorChange,
   onColorComplete
@@ -21,4 +25,4 @@ export const FillControl: React.FC<FillControlProps> = ({
       onColorComplete={onColorComplete}
     />
   );
-}; 
+}); 
