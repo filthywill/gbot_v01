@@ -4,19 +4,21 @@ A modern, high-performance web application for creating and customizing graffiti
 
 ## 🚀 Performance Highlights
 
-**Lightning-fast graffiti generation** powered by pre-computed SVG lookup tables:
-- **7-12x faster** letter processing (from 50-100ms to 0.1-1ms per letter)
-- **Near-instant generation** for typical text lengths
-- **Intelligent fallback** to runtime processing for edge cases
-- **Production-ready performance** with automatic optimization
+**Lightning-fast graffiti generation** powered by sophisticated hybrid SVG processing:
+- **50-100x faster** letter processing (from 50-100ms to 0.1-1ms per letter in production)
+- **Near-instant generation** for typical text lengths (<10ms total processing time)
+- **Hybrid system** with development runtime processing + production lookup optimization
+- **Clean production builds** with zero development noise or overhead
+- **Single source of truth** overlap generation for consistent letter positioning
 
 ## Project Overview
 
-Stizack is a React-based web application that allows users to generate customized graffiti text. The application features a robust authentication system, optimized SVG processing for graffiti generation, and comprehensive customization tools for personalizing the output.
+Stizack is a React-based web application that allows users to generate customized graffiti text with exceptional performance through a sophisticated hybrid SVG processing system. The application features robust authentication, optimized SVG processing, comprehensive customization tools, and advanced development workflows for content management.
 
 ## Core Features
 
-- **High-Performance Graffiti Generation**: Convert input text into stylized graffiti art with sub-millisecond processing
+- **High-Performance Graffiti Generation**: Hybrid processing system with sub-millisecond letter processing in production
+- **Development Workflow Tools**: SVG Processing Panel and Overlap Debug Panel for artwork management
 - **Style Selection**: Choose from multiple graffiti styles with pre-computed optimizations
 - **Real-time Customization**: Adjust colors, size, spacing, and effects with instant preview
 - **History & Undo/Redo**: Track changes and revert as needed with efficient state management
@@ -30,26 +32,47 @@ Stizack is a React-based web application that allows users to generate customize
 - **State Management**: Zustand with persistence
 - **Authentication**: Supabase Auth with comprehensive security
 - **Database**: Supabase PostgreSQL with RLS
-- **Performance**: Pre-computed SVG lookup tables, intelligent caching
-- **Build Tool**: Vite with optimized bundle splitting
+- **Performance**: Hybrid SVG processing with conditional compilation
+- **Build Tool**: Vite with build flags for development/production optimization
 - **Deployment**: Vercel with CDN optimization
 
 ## Performance Architecture
 
-### SVG Lookup System
-The application uses a sophisticated pre-computed lookup system for optimal performance:
+### Hybrid SVG Processing System
+The application uses a sophisticated dual-mode system optimized for both development and production:
 
-- **Lookup Tables**: Pre-processed SVG data for instant letter retrieval
-- **Variant Support**: Standard, alternate, first, and last letter variants
-- **Overlap Optimization**: Pre-calculated letter spacing and positioning
-- **Graceful Fallback**: Automatic runtime processing for unsupported letters
-- **Caching Layer**: Intelligent result caching for repeated operations
+**Development Mode:**
+- **Full Runtime Processing**: Complete `processSvg()` functionality for flexibility
+- **Lookup Tables**: Pre-computed lookup tables for supported letters  
+- **Development Tools**: SVG Processing Panel, Overlap Debug Panel, Performance Testing
+- **Performance Tracking**: Detailed timing and method detection for optimization
+- **Debug Console**: Verbose logging for development analysis
+
+**Production Mode:**
+- **Pure Lookup Processing**: Only lookup table retrieval for maximum performance
+- **Clean Builds**: Zero development noise, preloading, or verbose logging
+- **Optimized Fallbacks**: Styled placeholders for missing letters
+- **Memory Efficiency**: Minimal overhead with conditional compilation
+
+### Development Workflows
+
+**Overlap Generation (Required for consistent positioning):**
+- Use Overlap Debug Panel to generate complete 36×36 character matrix
+- Export 1,296 letter pair combinations using runtime pixel-based calculations
+- Auto-update `src/data/generatedOverlapLookup.ts` as single source of truth
+- Both processing modes reference this file for consistent letter positioning
+
+**SVG Artwork Management (Required when adding new letters):**
+- Use SVG Processing Panel to generate lookup tables for new artwork
+- Process all letter variants (standard, alternate, first, last) and bounds
+- Export complete SVG data files for production integration
+- Validate generated lookup tables for accuracy and performance
 
 ### Key Performance Metrics
-- **Letter Processing**: ~0.1-1ms per letter (vs 50-100ms runtime)
+- **Letter Processing**: ~0.1-1ms per letter in production (vs 50-100ms runtime)
 - **Total Generation**: <10ms for typical phrases (vs 500-1000ms+ runtime)
-- **Memory Efficiency**: Optimized data structures with minimal memory footprint
-- **Bundle Size**: Code-split lookup tables for efficient loading
+- **Memory Efficiency**: Optimized data structures with conditional loading
+- **Build Optimization**: Unused development code excluded from production bundles
 
 ## Project Structure
 

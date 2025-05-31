@@ -68,25 +68,34 @@ src/types/supabase/
 ```
 
 ### 2. SVG Processing Context
-**When working with SVG features, examine:**
+**CRITICAL: Understand Production vs Development Mode before optimizing**
+
+**PRODUCTION MODE (LOOKUP) - HIGH PRIORITY:**
 ```typescript
-// SVG processing utilities
-src/components/GraffitiDisplay/utils/svgUtils.ts
-src/components/GraffitiDisplay/utils/letterUtils.ts
-src/components/GraffitiDisplay/hooks/useSvgCache.ts
+// Production system files (optimize these):
+src/data/generatedOverlapLookup.ts        // Lookup table data
+src/utils/svgLookup.ts                     // Lookup access functions
+src/hooks/useGraffitiGeneratorWithZustand.ts // Main processing pipeline
+src/utils/svgUtils.ts                      // Core utilities with lookup integration
+```
 
-// Overlap calculation logic
-src/components/GraffitiDisplay/utils/overlapUtils.ts
-
-// SVG optimization
-svg-optimizer/
+**DEVELOPMENT MODE (RUNTIME) - LOW PRIORITY:**
+```typescript
+// Development-only files (low optimization priority):
+src/components/OverlapDebugPanel.tsx       // Debug panel (dev only)
+src/components/dev/SvgProcessingPanel.tsx  // Processing tools (dev only)  
+src/utils/dev/                             // All dev utility functions
 ```
 
 **Key questions to ask:**
-- Which letter styles are being used?
-- Are there performance concerns with SVG processing?
-- Is this related to collision detection or overlap calculation?
-- Are there caching issues?
+- Is this code behind `__PROD_LOOKUP_ONLY__` flag? (HIGH PRIORITY)
+- Is this code behind `__DEV_SVG_PROCESSING__` flag? (LOW PRIORITY)
+- Does this affect lookup table access or rule-based fallbacks? (HIGH PRIORITY)
+- Is this pixel analysis or canvas operations? (LOW PRIORITY - development only)
+
+**Optimization Decision:** 
+- If it affects production users → Optimize aggressively
+- If it's development-only tools → Only optimize if blocking workflow
 
 ### 3. Authentication & Database Context
 **When working with auth/database features:**

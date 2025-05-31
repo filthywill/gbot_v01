@@ -23,19 +23,59 @@ Stizack is a React-based web application built with TypeScript, designed to crea
   - SVG Validation and Sanitization
   - User-Friendly Security Messaging
 
-## Performance Architecture: SVG Lookup System
+## Performance Architecture: Hybrid SVG Processing System
 
 ### Overview
-The application achieves exceptional performance through a sophisticated pre-computed SVG lookup system that eliminates runtime processing overhead for letter generation.
+The application achieves exceptional performance through a sophisticated **hybrid SVG processing system** that provides:
+- **Production Mode**: Pure lookup-based processing for maximum performance
+- **Development Mode**: Full runtime + lookup capabilities for flexibility and development tools
 
 ### Performance Metrics
 - **7-12x Performance Improvement**: Letter processing reduced from 50-100ms to 0.1-1ms per letter
 - **Near-Instant Generation**: Total generation time reduced from 500-1000ms+ to <10ms for typical phrases
+- **Clean Production Builds**: Zero development noise, preloading, or verbose logging
 - **Scalable Performance**: Performance gains increase with text length due to batch processing optimizations
 
 ### Architecture Components
 
-#### 1. Pre-computed Lookup Tables
+#### 1. Build Flag System
+The system uses Vite build flags for conditional compilation:
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  define: {
+    __DEV_SVG_PROCESSING__: isDev,
+    __PROD_LOOKUP_ONLY__: !isDev,
+  }
+});
+
+// Conditional processing based on environment
+if (__PROD_LOOKUP_ONLY__) {
+  // Production: Pure lookup processing only
+} else if (__DEV_SVG_PROCESSING__) {
+  // Development: Runtime processing + lookup tables
+}
+```
+
+#### 2. Development vs Production Modes
+
+**Development Mode Features:**
+- **Full Runtime Processing**: Complete `processSvg()` functionality available
+- **Lookup Tables**: Pre-computed lookup tables for supported letters
+- **Performance Tracking**: Detailed timing and method detection
+- **Preloading**: Common letter preloading and predictive caching
+- **Debug Console**: Verbose logging for optimization analysis
+- **Development Tools**: SVG Processing Panel, Overlap Debug Panel, Performance Testing
+
+**Production Mode Features:**
+- **Pure Lookup Processing**: Only lookup table retrieval, no runtime processing
+- **Clean Console**: No development logging or performance noise
+- **Optimized Performance**: Instant letter generation with minimal overhead
+- **Graceful Fallbacks**: Styled placeholders for missing letters
+- **Memory Efficiency**: No preloading or caching overhead
+
+#### 3. Pre-computed Lookup Tables
 ```typescript
 interface ProcessedSvgData {
   letter: string;
@@ -56,38 +96,66 @@ interface ProcessedSvgData {
 }
 ```
 
-#### 2. Intelligent Processing Pipeline
-- **Lookup-First Strategy**: Always attempts lookup table retrieval first
-- **Graceful Fallback**: Automatically falls back to runtime processing for unsupported letters/styles
-- **Hybrid Processing**: Seamlessly combines lookup and runtime results in single generation cycle
-- **Error Resilience**: Comprehensive error handling with detailed logging
+#### 4. Intelligent Processing Pipeline
+The hybrid processing pipeline with fallback strategies:
 
-#### 3. Integration Layer
 ```typescript
-// Core lookup function with fallback
 const processLetter = async (letter: string, ...params): Promise<ProcessedSvg> => {
-  if (isLookupAvailable(selectedStyle)) {
+  // Production-optimized lookup-first approach
+  if (isLookupEnabled) {
     try {
-      return await getProcessedSvgFromLookupTable(letter, selectedStyle, variant, rotation);
+      const lookupResult = await getProcessedSvgFromLookupTable(letter, selectedStyle, variant);
+      if (lookupResult) return lookupResult;
     } catch (error) {
-      // Fallback to runtime processing
-      return await processSvg(svgText, letter, rotation);
+      // Fallback strategy: Try different variants
     }
   }
-  return await processSvg(svgText, letter, rotation);
+
+  // Production vs Development handling
+  if (__PROD_LOOKUP_ONLY__) {
+    // Production: Create styled placeholder when lookup completely fails
+    return createProductionPlaceholder(letter);
+  } else {
+    // Development: Fall back to runtime processing
+    return await processSvg(svgContent, letter, resolution);
+  }
 };
 ```
 
-#### 4. Development Tools
-- **Performance Testing Components**: Real-time comparison between lookup and runtime performance
-- **Integration Testing**: Validation of lookup system accuracy and completeness
-- **Performance Monitoring**: Detailed timing and method tracking for optimization analysis
+#### 5. Overlap Generation System
+**Single Source of Truth**: All overlap calculations reference `src/data/generatedOverlapLookup.ts`
+
+**Generation Workflow**:
+1. Use Overlap Debug Panel in development mode
+2. Export complete 36×36 character overlap matrix (1,296 combinations)
+3. Runtime pixel-based calculation for maximum precision
+4. Automatic file update and application refresh
+
+**Integration**: Both LOOKUP and RUNTIME modes use the same overlap values for consistent positioning
+
+#### 6. Development Tools & Workflows
+
+**SVG Processing Panel**: Required when adding new letter artwork
+- Generate complete lookup tables for new styles
+- Process all letter variants and bounds information
+- Export lookup table files for production integration
+
+**Overlap Debug Panel**: Manage letter positioning
+- Individual letter adjustment for testing
+- Complete overlap matrix generation (recommended)
+- Export to `generatedOverlapLookup.ts` as single source of truth
+- Real-time visual feedback and validation
+
+**Performance Testing Components**:
+- **LookupIntegrationTest**: Validates lookup accuracy vs runtime
+- **LookupPerformanceTest**: Measures processing speed comparisons
+- **Performance Monitoring**: Real-time timing analysis and method detection
 
 ### Data Structure Optimization
 - **Memory Efficiency**: Optimized data structures with minimal memory footprint
-- **Bundle Splitting**: Lookup tables loaded on-demand to reduce initial bundle size
+- **Conditional Loading**: Development-only features excluded from production builds
 - **Type Safety**: Comprehensive TypeScript interfaces for all lookup operations
-- **Validation**: Runtime validation of lookup data integrity
+- **Validation**: Runtime validation of lookup data integrity with graceful fallbacks
 
 ### Future Scalability
 - **Multi-Style Support**: Architecture designed to support multiple graffiti styles
@@ -504,4 +572,5 @@ try {
 
 ---
 
+This documentation is a living document and will be updated as the project evolves. 
 This documentation is a living document and will be updated as the project evolves. 
