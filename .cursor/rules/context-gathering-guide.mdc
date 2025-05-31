@@ -212,12 +212,23 @@ src/components/
 
 ### SVG Processing Issues
 ```typescript
-// Always check these when dealing with SVG problems:
-1. SVG cache state and invalidation
-2. Letter asset availability and paths
-3. Processing pipeline and error handling
-4. Performance metrics and optimization
-5. Browser compatibility (especially Safari)
+// PRODUCTION ISSUES (HIGH PRIORITY - affects users):
+1. Lookup table access patterns and speed
+2. Rule-based fallback efficiency 
+3. SVG caching effectiveness in production pipeline
+4. Bundle size impact from lookup table data
+5. Browser compatibility for production features
+
+// DEVELOPMENT ISSUES (LOW PRIORITY - affects development workflow):
+1. Pixel analysis performance in debug tools
+2. Debug panel responsiveness
+3. Runtime calculation accuracy
+4. Export tool functionality
+5. Development tool memory usage
+
+// CRITICAL: Ask first - "Does this run in production builds?"
+// If behind __DEV_SVG_PROCESSING__, it's development-only (low priority)
+// If behind __PROD_LOOKUP_ONLY__, it's production code (high priority)
 ```
 
 ### State Management Issues
@@ -322,3 +333,4 @@ src/components/
 - Update tests or documentation to prevent recurrence
 
 This guide ensures thorough context gathering before starting any development work, leading to more effective and appropriate solutions.
+
