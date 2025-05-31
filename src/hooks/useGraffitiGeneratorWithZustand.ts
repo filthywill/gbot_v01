@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ProcessedSvg, HistoryState } from '../types';
+import { ProcessedSvg, HistoryState, GraffitiStyle } from '../types';
 import { useSvgCache } from './useSvgCache';
 import { getLetterSvg, fetchSvg, shouldUseAlternate } from '../utils/letterUtils';
 import { createSpaceSvg } from '../utils/svgUtils';
@@ -10,38 +10,68 @@ import { checkRateLimit } from '../lib/rateLimit';
 import logger from '../lib/logger';
 import { showError, showWarning } from '../lib/toast';
 import { getProcessedSvgFromLookupTable, isLookupAvailable } from '../utils/svgLookup';
+import { useShallow } from 'zustand/react/shallow';
 
 const BATCH_SIZE = 5; // Process 5 letters at a time
 
 export const useGraffitiGeneratorWithZustand = () => {
-  // Get state and actions from the Zustand store
+  // Optimized store selector using useShallow for better performance
   const {
     inputText,
-    setInputText,
     displayInputText,
-    setDisplayInputText,
     isGenerating,
-    setIsGenerating,
     error,
-    setError,
     selectedStyle,
-    setSelectedStyle,
     processedSvgs,
-    setProcessedSvgs,
     positions,
     contentWidth,
     contentHeight,
     containerScale,
     customizationOptions,
-    setCustomizationOptions,
     history,
     currentHistoryIndex,
     isUndoRedoOperation,
     hasInitialGeneration,
+    // Actions
+    setInputText,
+    setDisplayInputText,
+    setIsGenerating,
+    setError,
+    setProcessedSvgs,
+    setCustomizationOptions,
     addToHistory,
     handleUndoRedo: storeHandleUndoRedo,
-    updatePositions
-  } = useGraffitiStore();
+    updatePositions,
+    setSelectedStyle
+  } = useGraffitiStore(useShallow((state) => ({
+    // State values
+    inputText: state.inputText,
+    displayInputText: state.displayInputText,
+    isGenerating: state.isGenerating,
+    error: state.error,
+    selectedStyle: state.selectedStyle,
+    processedSvgs: state.processedSvgs,
+    positions: state.positions,
+    contentWidth: state.contentWidth,
+    contentHeight: state.contentHeight,
+    containerScale: state.containerScale,
+    customizationOptions: state.customizationOptions,
+    history: state.history,
+    currentHistoryIndex: state.currentHistoryIndex,
+    isUndoRedoOperation: state.isUndoRedoOperation,
+    hasInitialGeneration: state.hasInitialGeneration,
+    // Actions - these are stable references, so they don't cause re-renders
+    setInputText: state.setInputText,
+    setDisplayInputText: state.setDisplayInputText,
+    setIsGenerating: state.setIsGenerating,
+    setError: state.setError,
+    setProcessedSvgs: state.setProcessedSvgs,
+    setCustomizationOptions: state.setCustomizationOptions,
+    addToHistory: state.addToHistory,
+    handleUndoRedo: state.handleUndoRedo,
+    updatePositions: state.updatePositions,
+    setSelectedStyle: state.setSelectedStyle
+  })));
 
   // Use the SVG cache hook
   const { getCachedSvg, cacheSvg, preloadSvg, clearCache } = useSvgCache();

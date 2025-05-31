@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGraffitiStore } from '../store/useGraffitiStore';
+import { useShallow } from 'zustand/react/shallow';
+import { ProcessedSvg } from '../types';
 import { getOverlapValue, COMPLETE_OVERLAP_LOOKUP } from '../data/generatedOverlapLookup';
 import { Minimize2, Maximize2, Download, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { DEV_CONFIG } from '../utils/devConfig';
 import { getLetterSvg } from '../utils/letterUtils';
 import { processSvg, findOptimalOverlap } from '../utils/svgUtils';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { isLookupAvailable } from '../utils/svgLookup';
+import { isRuntimeProcessingAvailable } from '../utils/svgProcessing';
 
 declare const cursor: {
   edit_file: (params: {
@@ -14,6 +20,9 @@ declare const cursor: {
     code_edit: string;
   }) => Promise<void>;
 };
+
+// Helper to normalize characters (e.g., treat 'A' and 'a' the same)
+const normalizeChar = (char: string): string => char.toUpperCase();
 
 export function OverlapDebugPanel() {
   const [selectedLetter, setSelectedLetter] = useState<string>('');
@@ -36,7 +45,14 @@ export function OverlapDebugPanel() {
   } | null>(null);
   const [exportResults, setExportResults] = useState<Record<string, Record<string, number>> | null>(null);
 
-  const { overlapRules, defaultOverlap, overlapExceptions, updateOverlapRule, updateSpecialCase } = useGraffitiStore();
+  // Optimized store selector
+  const { overlapRules, defaultOverlap, overlapExceptions, updateOverlapRule, updateSpecialCase } = useGraffitiStore(useShallow((state) => ({
+    overlapRules: state.overlapRules,
+    defaultOverlap: state.defaultOverlap,
+    overlapExceptions: state.overlapExceptions,
+    updateOverlapRule: state.updateOverlapRule,
+    updateSpecialCase: state.updateSpecialCase
+  })));
 
   const selectedRule = selectedLetter ? overlapRules[selectedLetter] : null;
   const minOverlap = selectedRule?.minOverlap || 0.04;

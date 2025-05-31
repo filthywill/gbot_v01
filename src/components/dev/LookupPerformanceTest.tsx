@@ -1,8 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Minimize2, Maximize2, Zap, Clock, BarChart3 } from 'lucide-react';
 import { useGraffitiGeneratorWithZustand } from '../../hooks/useGraffitiGeneratorWithZustand';
 import { useGraffitiStore } from '../../store/useGraffitiStore';
+import { useShallow } from 'zustand/react/shallow';
 import { isLookupAvailable } from '../../utils/svgLookup';
+
+interface PerformanceResult {
+  operation: string;
+  duration: number;
+  timestamp: number;
+}
 
 /**
  * Performance test component for comparing lookup vs runtime generation
@@ -18,9 +25,14 @@ export function LookupPerformanceTest() {
   } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [testText, setTestText] = useState('hello world');
+  const [results, setResults] = useState<PerformanceResult[]>([]);
 
   const { generateGraffiti } = useGraffitiGeneratorWithZustand();
-  const { processedSvgs, isGenerating, selectedStyle } = useGraffitiStore();
+  const { processedSvgs, isGenerating, selectedStyle } = useGraffitiStore(useShallow((state) => ({
+    processedSvgs: state.processedSvgs,
+    isGenerating: state.isGenerating,
+    selectedStyle: state.selectedStyle
+  })));
   const isLookupEnabled = isLookupAvailable(selectedStyle);
 
   const runPerformanceTest = useCallback(async () => {

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import useAuthStore from '../../store/useAuthStore';
+import { useShallow } from 'zustand/react/shallow';
 // Lazy load AuthModal for better bundle splitting
 const AuthModal = React.lazy(() => import('./AuthModal'));
 import { cn } from '../../lib/utils';
@@ -11,6 +12,7 @@ import ProfileMenu from './ProfileMenu';
  * Uses non-blocking rendering with fixed dimensions to prevent layout shifts
  */
 const AuthHeader: React.FC = () => {
+  // Optimized store selector using useShallow
   const { 
     user, 
     status, 
@@ -18,7 +20,14 @@ const AuthHeader: React.FC = () => {
     isAuthenticated,
     isLoading,
     hasInitialized
-  } = useAuthStore();
+  } = useAuthStore(useShallow((state) => ({
+    user: state.user,
+    status: state.status,
+    signOut: state.signOut,
+    isAuthenticated: state.isAuthenticated,
+    isLoading: state.isLoading,
+    hasInitialized: state.hasInitialized
+  })));
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authView, setAuthView] = useState<AuthView>(AUTH_VIEWS.SIGN_IN);
