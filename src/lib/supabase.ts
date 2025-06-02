@@ -352,106 +352,67 @@ let lastKnownUserCache: any = null;
 let lastUserFetchTime = 0;
 const USER_CACHE_TTL = 30 * 1000; // 30 seconds
 
-// Helper function to get the current user with a timeout and retry logic
+// Enhanced getCurrentUser function with JWT error recovery
 export const getCurrentUser = async (retryCount = AUTH_CONFIG.maxUserFetchRetries) => {
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
-  // Check if we have a recent cached user and we're in a visible tab
-  const now = Date.now();
-  const isRecentCache = (now - lastUserFetchTime) < USER_CACHE_TTL;
-  
-  if (lastKnownUserCache && isRecentCache && !document.hidden) {
-    logger.debug('Using cached user data (visible tab with recent cache)');
-    return lastKnownUserCache;
-  }
-  
-  for (let attempt = 0; attempt <= retryCount; attempt++) {
+  for (let attempt = 1; attempt <= retryCount; attempt++) {
     try {
-      // If we have cached data but it's stale, still return it on first try while fetching in background
-      if (attempt === 0 && lastKnownUserCache && !document.hidden) {
-        logger.debug('Using stale cached user data while fetching fresh data');
-        // Schedule a background refresh but still return the cached data
-        setTimeout(() => {
-          supabase.auth.getUser().then(({ data }) => {
-            if (data?.user) {
-              lastKnownUserCache = data.user;
-              lastUserFetchTime = Date.now();
-              logger.debug('Background refresh of user data completed');
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        // Check for JWT errors specifically
+        if (error.message?.includes('invalid JWT') || 
+            error.message?.includes('bad_jwt') ||
+            error.message?.includes('invalid kid')) {
+          
+          logger.warn(`JWT token error detected (attempt ${attempt}/${retryCount}):`, error.message);
+          
+          // Try to refresh the session first
+          if (attempt === 1) {
+            logger.info('Attempting session refresh to resolve JWT error...');
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (!refreshError && refreshData.session) {
+              logger.info('Session refresh successful, retrying user fetch...');
+              continue; // Retry with refreshed session
+            } else {
+              logger.warn('Session refresh failed:', refreshError?.message);
             }
-          }).catch(err => {
-            logger.debug('Background refresh of user data failed (non-critical):', err);
-          });
-        }, 0);
-        return lastKnownUserCache;
-      }
-      
-      // Use much shorter timeouts to avoid blocking auth state changes
-      const timeoutMs = document.hidden ? 8000 : (import.meta.env.PROD ? 5000 : 3000);
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('User fetch timeout')), timeoutMs);
-      });
-      
-      const userPromise = supabase.auth.getUser();
-      
-      // Race between the actual request and the timeout
-      const result = await Promise.race([userPromise, timeoutPromise]) as { data: { user: any }, error?: any };
-      
-      // Check for errors in the response
-      if (result?.error) {
-        throw result.error;
-      }
-      
-      if (!result?.data?.user) {
-        logger.debug(`No user found in getCurrentUser (attempt ${attempt + 1}/${retryCount + 1})`);
-        
-        // If we have cached data, return it instead of failing
-        if (lastKnownUserCache) {
-          logger.debug('Using cached user data as fallback for missing user');
-          return lastKnownUserCache;
+          }
+          
+          // If refresh failed or this is a subsequent attempt, clear auth state
+          if (attempt === retryCount) {
+            logger.error('JWT error persists after refresh attempt, clearing auth state');
+            
+            // Clear all auth data
+            localStorage.removeItem('gbot_supabase_auth');
+            await supabase.auth.signOut();
+            
+            // Don't throw error, just return null to indicate unauthenticated state
+            return null;
+          }
         }
         
+        // For other errors, use existing retry logic
         if (attempt < retryCount) {
-          // Use shorter delays to avoid blocking
-          const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000); // Cap at 2 seconds, shorter base
-          logger.debug(`Retrying getCurrentUser in ${backoffTime}ms`);
-          await delay(backoffTime);
+          logger.warn(`Error getting current user (attempt ${attempt}/${retryCount}):`, error.message);
+          await delay(AUTH_CONFIG.retryDelay * attempt);
           continue;
         }
-        return null;
-      }
-      
-      // Cache the user data for future use
-      lastKnownUserCache = result.data.user;
-      lastUserFetchTime = Date.now();
-      
-      logger.debug('Successfully retrieved current user');
-      return result.data.user;
-    } catch (error) {
-      logger.warn(`Error getting current user (attempt ${attempt + 1}/${retryCount + 1}):`, error);
-      
-      // If we have cached data, use it as fallback for any error
-      if (lastKnownUserCache && (attempt === retryCount || document.hidden)) {
-        logger.debug('Using cached user data after error (final fallback)');
-        return lastKnownUserCache;
-      }
-      
-      if (attempt < retryCount) {
-        // Use shorter delays for error recovery
-        const backoffTime = Math.min(Math.pow(1.5, attempt) * 500, 2000); // Cap at 2 seconds, shorter base
-        logger.debug(`Retrying getCurrentUser in ${backoffTime}ms after error`);
-        await delay(backoffTime);
-      } else {
-        // If all retries fail but we have a cached user, return it as last resort
-        if (lastKnownUserCache) {
-          logger.debug('All retries failed, using cached user data as final fallback');
-          return lastKnownUserCache;
-        }
         
-        // Only return null if we have no cached data at all
-        logger.error('getCurrentUser failed completely with no cached fallback');
-        return null;
+        throw error;
       }
+      
+      return user;
+    } catch (error) {
+      if (attempt === retryCount) {
+        logger.error('getCurrentUser failed completely with no cached fallback');
+        throw error;
+      }
+      
+      logger.warn(`Error getting current user (attempt ${attempt}/${retryCount}):`, error);
+      await delay(AUTH_CONFIG.retryDelay * attempt);
     }
   }
   

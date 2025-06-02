@@ -1,4 +1,4 @@
-// Generated automatically on 2025-05-30T18:19:16.708Z
+// Generated automatically on 2025-06-02T19:13:55.996Z
 // Total combinations: 1296
 // Character set: abcdefghijklmnopqrstuvwxyz0123456789
 // DO NOT EDIT MANUALLY - Use OverlapDebugPanel to regenerate
@@ -999,25 +999,25 @@ export const COMPLETE_OVERLAP_LOOKUP: Record<string, Record<string, number>> = {
     '3': 0.14,
     '4': 0.11,
     '5': 0.09,
-    '6': 0.05,
+    '6': 0.06,
     '7': 0.1,
     '8': 0.09,
     '9': 0.11,
-    'a': 0.08,
-    'b': 0.14,
-    'c': 0.14,
-    'd': 0.14,
-    'e': 0.17,
-    'f': 0.1,
-    'g': 0.14,
+    'a': 0.06,
+    'b': 0.07,
+    'c': 0.09,
+    'd': 0.05,
+    'e': 0.07,
+    'f': 0.06,
+    'g': 0.07,
     'h': 0.1,
     'i': 0.14,
     'j': 0.14,
-    'k': 0.14,
-    'l': 0.1,
-    'm': 0.1,
-    'n': 0.1,
-    'o': 0.14,
+    'k': 0.08,
+    'l': 0.06,
+    'm': 0.06,
+    'n': 0.06,
+    'o': 0.07,
     'p': 0.14,
     'q': 0.14,
     'r': 0.05,
@@ -1025,10 +1025,10 @@ export const COMPLETE_OVERLAP_LOOKUP: Record<string, Record<string, number>> = {
     't': 0.18,
     'u': 0.06,
     'v': 0.14,
-    'w': 0.14,
+    'w': 0.08,
     'x': 0.14,
-    'y': 0.14,
-    'z': 0.14
+    'y': 0.11,
+    'z': 0.1
   },
   'r': {
     '0': 0.2,
