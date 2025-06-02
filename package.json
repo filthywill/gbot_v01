@@ -7,6 +7,9 @@
     "type": "git",
     "url": "https://github.com/filthywill/gbot_v01"
   },
+  "npmConfig": {
+    "legacy-peer-deps": true
+  },
   "scripts": {
     "dev": "vite --port 3000 --host",
     "dev:https": "cross-env VITE_USE_HTTPS=true vite --port 3000 --host",
