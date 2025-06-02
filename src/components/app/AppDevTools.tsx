@@ -245,45 +245,29 @@ export function AppDevTools({
         </div>
       )}
 
-      {/* Advanced Panels - Full Screen Overlays */}
+      {/* Advanced Panels - Floating Development Tools */}
       {showOverlapDebug && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-auto">
-            <React.Suspense fallback={<DevLoadingFallback componentName="Overlap Debug Panel" />}>
-              <OverlapDebugPanel />
-            </React.Suspense>
-          </div>
-        </div>
+        <React.Suspense fallback={<DevLoadingFallback componentName="Overlap Debug Panel" />}>
+          <OverlapDebugPanel />
+        </React.Suspense>
       )}
 
       {showSvgProcessing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <React.Suspense fallback={<DevLoadingFallback componentName="SVG Processing Panel" />}>
-              <SvgProcessingPanel />
-            </React.Suspense>
-          </div>
-        </div>
+        <React.Suspense fallback={<DevLoadingFallback componentName="SVG Processing Panel" />}>
+          <SvgProcessingPanel />
+        </React.Suspense>
       )}
 
       {showLookupIntegration && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
-            <React.Suspense fallback={<DevLoadingFallback componentName="Lookup Integration Test" />}>
-              <LookupIntegrationTest />
-            </React.Suspense>
-          </div>
-        </div>
+        <React.Suspense fallback={<DevLoadingFallback componentName="Lookup Integration Test" />}>
+          <LookupIntegrationTest />
+        </React.Suspense>
       )}
 
       {showLookupPerformance && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
-            <React.Suspense fallback={<DevLoadingFallback componentName="Lookup Performance Test" />}>
-              <LookupPerformanceTest />
-            </React.Suspense>
-          </div>
-        </div>
+        <React.Suspense fallback={<DevLoadingFallback componentName="Lookup Performance Test" />}>
+          <LookupPerformanceTest />
+        </React.Suspense>
       )}
     </>
   );

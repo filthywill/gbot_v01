@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Minimize2, Maximize2, Zap, Clock, BarChart3 } from 'lucide-react';
+import { Zap, Clock, BarChart3 } from 'lucide-react';
 import { useGraffitiGeneratorWithZustand } from '../../hooks/useGraffitiGeneratorWithZustand';
 import { useGraffitiStore } from '../../store/useGraffitiStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,7 +15,6 @@ interface PerformanceResult {
  * Performance test component for comparing lookup vs runtime generation
  */
 export function LookupPerformanceTest() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
   const [testResults, setTestResults] = useState<{
     text: string;
     lookupTime: number;
@@ -84,39 +83,19 @@ export function LookupPerformanceTest() {
     }
   }, [testText, generateGraffiti]);
 
-  if (isCollapsed) {
-    return (
-      <div className="fixed bottom-20 left-4 z-50">
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary-600 hover:bg-brand-primary-700 text-white rounded-lg shadow-lg transition-colors"
-        >
-          <BarChart3 size={16} />
-          Lookup Performance Test
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-4 z-30 bg-panel border border-app rounded-lg shadow-2xl flex flex-col max-h-[85vh] max-w-[600px] ml-auto">
+    <div className="fixed top-4 left-4 bottom-4 z-30 bg-panel border border-app rounded-lg shadow-2xl flex flex-col w-[400px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-app">
-        <div className="flex items-center gap-3">
-          <BarChart3 className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">📊 Lookup Performance Test</h3>
+      <div className="flex items-center justify-between p-3 border-b border-app">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-blue-600" />
+          <h3 className="text-sm font-semibold text-gray-900">Lookup Performance Test</h3>
           {isLookupEnabled && (
             <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-              Lookup Enabled
+              Enabled
             </span>
           )}
         </div>
-        <button
-          onClick={() => setIsCollapsed(true)}
-          className="p-2 hover:bg-control-hover rounded text-control-icon transition-colors"
-        >
-          <Minimize2 size={16} />
-        </button>
       </div>
 
       {/* Content */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Minimize2, Maximize2, TestTube2 } from 'lucide-react';
+import { TestTube2 } from 'lucide-react';
 import { getProcessedSvgFromLookupTable, isLookupAvailable, getLookupStats } from '../../utils/svgLookup';
 import { processSvg } from '../../utils/dev/svgProcessing';
 import { getLetterSvg } from '../../utils/letterUtils';
@@ -10,7 +10,6 @@ import { ProcessedSvg } from '../../types';
  * This helps verify that our lookup system works correctly
  */
 export function LookupIntegrationTest() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
   const [testLetter, setTestLetter] = useState('a');
   const [isLoading, setIsLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<ProcessedSvg | null>(null);
@@ -36,7 +35,7 @@ export function LookupIntegrationTest() {
 
       // Test 1: Lookup performance
       const lookupStartTime = performance.now();
-      const lookupSvg = await getProcessedSvgFromLookupTable(testLetter, 'straight', 'standard', 0, {
+      const lookupSvg = await getProcessedSvgFromLookupTable(testLetter, 'straight', 'standard', {
         logPerformance: true
       });
       const lookupEndTime = performance.now();
@@ -104,44 +103,24 @@ export function LookupIntegrationTest() {
 
   // Run initial test on component mount
   useEffect(() => {
-    if (isLookupAvailable('straight') && !isCollapsed) {
+    if (isLookupAvailable('straight') && !isLoading) {
       runTest();
     }
-  }, [testLetter, isCollapsed]);
-
-  if (isCollapsed) {
-    return (
-      <div className="fixed bottom-4 left-4 z-50">
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary-600 hover:bg-brand-primary-700 text-white rounded-lg shadow-lg transition-colors"
-        >
-          <TestTube2 size={16} />
-          Lookup Integration Test
-        </button>
-      </div>
-    );
-  }
+  }, [testLetter, isLoading]);
 
   return (
-    <div className="fixed inset-4 z-40 bg-panel border border-app rounded-lg shadow-2xl flex flex-col max-h-[85vh] max-w-[800px] mx-auto">
+    <div className="fixed top-4 right-4 bottom-4 z-40 bg-panel border border-app rounded-lg shadow-2xl flex flex-col w-[400px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-app">
-        <div className="flex items-center gap-3">
-          <TestTube2 className="w-5 h-5 text-brand-primary-600" />
-          <h3 className="text-lg font-semibold text-gray-900">🧪 Lookup Integration Test</h3>
+      <div className="flex items-center justify-between p-3 border-b border-app">
+        <div className="flex items-center gap-2">
+          <TestTube2 className="w-4 h-4 text-brand-primary-600" />
+          <h3 className="text-sm font-semibold text-gray-900">Lookup Integration Test</h3>
           {isLookupAvailable('straight') && (
             <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-              Lookup Enabled
+              Enabled
             </span>
           )}
         </div>
-        <button
-          onClick={() => setIsCollapsed(true)}
-          className="p-2 hover:bg-control-hover rounded text-control-icon transition-colors"
-        >
-          <Minimize2 size={16} />
-        </button>
       </div>
 
       {/* Content */}

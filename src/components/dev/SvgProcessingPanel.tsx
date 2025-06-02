@@ -1,5 +1,5 @@
 import React, { useState, useReducer, useCallback } from 'react';
-import { Minimize2, Maximize2, Play, Pause, Square, Download, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Maximize2, Play, Pause, Square, Download, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ProcessedSvg } from '../../types';
 import { getLetterSvg } from '../../utils/letterUtils';
@@ -165,7 +165,6 @@ const initialProcessingState: ProcessingState = {
 };
 
 export function SvgProcessingPanel() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedStyle, setSelectedStyle] = useState('straight');
   const [selectedVariant, setSelectedVariant] = useState<'standard' | 'alternate' | 'first' | 'last'>('standard');
   const [resolution, setResolution] = useState(200);
@@ -388,24 +387,10 @@ export function SvgProcessingPanel() {
     }
   };
 
-  if (isCollapsed) {
-    return (
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary-600 hover:bg-brand-primary-700 text-white rounded-lg shadow-lg transition-colors"
-        >
-          <Maximize2 size={16} />
-          SVG Processing
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-4 z-50 bg-panel border border-app rounded-lg shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed bottom-4 left-4 right-4 z-50 bg-panel border border-app rounded-lg shadow-2xl flex flex-col max-h-[45vh]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-app">
+      <div className="flex items-center justify-between p-3 border-b border-app">
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 bg-brand-primary-600 rounded-full" />
           <h2 className="text-lg font-semibold text-primary">SVG Processing Panel</h2>
@@ -413,20 +398,12 @@ export function SvgProcessingPanel() {
             Development Tool
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsCollapsed(true)}
-            className="p-2 hover:bg-control-hover rounded text-control-icon transition-colors"
-          >
-            <Minimize2 size={16} />
-          </button>
-        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-hidden flex">
         {/* Configuration Panel */}
-        <div className="w-80 border-r border-app p-4 space-y-4 overflow-y-auto">
+        <div className="w-64 border-r border-app p-3 space-y-3 overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-secondary mb-2">Style</label>
             <select
@@ -550,10 +527,10 @@ export function SvgProcessingPanel() {
         </div>
 
         {/* Results Panel */}
-        <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex-1 p-3 overflow-y-auto">
           {/* Progress Bar */}
           {processingState.isProcessing && (
-            <div className="mb-4 p-4 bg-container rounded-lg">
+            <div className="mb-3 p-3 bg-container rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-primary">
                   Processing: {processingState.currentLetter || '...'}
@@ -584,7 +561,7 @@ export function SvgProcessingPanel() {
 
           {/* Validation Summary */}
           {processingState.validationResults && (
-            <div className="mb-4 p-4 bg-container rounded-lg">
+            <div className="mb-3 p-3 bg-container rounded-lg">
               <h3 className="font-medium text-primary mb-2">Validation Summary</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -607,11 +584,11 @@ export function SvgProcessingPanel() {
 
           {/* Results Grid */}
           {Object.keys(processingState.results).length > 0 && (
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-10 gap-1">
               {Object.entries(processingState.results).map(([letter, data]) => (
                 <div
                   key={letter}
-                  className="p-2 bg-container rounded border hover:border-brand-primary-600 transition-colors"
+                  className="p-1 bg-container rounded border hover:border-brand-primary-600 transition-colors"
                 >
                   <div className="text-center">
                     <div className="text-lg font-mono font-bold text-primary mb-1">{letter}</div>
@@ -622,7 +599,7 @@ export function SvgProcessingPanel() {
                       {(data.metadata.fileSize / 1024).toFixed(1)}KB
                     </div>
                     {data.metadata.isSymmetric && (
-                      <div className="text-xs text-blue-500">Symmetric</div>
+                      <div className="text-xs text-blue-500">Sym</div>
                     )}
                   </div>
                 </div>
@@ -632,9 +609,9 @@ export function SvgProcessingPanel() {
 
           {/* Errors */}
           {processingState.errors.length > 0 && (
-            <div className="mt-4 p-4 bg-status-error-light border border-status-error rounded-lg">
+            <div className="mt-3 p-3 bg-status-error-light border border-status-error rounded-lg">
               <h3 className="font-medium text-status-error mb-2">Processing Errors</h3>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <div className="space-y-2 max-h-20 overflow-y-auto">
                 {processingState.errors.map((error, index) => (
                   <div key={index} className="text-sm">
                     <span className="font-mono font-bold">{error.letter}:</span> {error.error}
