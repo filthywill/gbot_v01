@@ -161,12 +161,13 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
   updatePositions: () => {
     const { processedSvgs, overlapRules, defaultOverlap, overlapExceptions } = get();
     
-    if (!processedSvgs.length) {
-      set({
-        positions: [],
-        contentWidth: 0,
-        contentHeight: 0,
-        containerScale: 1
+    // Guard against empty array - this is critical for noUncheckedIndexedAccess
+    if (processedSvgs.length === 0) {
+      set({ 
+        positions: [], 
+        contentWidth: 0, 
+        contentHeight: 0, 
+        containerScale: 1 
       });
       return;
     }
@@ -174,21 +175,30 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
     // 1) Compute raw x-positions using overlap
     const positions: number[] = [];
     let currentX = 0;
-    positions.push(currentX - processedSvgs[0].bounds.left);
+    
+    // Safe access to first element
+    const firstSvg = processedSvgs[0];
+    if (firstSvg) {
+      positions.push(currentX - firstSvg.bounds.left);
+    }
     
     for (let i = 1; i < processedSvgs.length; i++) {
       const prev = processedSvgs[i - 1];
       const curr = processedSvgs[i];
-      const prevLetterWidth = prev.bounds.right - prev.bounds.left;
       
-      // Get overlap value and ensure it's within valid range
-      const overlap = Math.min(Math.max(
-        findOptimalOverlap(prev, curr, overlapRules, defaultOverlap, overlapExceptions),
-        0
-      ), 1);
-      
-      currentX += prevLetterWidth * (1 - overlap);
-      positions.push(currentX - curr.bounds.left);
+      // Both prev and curr are guaranteed to exist due to loop bounds
+      if (prev && curr) {
+        const prevLetterWidth = prev.bounds.right - prev.bounds.left;
+        
+        // Get overlap value and ensure it's within valid range
+        const overlap = Math.min(Math.max(
+          findOptimalOverlap(prev, curr, overlapRules, defaultOverlap, overlapExceptions),
+          0
+        ), 1);
+        
+        currentX += prevLetterWidth * (1 - overlap);
+        positions.push(currentX - curr.bounds.left);
+      }
     }
 
     // 2) Compute global bounding box
@@ -196,16 +206,19 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
     let groupMinY = Infinity, groupMaxY = -Infinity;
 
     processedSvgs.forEach((svg, i) => {
+      // Safe array access with bounds checking for noUncheckedIndexedAccess
       const x = positions[i];
-      const minX = x + svg.bounds.left;
-      const maxX = x + svg.bounds.right;
-      const minY = svg.bounds.top;
-      const maxY = svg.bounds.bottom;
-      
-      groupMinX = Math.min(groupMinX, minX);
-      groupMaxX = Math.max(groupMaxX, maxX);
-      groupMinY = Math.min(groupMinY, minY);
-      groupMaxY = Math.max(groupMaxY, maxY);
+      if (x !== undefined) {
+        const minX = x + svg.bounds.left;
+        const maxX = x + svg.bounds.right;
+        const minY = svg.bounds.top;
+        const maxY = svg.bounds.bottom;
+        
+        groupMinX = Math.min(groupMinX, minX);
+        groupMaxX = Math.max(groupMaxX, maxX);
+        groupMinY = Math.min(groupMinY, minY);
+        groupMaxY = Math.max(groupMaxY, maxY);
+      }
     });
 
     // 3) Calculate content dimensions
@@ -225,12 +238,66 @@ export const useGraffitiStore = create<GraffitiState>((set, get) => ({
   },
   
   setCustomizationOptions: (options) => {
-    set((state) => ({
-      customizationOptions: {
+    set((state) => {
+      // Check if we should skip history (for temporary changes during dragging)
+      const shouldSkipHistory = options.__skipHistory === true;
+      
+      // Extract special flags from options
+      const { __skipHistory, __presetId, ...cleanOptions } = options;
+      
+      console.log('🎨 setCustomizationOptions called:', {
+        shouldSkipHistory,
+        hasPresetId: !!__presetId,
+        isUndoRedoOperation: state.isUndoRedoOperation,
+        currentHistoryLength: state.history.length,
+        optionsKeys: Object.keys(cleanOptions)
+      });
+      
+      // Update the customization options
+      const newCustomizationOptions = {
         ...state.customizationOptions,
-        ...options
+        ...cleanOptions
+      };
+      
+      // Create history entry if not skipping history
+      if (!shouldSkipHistory && !state.isUndoRedoOperation) {
+        // Create a new history state
+        const newHistoryState: HistoryState = {
+          inputText: state.inputText,
+          options: newCustomizationOptions,
+          // Only include presetId if it's actually defined (required for exactOptionalPropertyTypes)
+          ...((__presetId !== undefined) && { presetId: __presetId })
+        };
+        
+        // Create a new history array by removing any future states
+        const newHistory = state.history.slice(0, state.currentHistoryIndex + 1);
+        
+        // Add the new state
+        newHistory.push(newHistoryState);
+        
+        console.log('📚 History entry created:', {
+          newHistoryLength: newHistory.length,
+          newCurrentIndex: newHistory.length - 1,
+          presetId: __presetId || 'custom'
+        });
+        
+        // Return updated state with new history
+        return {
+          customizationOptions: newCustomizationOptions,
+          history: newHistory,
+          currentHistoryIndex: newHistory.length - 1
+        };
+      } else {
+        console.log('⏭️ Skipping history creation:', {
+          reason: shouldSkipHistory ? 'skipHistory flag' : 'undoRedo operation'
+        });
       }
-    }));
+      
+      // Return updated state without history changes
+      return {
+        customizationOptions: newCustomizationOptions
+      };
+    });
   },
   
   addToHistory: (newState) => {

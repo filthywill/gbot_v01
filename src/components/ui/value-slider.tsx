@@ -1,16 +1,16 @@
 import * as React from 'react';
-import * as SliderPrimitive from '@radix-ui/react-slider';
+import { Root, Track, Range, Thumb } from '@radix-ui/react-slider';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-interface ValueSliderProps extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
+interface ValueSliderProps extends React.ComponentPropsWithoutRef<typeof Root> {
   formatValue?: (value: number) => string;
   onValueChange?: (value: number[]) => void;
   onValueCommit?: () => void;
 }
 
 const ValueSlider = React.forwardRef<
-  React.ElementRef<typeof SliderPrimitive.Root>,
+  React.ElementRef<typeof Root>,
   ValueSliderProps
 >(({ className, formatValue = (v) => Math.round(v).toString(), onValueCommit, ...props }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -115,7 +115,7 @@ const ValueSlider = React.forwardRef<
   }, [dragDirection, isDragging]);
 
   return (
-    <SliderPrimitive.Root
+    <Root
       ref={ref}
       className={cn(
         "relative flex w-full touch-none select-none items-center rounded-full",
@@ -126,13 +126,13 @@ const ValueSlider = React.forwardRef<
       onPointerLeave={handleDragEnd}
       {...props}
     >
-      <SliderPrimitive.Track
+      <Track
         className="relative h-1.5 w-full grow overflow-hidden rounded-full translate-z-0 slider-control-track"
       >
-        <SliderPrimitive.Range className="absolute h-full rounded-full slider-control-active" />
-      </SliderPrimitive.Track>
+        <Range className="absolute h-full rounded-full slider-control-active" />
+      </Track>
       {props.value?.map((value, index) => (
-        <SliderPrimitive.Thumb
+        <Thumb
           key={index}
           className={cn(
             "relative block h-[16px] w-[32px] rounded-t-full slider-control-thumb",
@@ -157,9 +157,9 @@ const ValueSlider = React.forwardRef<
           )}>
             {formatValue(displayValue)}
           </span>
-        </SliderPrimitive.Thumb>
+        </Thumb>
       ))}
-    </SliderPrimitive.Root>
+    </Root>
   );
 });
 

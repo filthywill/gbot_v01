@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { Switch } from '../ui/switch';
-import { FaChevronCircleUp, FaChevronCircleDown } from "react-icons/fa";
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 /**
@@ -90,9 +90,9 @@ export const ControlContainer: React.FC<ControlContainerProps> = ({
                 className="flex items-center justify-center w-4 h-4 bg-control-hover rounded"
               >
                 {isExpanded ? (
-                  <FaChevronCircleUp className="w-3 h-3 text-control-icon" />
+                  <ChevronUp className="w-3 h-3 text-control-icon" />
                 ) : (
-                  <FaChevronCircleDown className="w-3 h-3 text-control-icon" />
+                  <ChevronDown className="w-3 h-3 text-control-icon" />
                 )}
               </button>
             )}

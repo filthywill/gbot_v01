@@ -116,9 +116,14 @@ export const validateSvgContent = (svgContent: string, letter?: string): Validat
     
     // Parse bounds from viewBox if available
     if (viewBox) {
-      const [x, y, w, h] = viewBox.split(' ').map(Number);
-      if (!isNaN(x) && !isNaN(y) && !isNaN(w) && !isNaN(h)) {
-        bounds = { left: x, top: y, right: x + w, bottom: y + h };
+      const values = viewBox.split(' ').map(Number);
+      // Safe array destructuring with bounds checking for noUncheckedIndexedAccess
+      if (values.length >= 4) {
+        const [x, y, w, h] = values;
+        if (x !== undefined && y !== undefined && w !== undefined && h !== undefined &&
+            !isNaN(x) && !isNaN(y) && !isNaN(w) && !isNaN(h)) {
+          bounds = { left: x, top: y, right: x + w, bottom: y + h };
+        }
       }
     }
     
@@ -344,10 +349,21 @@ export const detectSymmetry = (processed: ProcessedSvg): boolean => {
     for (let x = bounds.left; x <= centerX; x++) {
       const mirrorX = bounds.right - (x - bounds.left);
       
-      if (mirrorX < pixelData[0].length && 
-          pixelData[y] && 
-          pixelData[y][x] !== pixelData[y][mirrorX]) {
-        return false;
+      // Safe array access with proper bounds checking for noUncheckedIndexedAccess
+      if (mirrorX < pixelData.length && 
+          y >= 0 && y < pixelData.length &&
+          x >= 0 && x < pixelData.length &&
+          mirrorX >= 0) {
+        
+        const row = pixelData[y];
+        const mirrorRow = pixelData[y];
+        
+        if (row && mirrorRow && 
+            x < row.length && 
+            mirrorX < mirrorRow.length &&
+            row[x] !== mirrorRow[mirrorX]) {
+          return false;
+        }
       }
     }
   }

@@ -77,12 +77,12 @@ export interface CustomizationOptions {
   shieldEnabled: boolean;
   shieldColor: string;
   shieldWidth: number;
-  // Rendering flags (internal use)
-  shadowShieldOnly?: boolean;
-  shadowOnly?: boolean;
-  contentOnly?: boolean;
+  // Rendering flags (internal use) - Fixed for exactOptionalPropertyTypes
+  shadowShieldOnly?: boolean | undefined;
+  shadowOnly?: boolean | undefined;
+  contentOnly?: boolean | undefined;
   
-  // Special flags for history management
-  __skipHistory?: boolean;
-  __presetId?: string;
+  // Special flags for history management - Fixed for exactOptionalPropertyTypes
+  __skipHistory?: boolean | undefined;
+  __presetId?: string | undefined;
 }

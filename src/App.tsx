@@ -1,5 +1,6 @@
 import React from 'react';
-import { useGraffitiGeneratorWithZustand } from './hooks/useGraffitiGeneratorWithZustand';
+// Phase 4.1: Use the new optimized hook with React 18 concurrent features
+import { useGraffitiGenerator } from './hooks/useGraffitiGeneratorOptimized';
 import { GRAFFITI_STYLES } from './data/styles';
 import { cn } from './lib/utils';
 import { useDevStore } from './store/useDevStore';
@@ -11,16 +12,25 @@ import useAuthStore from './store/useAuthStore';
 const AuthModal = React.lazy(() => import('./components/Auth/AuthModal'));
 import { useEmailVerification } from './hooks/auth/useEmailVerification';
 import { useAuthModalState } from './hooks/auth/useAuthModalState';
-import { AppHeader, AppFooter, AppDevTools, AppMainContent } from './components/app';
+import { AppHeader, AppFooter, AppMainContent, AppDevTools } from './components/app';
 // Import all modals from the centralized modals directory
 import { 
   VerificationSuccessModal, 
   VerificationErrorModal, 
   VerificationLoadingModal 
 } from './components/modals';
+import { useGraffitiDisplay } from './hooks/useGraffitiDisplay';
+// Phase 4.1: Import Error Boundaries
+import { AppErrorBoundary, AuthErrorBoundary } from './components/ErrorBoundary';
 
 /**
  * Main Application Component
+ * 
+ * Phase 4.1: Enhanced with React 18 Concurrent Features + Error Boundaries
+ * - Uses optimized graffiti generator with useTransition for non-blocking SVG generation
+ * - Input remains responsive during heavy SVG processing
+ * - History operations are properly safeguarded to remain synchronous
+ * - Comprehensive error handling with graceful recovery options
  * 
  * App structure follows a modular component architecture:
  * - AppHeader: Contains logo and authentication header
@@ -75,29 +85,20 @@ function App() {
     setAuthModalMode
   });
 
-  // Graffiti generator state from Zustand store
+  // Phase 4.1: Graffiti generator state with React 18 concurrent features
   const {
-    displayInputText,
-    isGenerating,
-    error,
-    selectedStyle,
-    processedSvgs,
-    positions,
-    contentWidth,
-    contentHeight,
-    containerScale,
     customizationOptions,
-    history,
-    currentHistoryIndex,
     generateGraffiti,
     handleCustomizationChange,
-    handleInputTextChange,
-    handleStyleChange,
-    handleUndoRedo
-  } = useGraffitiGeneratorWithZustand();
+    isPending // New: Shows when transitions are in progress
+  } = useGraffitiGenerator();
   
   // Track if we've had at least one successful generation
   const hasInitialGeneration = React.useRef(false);
+
+  // Phase 3.1: Get processedSvgs from optimized hook for this specific check
+  // We still need this for the hasInitialGeneration logic
+  const { processedSvgs } = useGraffitiDisplay();
 
   // Update ref when we have processed SVGs
   React.useEffect(() => {
@@ -106,12 +107,12 @@ function App() {
     }
   }, [processedSvgs]);
 
-  // Log errors when they occur
+  // Phase 4.1: Log concurrent features status in development
   React.useEffect(() => {
-    if (error) {
-      logger.error('Application error occurred:', error);
+    if (isDev && isPending) {
+      logger.debug('React 18 transition active - SVG generation in progress');
     }
-  }, [error]);
+  }, [isDev, isPending]);
 
   // Memoize modal close handlers to prevent unnecessary re-renders
   const handleCloseVerificationModal = React.useCallback(() => {
@@ -126,7 +127,16 @@ function App() {
     setShowAuthModal(false);
   }, [setShowAuthModal]);
 
+  // Phase 4.1: Error handler for application-level errors
+  const handleAppError = React.useCallback((error: Error, errorInfo: React.ErrorInfo) => {
+    logger.error('Application error caught by boundary', {
+      error: error.message,
+      componentStack: errorInfo.componentStack
+    });
+  }, []);
+
   return (
+    <AppErrorBoundary onError={handleAppError}>
     <AuthProvider>
       <div className="min-h-screen bg-app text-primary">
         {/* Email verification banner - appears when a user is in the verification process */}
@@ -144,40 +154,25 @@ function App() {
               hasVerificationBanner={!!verificationEmail || pendingVerification}
             />
           
-          {/* Main Content Area - contains graffiti generator UI */}
+            {/* Main Content Area - Phase 3.3: CustomizationToolbar is now self-contained
+                Phase 4.1: Enhanced with concurrent features for better responsiveness */}
             <AppMainContent 
-              displayInputText={displayInputText}
-              setInputText={handleInputTextChange}
-              isGenerating={isGenerating}
+                styles={GRAFFITI_STYLES}
               generateGraffiti={generateGraffiti}
-              error={error}
-              styles={GRAFFITI_STYLES}
-              selectedStyle={selectedStyle}
-              handleStyleChange={handleStyleChange}
-              processedSvgs={processedSvgs}
-              positions={positions}
-              contentWidth={contentWidth}
-              contentHeight={contentHeight}
-              containerScale={containerScale}
-              customizationOptions={customizationOptions}
-              history={history}
-              currentHistoryIndex={currentHistoryIndex}
-              handleUndoRedo={handleUndoRedo}
               hasInitialGeneration={hasInitialGeneration}
-              handleCustomizationChange={handleCustomizationChange}
             />
           
           {/* Application Footer - contains copyright and links */}
             <AppFooter />
           
           {/* Developer Tools - only visible in development mode */}
-            <AppDevTools
-              isDev={isDev}
-              showValueOverlays={showValueOverlays}
-              showColorPanel={showColorPanel}
-              toggleValueOverlays={toggleValueOverlays}
-              toggleColorPanel={toggleColorPanel}
-            />
+          <AppDevTools
+            isDev={isDev}
+            showValueOverlays={showValueOverlays}
+            showColorPanel={showColorPanel}
+            toggleValueOverlays={toggleValueOverlays}
+            toggleColorPanel={toggleColorPanel}
+          />
         </div>
 
         {/* ===== Modal Components ===== */}
@@ -201,8 +196,9 @@ function App() {
         {/* Verification Loading Modal - Shown during verification process */}
         <VerificationLoadingModal isOpen={isVerifying} />
         
-        {/* Authentication Modal - Used for login, signup, and password reset */}
+          {/* Authentication Modal - Phase 4.1: Wrapped with AuthErrorBoundary */}
         {showAuthModal && (
+            <AuthErrorBoundary>
           <React.Suspense 
             fallback={
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -222,9 +218,11 @@ function App() {
               verificationEmail={verificationEmail}
             />
           </React.Suspense>
+            </AuthErrorBoundary>
         )}
       </div>
     </AuthProvider>
+    </AppErrorBoundary>
   );
 }
 

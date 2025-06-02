@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 // https://vitejs.dev/config/
@@ -10,6 +11,9 @@ export default defineConfig(({ mode }) => {
   
   // Determine if HTTPS should be enabled
   const useHttps = env.VITE_USE_HTTPS === 'true';
+  
+  // Check if bundle analysis should be enabled
+  const shouldAnalyze = process.env.ANALYZE === 'true';
 
   return {
     plugins: [
@@ -18,8 +22,23 @@ export default defineConfig(({ mode }) => {
       useHttps && basicSsl()
     ].filter(Boolean),
     optimizeDeps: {
-      include: ['zustand'],
-      exclude: ['lucide-react'],
+      include: [
+        'zustand',
+        // Pre-bundle commonly used modules for better performance
+        'react-colorful',
+        'html2canvas',
+        'clsx',
+        'tailwind-merge'
+      ],
+      exclude: [
+        'lucide-react', // Already tree-shakeable
+        // Exclude large dependencies to force tree-shaking
+        '@radix-ui/react-dialog',
+        '@radix-ui/react-popover',
+        '@radix-ui/react-slider',
+        '@radix-ui/react-switch',
+        '@radix-ui/react-collapsible'
+      ],
     },
     server: {
       port: 3000,
@@ -55,11 +74,73 @@ export default defineConfig(({ mode }) => {
       sourcemap: mode !== 'production',
       minify: mode === 'production' ? 'esbuild' : false,
       rollupOptions: {
+        // Enhanced tree-shaking configuration
+        treeshake: {
+          moduleSideEffects: false, // Assume no side effects for better tree-shaking
+          preset: 'recommended',
+          unknownGlobalSideEffects: false,
+        },
         output: {
           manualChunks: {
-            react: ['react', 'react-dom'],
-            zustand: ['zustand'],
+            // Core React ecosystem
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-zustand': ['zustand'],
+            
+            // UI Component Libraries with specific chunks for tree-shaking
+            'vendor-radix': [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-popover', 
+              '@radix-ui/react-slider',
+              '@radix-ui/react-switch',
+              '@radix-ui/react-collapsible'
+            ],
+            'vendor-icons': ['lucide-react'],
+            'vendor-forms': ['react-hook-form', 'react-colorful'],
+            
+            // Backend & Database
+            'vendor-supabase': ['@supabase/supabase-js', '@supabase/ssr'],
+            
+            // Utilities & Processing
+            'vendor-utils': [
+              'clsx', 
+              'tailwind-merge', 
+              'class-variance-authority',
+              'html2canvas'
+            ],
+            
+            // SVG Processing (RESOLVES DYNAMIC IMPORT CONFLICTS)
+            'svg-processing': [
+              './src/utils/svgUtils.ts',
+              './src/utils/letterUtils.ts',
+              './src/data/generatedOverlapLookup.ts',
+              './src/utils/svgCustomizationUtils.ts',
+              './src/utils/svgExpansionUtil.ts',
+              './src/utils/svgLookup.ts'
+            ],
+            
+            // Authentication System
+            'auth-system': [
+              './src/lib/supabase.ts',
+              './src/store/useAuthStore.ts',
+              './src/hooks/auth/useEmailVerification.ts',
+              './src/hooks/auth/usePasswordManagement.ts',
+              './src/lib/auth/utils.ts',
+              './src/lib/auth/verification.ts'
+            ],
+            
+            // Development Tools (conditional chunking)
+            ...(mode === 'development' && {
+              'dev-tools': [
+                './src/components/OverlapDebugPanel.tsx',
+                './src/components/dev/SvgProcessingPanel.tsx',
+                './src/components/ui/dev-color-panel.tsx',
+                './src/utils/dev/svgProcessing.ts',
+                './src/utils/dev/lookupGeneration.ts'
+              ]
+            })
           },
+          // Lower warning threshold to catch issues earlier
+          chunkSizeWarningLimit: 400
         },
         plugins: [
           // Strip console logs in production
@@ -78,7 +159,15 @@ export default defineConfig(({ mode }) => {
               
               return strippedCode !== code ? { code: strippedCode, map: null } : null;
             }
-          }
+          },
+          // Bundle analyzer (only when ANALYZE=true)
+          shouldAnalyze && visualizer({
+            filename: 'dist/bundle-analysis.html',
+            open: true,
+            gzipSize: true,
+            brotliSize: true,
+            template: 'treemap', // 'treemap', 'sunburst', 'network'
+          })
         ].filter(Boolean)
       },
       // Improve performance of the build
@@ -93,7 +182,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
-      // Add conditions for Vite 6 compatibility
+      // Add conditions for Vite 6 compatibility and better tree-shaking
       conditions: ['import', 'module', 'browser', 'default']
     },
     // Configure static asset handling
@@ -123,6 +212,10 @@ export default defineConfig(({ mode }) => {
       // SVG Processing build flags
       __DEV_SVG_PROCESSING__: JSON.stringify(mode === 'development'),
       __PROD_LOOKUP_ONLY__: JSON.stringify(mode === 'production'),
+      // Development component exclusion flags
+      __INCLUDE_DEV_TOOLS__: JSON.stringify(mode === 'development'),
+      __INCLUDE_DEBUG_PANELS__: JSON.stringify(mode === 'development'),
+      __INCLUDE_OVERLAP_DEBUG__: JSON.stringify(mode === 'development'),
     }
   };
 });

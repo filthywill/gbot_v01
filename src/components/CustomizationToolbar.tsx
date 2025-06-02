@@ -19,7 +19,6 @@ import {
   BatteryFull,
   Settings
 } from 'lucide-react';
-import { FaChevronCircleUp, FaChevronCircleDown } from "react-icons/fa";
 import { STYLE_PRESETS, StylePreset } from '../data/stylePresets';
 import { StylePresetsPanel } from './StylePresetsPanel';
 import { Switch } from './ui/switch';
@@ -37,22 +36,34 @@ import { FillControl } from './controls/FillControl';
 import { ShieldControl } from './controls/ShieldControl';
 import { DevValueDisplay } from './ui/dev-value-display';
 import { useHistoryTracking } from '../hooks/useHistoryTracking';
+import { useGraffitiCustomization } from '../hooks/useGraffitiCustomization';
 
+/**
+ * CustomizationToolbar component props interface
+ * Phase 3.3 Optimization: No longer needs options and onChange props - uses useGraffitiCustomization hook
+ */
 interface CustomizationToolbarProps {
-  options: CustomizationOptions;
-  onChange: (options: CustomizationOptions) => void;
+  // No props needed - component now manages its own state via hook
 }
 
-export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({ 
-  options,
-  onChange,
-}) => {
+/**
+ * CustomizationToolbar component - handles all graffiti style customization
+ * 
+ * Phase 3.3 Optimization: 
+ * - Uses useGraffitiCustomization hook for optimized customization state selection
+ * - Self-contained component that doesn't require prop drilling
+ * - Memoized to prevent unnecessary re-renders
+ */
+export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
+  // Phase 3.3: Use optimized selector for customization state
+  const { customizationOptions, setCustomizationOptions } = useGraffitiCustomization();
+  
   const [isOpen, setIsOpen] = useState(true);
   const [isPresetsOpen, setIsPresetsOpen] = useState(true);
   
   // State for tracking dragging status
   const [isDragging, setIsDragging] = useState(false);
-  const [tempOptions, setTempOptions] = useState<CustomizationOptions>(options);
+  const [tempOptions, setTempOptions] = useState<CustomizationOptions>(customizationOptions);
   
   // State for user presets
   const [userPresets, setUserPresets] = useState<StylePreset[]>([]);
@@ -84,16 +95,16 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
   // Update temp options when options change and not dragging
   useEffect(() => {
     if (!isDragging) {
-      setTempOptions(options);
+      setTempOptions(customizationOptions);
     }
-  }, [options, isDragging]);
+  }, [customizationOptions, isDragging]);
   
   // For toggle changes (switches) - create history entries immediately
   const handleToggleChange = useCallback((updates: Partial<CustomizationOptions>) => {
     // Use updateWithHistory to create history entries immediately
     const updatedOptions = updateWithHistory(updates);
-    onChange({...options, ...updatedOptions} as CustomizationOptions);
-  }, [options, onChange, updateWithHistory]);
+    setCustomizationOptions({...customizationOptions, ...updatedOptions} as Partial<CustomizationOptions>);
+  }, [customizationOptions, setCustomizationOptions, updateWithHistory]);
   
   // For dragging operations (sliders, color pickers) - don't create history entries during dragging
   const handleDragChange = useCallback((updates: Partial<CustomizationOptions>) => {
@@ -108,8 +119,8 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
     
     // Update UI without creating history
     const withoutHistory = updateWithoutHistory(newTempOptions);
-    onChange(withoutHistory as CustomizationOptions);
-  }, [isDragging, tempOptions, onChange, updateWithoutHistory]);
+    setCustomizationOptions(withoutHistory as Partial<CustomizationOptions>);
+  }, [isDragging, tempOptions, setCustomizationOptions, updateWithoutHistory]);
   
   // When dragging ends, commit the changes and create history
   const handleDragComplete = useCallback(() => {
@@ -117,9 +128,9 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
       setIsDragging(false);
       // Use updateWithHistory to create history entries on completion
       const withHistory = updateWithHistory(tempOptions);
-      onChange(withHistory as CustomizationOptions);
+      setCustomizationOptions(withHistory as Partial<CustomizationOptions>);
     }
-  }, [isDragging, tempOptions, onChange, updateWithHistory]);
+  }, [isDragging, tempOptions, setCustomizationOptions, updateWithHistory]);
   
   // Handler for when slider interaction completes
   const handleSliderComplete = () => {
@@ -132,11 +143,11 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
     
     // Merge preset settings with options and mark with preset ID
     const withHistory = updateWithHistory(preset.settings, preset.id);
-    onChange({ ...options, ...withHistory } as CustomizationOptions);
+    setCustomizationOptions({ ...customizationOptions, ...withHistory } as Partial<CustomizationOptions>);
     
     // Update temp options to match
-    setTempOptions({ ...options, ...preset.settings } as CustomizationOptions);
-  }, [options, onChange, updateWithHistory]);
+    setTempOptions({ ...customizationOptions, ...preset.settings } as CustomizationOptions);
+  }, [customizationOptions, setCustomizationOptions, updateWithHistory]);
   
   // Handler for saving a new preset
   const savePreset = () => {
@@ -151,7 +162,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
       const presetId = newPresetName.toUpperCase().replace(/\s+/g, '_');
       
       // Extract the current settings, removing any special flags
-      const { __skipHistory, __presetId, ...currentSettings } = options;
+      const { __skipHistory, __presetId, ...currentSettings } = customizationOptions;
       
       // Create the new preset object
       const newPreset: StylePreset = {
@@ -231,27 +242,32 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
   const sectionContainerClass = "p-0.5 rounded-md";
 
   return (
-    <div className="flex flex-col min-[600px]:flex-row min-[640px]:space-x-2 space-y-0 min-[600px]:space-y-0">
+    <div className="flex flex-col min-[600px]:flex-row min-[640px]:space-x-2 space-y-0 min-[600px]:space-y-0" role="region" aria-label="Graffiti customization controls">
       <div className={`${sectionContainerClass} flex-1`}>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger className={`${sectionHeaderClass} bg-brand-gradient`}>
-            <div className="flex items-center gap-2">
-            <div className="ui-heading ui-heading-panel text-control">STYLE CUSTOMIZATION</div>
-            </div>
-            {isOpen ? 
-              <ChevronUp className="w-3 h-3 text-control" /> : 
-              <ChevronDown className="w-3 h-3 text-control" />
-            }
+          <CollapsibleTrigger 
+            className={`${sectionHeaderClass} bg-brand-gradient`}
+            aria-expanded={isOpen}
+            aria-controls="customization-panel"
+            aria-label={`${isOpen ? 'Collapse' : 'Expand'} graffiti style options`}
+          >
+            <span className="text-sm font-semibold text-control">Style Options</span>
+            <ChevronDown className={`h-4 w-4 text-control transform transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 pt-1.5 pb-0.5">
+          <CollapsibleContent 
+            id="customization-panel"
+            className="space-y-1 mt-1"
+            role="group"
+            aria-label="Style customization options"
+          >
             {/* Background and Fill Row */}
             <div className="grid grid-cols-2 gap-1.5 items-start">
               {/* Background */}
               <div className="space-y-1 flex-grow">
                 <BackgroundControl
-                  enabled={options.backgroundEnabled}
+                  enabled={customizationOptions.backgroundEnabled}
                   onToggle={(enabled) => handleToggleChange({ backgroundEnabled: enabled })}
-                  color={options.backgroundColor}
+                  color={customizationOptions.backgroundColor}
                   onColorChange={(color) => handleDragChange({ backgroundColor: color })}
                   onColorComplete={handleDragComplete}
                 />
@@ -260,7 +276,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
               {/* Fill */}
               <div className="space-y-1 flex-grow">
                 <FillControl
-                  color={options.fillColor}
+                  color={customizationOptions.fillColor}
                   onColorChange={(color) => handleDragChange({ fillColor: color })}
                   onColorComplete={handleDragComplete}
                 />
@@ -270,12 +286,12 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
             {/* Outline */}
             <div className="space-y-1">
               <OutlineControl
-                enabled={options.stampEnabled}
+                enabled={customizationOptions.stampEnabled}
                 onToggle={(enabled) => handleToggleChange({ stampEnabled: enabled })}
-                color={options.stampColor}
+                color={customizationOptions.stampColor}
                 onColorChange={(color) => handleDragChange({ stampColor: color })}
                 onColorComplete={handleDragComplete}
-                width={options.stampWidth}
+                width={customizationOptions.stampWidth}
                 onWidthChange={(width) => handleDragChange({ stampWidth: width })}
                 onSliderComplete={handleDragComplete}
               />
@@ -284,12 +300,12 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
             {/* Shield */}
             <div className="space-y-1">
               <ShieldControl
-                enabled={options.shieldEnabled}
+                enabled={customizationOptions.shieldEnabled}
                 onToggle={(enabled) => handleToggleChange({ shieldEnabled: enabled })}
-                color={options.shieldColor}
+                color={customizationOptions.shieldColor}
                 onColorChange={(color) => handleDragChange({ shieldColor: color })}
                 onColorComplete={handleDragComplete}
-                width={options.shieldWidth}
+                width={customizationOptions.shieldWidth}
                 onWidthChange={(width) => handleDragChange({ shieldWidth: width })}
                 onSliderComplete={handleDragComplete}
               />
@@ -298,10 +314,10 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
             {/* Shadow */}
             <div className="space-y-1">
               <ShadowControl
-                enabled={options.shadowEffectEnabled}
+                enabled={customizationOptions.shadowEffectEnabled}
                 onToggle={(enabled) => handleToggleChange({ shadowEffectEnabled: enabled })}
-                offsetX={options.shadowEffectOffsetX}
-                offsetY={options.shadowEffectOffsetY}
+                offsetX={customizationOptions.shadowEffectOffsetX}
+                offsetY={customizationOptions.shadowEffectOffsetY}
                 onOffsetXChange={(x: number) => handleDragChange({ shadowEffectOffsetX: x })}
                 onOffsetYChange={(y: number) => handleDragChange({ shadowEffectOffsetY: y })}
                 onSliderComplete={handleDragComplete}
@@ -314,7 +330,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
       {/* Style Presets */}
       <div className={`${sectionContainerClass} flex-1`}>
         <StylePresetsPanel
-          options={options}
+          options={customizationOptions}
           onPresetSelect={applyPreset}
         />
       </div>
@@ -359,3 +375,6 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = ({
     </div>
   );
 }; 
+
+// Phase 3.3: Memoize the component to prevent unnecessary re-renders
+export default React.memo(CustomizationToolbar); 

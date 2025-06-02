@@ -4,20 +4,53 @@ A modern, high-performance web application for creating and customizing graffiti
 
 ## 🚀 Performance Highlights
 
-**Lightning-fast graffiti generation** powered by sophisticated hybrid SVG processing:
+**Lightning-fast graffiti generation** powered by sophisticated hybrid SVG processing and **comprehensive bundle optimizations**:
 - **50-100x faster** letter processing (from 50-100ms to 0.1-1ms per letter in production)
 - **Near-instant generation** for typical text lengths (<10ms total processing time)
+- **Optimized bundle size**: ~39KB+ reduction through dependency cleanup and tree-shaking
 - **Hybrid system** with development runtime processing + production lookup optimization
 - **Clean production builds** with zero development noise or overhead
-- **Single source of truth** overlap generation for consistent letter positioning
+- **Tree-shakeable architecture**: Aggressive optimization for minimal bundle impact
+- **State management optimization**: ~80% reduction in prop drilling with selective hooks
+- **Self-contained components**: Zero coupling with optimized re-render patterns
+
+## 📦 Bundle Optimization Results
+
+**Comprehensive bundle size optimization completed (December 2024)**:
+- **Total size reduction**: ~799KB → ~760KB+ (-39KB, -4.9%+)
+- **Dependencies cleaned**: 52 → 31 packages (-21 packages removed)
+- **Icon optimization**: Migrated to tree-shakeable `lucide-react` from `react-icons`
+- **Tree-shaking**: Wildcard imports eliminated across all UI libraries
+- **Development separation**: Clean production builds exclude debug tools
+- **Analysis tools**: Built-in bundle analysis with interactive visualization
+
+For complete optimization details, see [Bundle Optimization Summary](./docs/planning/Bundle_Optimization_Summary.md).
+
+## ⚡ State Management Optimizations
+
+**Comprehensive state management optimization completed in parallel (December 2024)**:
+- **Prop drilling reduction**: ~80% reduction across core components 
+- **Zustand upgrade**: Updated to v4.4.0+ with `useShallow` optimization
+- **Custom selective hooks**: Purpose-built hooks eliminate component coupling
+- **Self-contained components**: CustomizationToolbar, InputForm, StyleSelector now independent
+- **Preserved functionality**: Zero regressions while dramatically improving maintainability
+- **Performance boost**: Strategic memoization and optimized re-render patterns
+
+**Key selective hooks created:**
+- `useGraffitiDisplay`: Optimized display component state access
+- `useGraffitiControls`: Self-contained input and style control logic  
+- `useGraffitiCustomization`: Independent customization state management
+
+For complete state optimization details, see [State Management Implementation Plan](./docs/planning/State_Management_Optimization_Implementation_Plan.md).
 
 ## Project Overview
 
-Stizack is a React-based web application that allows users to generate customized graffiti text with exceptional performance through a sophisticated hybrid SVG processing system. The application features robust authentication, optimized SVG processing, comprehensive customization tools, and advanced development workflows for content management.
+Stizack is a React-based web application that allows users to generate customized graffiti text with exceptional performance through a sophisticated hybrid SVG processing system and optimized bundle architecture. The application features robust authentication, optimized SVG processing, comprehensive customization tools, and advanced development workflows for content management.
 
 ## Core Features
 
 - **High-Performance Graffiti Generation**: Hybrid processing system with sub-millisecond letter processing in production
+- **Optimized Bundle Architecture**: Tree-shaking optimized dependencies with clean development/production separation
 - **Development Workflow Tools**: SVG Processing Panel and Overlap Debug Panel for artwork management
 - **Style Selection**: Choose from multiple graffiti styles with pre-computed optimizations
 - **Real-time Customization**: Adjust colors, size, spacing, and effects with instant preview
@@ -25,15 +58,44 @@ Stizack is a React-based web application that allows users to generate customize
 - **User Authentication**: Secure user accounts with Google and email login options
 - **User Presets**: Save and load customization presets (for authenticated users)
 - **Export Options**: Download as optimized SVG or high-quality PNG
+- **Full Accessibility**: WCAG 2.1 AA compliant with comprehensive screen reader support
+
+## Accessibility
+
+This application is built with accessibility as a core requirement, ensuring it works for all users including those using assistive technologies:
+
+### ♿ Accessibility Features
+
+- **WCAG 2.1 AA Compliance**: Meets international accessibility standards
+- **Screen Reader Support**: Comprehensive ARIA labels and semantic markup
+- **Keyboard Navigation**: Full keyboard accessibility for all interactive elements
+- **Color Contrast**: Minimum 4.5:1 contrast ratios for all text content
+- **Focus Management**: Clear visual focus indicators and logical tab order
+- **Live Regions**: Screen reader announcements for dynamic content changes
+- **Error Handling**: Clear, accessible error messages and validation feedback
+
+### Accessibility Standards
+
+All developers must follow our accessibility guidelines when contributing to this project:
+
+- Use semantic HTML elements and proper ARIA attributes
+- Implement keyboard navigation for all interactive components
+- Provide text alternatives for visual content
+- Ensure sufficient color contrast ratios
+- Test with screen readers and keyboard-only navigation
+
+For complete accessibility implementation details, see [Accessibility Guidelines](./docs/ACCESSIBILITY_GUIDELINES.md).
 
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **State Management**: Zustand with persistence
+- **Icons**: Lucide React (tree-shakeable, optimized)
 - **Authentication**: Supabase Auth with comprehensive security
 - **Database**: Supabase PostgreSQL with RLS
 - **Performance**: Hybrid SVG processing with conditional compilation
-- **Build Tool**: Vite with build flags for development/production optimization
+- **Build Tool**: Vite 6 with enhanced tree-shaking and bundle analysis
+- **Bundle Analysis**: Rollup Plugin Visualizer for optimization insights
 - **Deployment**: Vercel with CDN optimization
 
 ## Performance Architecture
@@ -54,7 +116,26 @@ The application uses a sophisticated dual-mode system optimized for both develop
 - **Optimized Fallbacks**: Styled placeholders for missing letters
 - **Memory Efficiency**: Minimal overhead with conditional compilation
 
+### Bundle Optimization Architecture
+**Tree-Shaking Optimizations:**
+- **Radix UI**: Specific imports instead of wildcard imports for all components
+- **Icon Library**: Tree-shakeable Lucide React with individual icon imports
+- **Development Tools**: Lazy-loaded with `React.Suspense` for production exclusion
+- **Component Memoization**: Strategic `React.memo()` for expensive renders
+
+**Build Configuration:**
+- **Aggressive tree-shaking**: `moduleSideEffects: false` for maximum optimization
+- **Strategic chunking**: Optimal cache efficiency with manual chunk splitting
+- **Production cleanup**: Console log stripping and development code elimination
+- **Bundle analysis**: On-demand visualization with `npm run analyze`
+
 ### Development Workflows
+
+**Bundle Analysis (New):**
+- Use `npm run analyze` to generate interactive bundle composition reports
+- Monitor chunk sizes and dependency contributions with treemap visualization
+- Track optimization progress with before/after size comparisons
+- Identify optimization opportunities with gzip/brotli analysis
 
 **Overlap Generation (Required for consistent positioning):**
 - Use Overlap Debug Panel to generate complete 36×36 character matrix
@@ -71,6 +152,8 @@ The application uses a sophisticated dual-mode system optimized for both develop
 ### Key Performance Metrics
 - **Letter Processing**: ~0.1-1ms per letter in production (vs 50-100ms runtime)
 - **Total Generation**: <10ms for typical phrases (vs 500-1000ms+ runtime)
+- **Bundle Size**: ~760KB optimized (vs ~799KB pre-optimization)
+- **Dependencies**: 31 packages (vs 52 pre-optimization)
 - **Memory Efficiency**: Optimized data structures with conditional loading
 - **Build Optimization**: Unused development code excluded from production bundles
 
@@ -159,14 +242,33 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 4. Follow the steps in `SUPABASE_SETUP.md` to configure Supabase
 5. Run the development server with `npm run dev`
 
-## Development
+## Development & Bundle Analysis
 
-The application includes comprehensive development tools:
+The application includes comprehensive development tools and bundle optimization features:
 
+### Development Tools
 - **Performance Testing**: Built-in tools for testing lookup vs runtime performance
 - **Debug Panels**: Real-time performance monitoring and optimization testing
 - **Value Overlays**: Dynamic data visualization in development mode
 - **SVG Processing Tools**: Utilities for generating and validating lookup tables
+
+### Bundle Analysis Tools
+```bash
+# Generate interactive bundle analysis
+npm run analyze
+
+# Development server with analysis
+npm run analyze:dev
+
+# Complete bundle report
+npm run bundle:report
+```
+
+**Analysis Features:**
+- Interactive treemap visualization of bundle composition
+- Gzip/Brotli compression analysis for real-world size estimates
+- Per-chunk breakdown showing dependency contributions
+- Optimization opportunity identification
 
 For details on environment configuration, see [Environment Documentation](./docs/ENVIRONMENT.md).
 
@@ -205,6 +307,7 @@ The application achieves exceptional performance through:
 
 - [Architecture Documentation](./docs/ARCHITECTURE.md) - Detailed technical architecture
 - [Authentication Documentation](./docs/AUTHENTICATION.md) - Authentication system details
+- [Accessibility Guidelines](./docs/ACCESSIBILITY_GUIDELINES.md) - Complete accessibility standards and implementation guide
 - [Environment Documentation](./docs/ENVIRONMENT.md) - Environment configuration
 - [Supabase Setup](./SUPABASE_SETUP.md) - Supabase configuration guide
 

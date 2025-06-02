@@ -12,11 +12,48 @@
     "moduleDetection": "force",
     "noEmit": true,
 
+    /* ✅ NEW: Incremental Compilation for Build Tools */
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo/node.tsbuildinfo",
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* ✅ NEW: Enhanced Type Safety for Build Scripts */
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* ✅ PHASE 3: Advanced Optimization Options */
+    "assumeChangesOnlyAffectDirectDependencies": true,
+    "disableReferencedProjectLoad": false,
+    "disableSolutionSearching": false,
+
+    /* ✅ PHASE 3: Enhanced Error Detection */
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedSideEffectImports": false,
+
+    /* ✅ PHASE 3: Advanced Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+
+    /* ✅ PHASE 3: Performance Optimization */
+    "preserveWatchOutput": true,
+    "pretty": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts"]
 }

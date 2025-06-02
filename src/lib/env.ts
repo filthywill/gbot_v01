@@ -1,25 +1,34 @@
 // Environment configuration utility
-const ENV = {
-  isDevelopment: import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production',
-  isProduction: import.meta.env.PROD || import.meta.env.VITE_APP_ENV === 'production',
-  // Add other environment variables here
-} as const;
 
-// Validate environment configuration
+interface Env {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  googleClientId: string;
+  isDevelopment: boolean;
+  isProduction: boolean;
+  enableConcurrent: boolean; // Phase 4.1: React 18 concurrent features flag
+}
+
 const validateEnv = () => {
-  // Ensure we have a valid environment
-  if (!ENV.isDevelopment && !ENV.isProduction) {
-    throw new Error('Invalid environment configuration: VITE_APP_ENV must be either not set or "production"');
+  const requiredVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_GOOGLE_CLIENT_ID'];
+  const missing = requiredVars.filter(varName => !import.meta.env[varName]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
   
-  // Ensure we don't have conflicting states
-  if (ENV.isDevelopment && ENV.isProduction) {
-    throw new Error('Invalid environment configuration: Cannot be both development and production');
-  }
+  return {
+    supabaseUrl: import.meta.env.VITE_SUPABASE_URL as string,
+    supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+    googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
+    isDevelopment: import.meta.env.DEV,
+    isProduction: import.meta.env.PROD,
+    // Phase 4.1: React 18 concurrent features flag (defaults to true)
+    enableConcurrent: import.meta.env.VITE_ENABLE_CONCURRENT !== 'false',
+  };
 };
 
-// Run validation immediately
-validateEnv();
+const ENV: Env = validateEnv();
 
 // Freeze the environment object to prevent modifications
 Object.freeze(ENV);

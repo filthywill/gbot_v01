@@ -128,8 +128,11 @@ function calculateOptimalOverlapFromPixels(
     for (let x = Math.max(0, startX); x < prev.bounds.right; x += step) {
       const currentX = x - startX + current.bounds.left;
       if (currentX >= 0 && currentX < 200) {
+        // Safe array access with bounds checking for noUncheckedIndexedAccess
         const prevRange = prev.verticalPixelRanges[x];
         const currentRange = current.verticalPixelRanges[currentX];
+        
+        // Ensure both ranges exist before processing
         if (prevRange && currentRange) {
           const rangeOverlap = Math.min(prevRange.bottom, currentRange.bottom) -
                               Math.max(prevRange.top, currentRange.top);
@@ -293,15 +296,20 @@ export async function processSvg(
     for (let y = 0; y < height; y += samplingStep) {
       for (let x = 0; x < width; x += samplingStep) {
         const i = (y * width + x) * 4;
-        // Check if pixel is not fully transparent
-        if (data[i + 3] > 10) {
-          pixelData[y][x] = true;
-          
-          // Update bounds
-          left = Math.min(left, x);
-          right = Math.max(right, x);
-          top = Math.min(top, y);
-          bottom = Math.max(bottom, y);
+        // Safe array access with bounds checking for noUncheckedIndexedAccess
+        const alphaValue = data[i + 3];
+        if (i + 3 < data.length && alphaValue !== undefined && alphaValue > 10) {
+          // Ensure pixelData arrays exist before accessing
+          const row = pixelData[y];
+          if (row && x < row.length) {
+            row[x] = true;
+            
+            // Update bounds
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
         }
       }
     }
@@ -324,7 +332,9 @@ export async function processSvg(
       
       // Find the top and bottom of the content at this x position
       for (let y = 0; y < resolution; y += samplingStep) {
-        if (pixelData[y][x]) {
+        // Safe array access with bounds checking for noUncheckedIndexedAccess
+        const row = pixelData[y];
+        if (row && x < row.length && row[x]) {
           if (rangeTop === -1) rangeTop = y;
           rangeBottom = y;
           pixelCount++;

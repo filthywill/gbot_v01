@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { cn } from '../../utils/cn';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
-import { FaEyeDropper, FaCirclePlus } from 'react-icons/fa6';
+import { Pipette, Plus } from 'lucide-react';
 
 // Define the EyeDropper interface for TypeScript
 interface EyeDropperConstructor {
@@ -255,7 +255,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 )}
                 title="Pick color from screen"
               >
-                <FaEyeDropper size={16} />
+                <Pipette size={16} />
               </button>
             </div>
             
@@ -350,7 +350,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 className="h-5 w-5 flex items-center justify-center text-zinc-600 hover:text-zinc-800 focus:outline-none focus:text-purple-500"
                 title="Save current color"
               >
-                <FaCirclePlus size={18} />
+                <Plus size={18} />
               </button>
               
               {/* Custom Color Swatches */}

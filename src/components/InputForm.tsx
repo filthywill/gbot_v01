@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaSprayCan } from 'react-icons/fa6';
-import { FaTimes } from 'react-icons/fa';
+import { Paintbrush2, X } from 'lucide-react';
 import { validateAndSanitizeInput, ValidationError } from '../lib/validation';
 import logger from '../lib/logger';
 
@@ -80,8 +79,11 @@ export const InputForm: React.FC<InputFormProps> = ({
 
   return (
     <div className="mb-4">
-      <form onSubmit={handleSubmit} className="flex items-stretch gap-1">
+      <form onSubmit={handleSubmit} className="flex items-stretch gap-1" role="form" aria-label="Graffiti text generator">
         <div className="relative flex-1">
+          <label htmlFor="graffiti-input" className="sr-only">
+            Enter text to generate graffiti (a-z, 0-9, spaces allowed, maximum 18 characters)
+          </label>
           <input
             id="graffiti-input"
             name="graffitiText"
@@ -95,12 +97,21 @@ export const InputForm: React.FC<InputFormProps> = ({
             style={{ fontSize: '16px' }}
             maxLength={18}
             disabled={isGenerating}
+            aria-describedby={`${validationError ? 'validation-error ' : ''}${inputText ? 'char-count ' : ''}input-help`}
+            aria-invalid={validationError ? 'true' : 'false'}
+            aria-required="true"
           />
+          <div id="input-help" className="sr-only">
+            Text input for graffiti generation. Accepts letters, numbers, and spaces. Maximum 18 characters.
+          </div>
           {inputText && (
             <>
               <div 
+                id="char-count"
                 className="absolute right-8 top-[50%] -translate-y-[50%] text-xs text-control-secondary sm:mt-[-2px] mt-" 
                 style={{ lineHeight: '16px', height: '16px' }}
+                aria-live="polite"
+                role="status"
               >
                 {inputText.length}/18
               </div>
@@ -114,13 +125,19 @@ export const InputForm: React.FC<InputFormProps> = ({
                 style={{ lineHeight: '16px', height: '16px' }}
                 type="button"
                 title="Clear text"
+                aria-label="Clear input text"
               >
-                <FaTimes className="w-3.5 h-3.5" />
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </>
           )}
           {validationError && (
-            <p className="absolute -bottom-3 left-0 text-red-400 text-[7px]">
+            <p 
+              id="validation-error"
+              className="absolute -bottom-3 left-0 text-red-400 text-[7px]"
+              role="alert"
+              aria-live="assertive"
+            >
               {validationError.message}
             </p>
           )}
@@ -134,10 +151,20 @@ export const InputForm: React.FC<InputFormProps> = ({
               : 'bg-brand-primary-600 hover:brightness-110'
           }`}
           title="Generate"
+          aria-label={isGenerating ? 'Generating graffiti, please wait' : 'Generate graffiti from input text'}
+          aria-describedby="button-help"
         >
-          <FaSprayCan className="w-6 h-5" />
+          <Paintbrush2 className="w-6 h-5" aria-hidden="true" />
           <span className="ml-1 hidden sm:inline-block">{isGenerating ? 'Creating...' : 'Create'}</span>
+          {/* Screen reader only status for generating state */}
+          {isGenerating && <span className="sr-only">Generation in progress</span>}
         </button>
+        <div id="button-help" className="sr-only">
+          {isGenerating || !!validationError 
+            ? 'Button disabled: ' + (isGenerating ? 'Currently generating graffiti' : 'Please fix input errors first')
+            : 'Click to generate graffiti art from your text input'
+          }
+        </div>
       </form>
     </div>
   );

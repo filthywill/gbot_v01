@@ -1,4 +1,5 @@
 import { PasswordStrength } from '../components/Auth/PasswordStrengthMeter';
+import { supabase } from '../lib/supabase';
 import logger from '../lib/logger';
 
 /**
@@ -138,9 +139,6 @@ export function maskPassword(password: string): string {
  */
 export async function verifyCurrentPassword(email: string, password: string): Promise<boolean> {
   try {
-    // Import supabase here to avoid circular dependencies
-    const { supabase } = await import('../lib/supabase');
-    
     // Attempt to sign in with the provided credentials
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

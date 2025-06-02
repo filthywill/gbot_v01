@@ -145,7 +145,33 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
 
   return (
     <GraffitiContainer customizationOptions={customizationOptions}>
-      <div className="relative w-full h-full">
+      <div 
+        className="relative w-full h-full"
+        role="img"
+        aria-label={currentInputText ? `Generated graffiti displaying the text: ${currentInputText}` : 'Graffiti display area'}
+        aria-describedby="graffiti-description"
+      >
+        {/* Screen reader description */}
+        <div id="graffiti-description" className="sr-only">
+          {isGenerating 
+            ? 'Graffiti generation in progress, please wait'
+            : processedSvgs.length > 0 
+              ? `Graffiti art generated with ${processedSvgs.length} letter${processedSvgs.length !== 1 ? 's' : ''} using customizable styling options`
+              : 'No graffiti generated yet. Enter text above and click Create to generate graffiti art'
+          }
+        </div>
+        
+        {/* Live region for generation status */}
+        <div 
+          className="sr-only" 
+          aria-live="polite" 
+          role="status"
+          aria-atomic="true"
+        >
+          {isGenerating && 'Generating graffiti artwork...'}
+          {!isGenerating && processedSvgs.length > 0 && `Graffiti generation complete. ${processedSvgs.length} letters rendered.`}
+        </div>
+        
         {memoizedContent}
       </div>
       {historyControlsElement}
