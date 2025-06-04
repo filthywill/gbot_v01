@@ -1,7 +1,7 @@
-# GBot Security Documentation
+# Stizack Security Documentation
 
 ## Overview
-This document outlines the security measures implemented in the GBot project, focusing on SVG processing, rate limiting, Content Security Policy (CSP), user protection, and password security. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
+This document outlines the security measures implemented in the Stizack project, focusing on SVG processing, rate limiting, Content Security Policy (CSP), user protection, and password security. The security framework is designed to prevent common vulnerabilities while maintaining the application's core functionality.
 
 ## Security Architecture
 

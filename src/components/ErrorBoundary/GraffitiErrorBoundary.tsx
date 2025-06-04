@@ -10,7 +10,7 @@ interface Props {
 interface State {
   hasError: boolean;
   errorReport: ErrorReport | null;
-  inputText?: string;
+  inputText?: string | undefined;
 }
 
 /**
@@ -33,7 +33,7 @@ export class GraffitiErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const context = createErrorContext(
       'GraffitiErrorBoundary',
       'svg_processing',
@@ -107,20 +107,46 @@ export class GraffitiErrorBoundary extends Component<Props, State> {
     });
   };
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId);
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
+      const { errorReport, inputText } = this.state;
+      
+      // Determine variant based on error severity and category
+      const getVariant = (): 'minimal' | 'detailed' | 'branded' => {
+        if (!errorReport) return 'detailed';
+        
+        // Critical errors get branded treatment for better user experience
+        if (errorReport.severity === 'CRITICAL') return 'branded';
+        
+        // Network/connection errors are often temporary - use minimal
+        if (errorReport.category === 'NETWORK') return 'minimal';
+        
+        // SVG processing errors get detailed treatment with suggestions
+        if (errorReport.category === 'SVG_PROCESSING') return 'detailed';
+        
+        // Default to detailed for most cases
+        return 'detailed';
+      };
+
+      // Determine if we should show suggestions based on error type
+      const shouldShowSuggestions = errorReport?.category !== 'NETWORK' && 
+                                   errorReport?.severity !== 'LOW';
+
       // Graceful degradation: Show CSS text fallback instead of error screen
       return (
         <GraffitiErrorFallback 
-          inputText={this.state.inputText}
-          error={this.state.errorReport?.error}
+          inputText={inputText || ''}
+          {...(errorReport?.error && { error: errorReport.error })}
           onRetry={this.resetError}
+          variant={getVariant()}
+          showSuggestions={shouldShowSuggestions}
+          showFallbackText={true}
         />
       );
     }

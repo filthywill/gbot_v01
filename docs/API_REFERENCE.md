@@ -15,7 +15,7 @@ This document provides detailed API documentation for the core hooks, stores, an
 
 ### useGraffitiGeneratorWithZustand
 
-The main hook that powers graffiti generation and customization.
+The main hook that powers graffiti generation and customization, optimized for React 19's enhanced concurrent features.
 
 ```typescript
 const useGraffitiGeneratorWithZustand = () => {
@@ -579,6 +579,50 @@ showSuccess('Graffiti exported successfully!', 3000);
 showError('Failed to generate graffiti');
 ```
 
+### Export Utilities
+
+#### createFilename
+
+Creates standardized filenames for export operations.
+
+```typescript
+createFilename(inputText: string, extension: 'svg' | 'png'): string
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `inputText` | `string` | The input text used to generate the graffiti |
+| `extension` | `'svg' \| 'png'` | File extension for the export |
+
+**Returns:**
+
+`string` - Formatted filename in the pattern "(input text)_STZCK.{extension}"
+
+**Features:**
+
+- **Consistent Format**: All exports use "(input text)_STZCK.{extension}" pattern
+- **Text Sanitization**: Spaces converted to underscores, special characters removed
+- **Uppercase Conversion**: Input text converted to uppercase for consistency
+- **Length Limiting**: Prevents excessively long filenames (max 60 characters)
+- **Fallback Handling**: Returns "STZCK.{extension}" for empty input
+
+**Usage Example:**
+
+```typescript
+// For graffiti text "Hello World"
+const svgFilename = createFilename('Hello World', 'svg');
+// Returns: "HELLO_WORLD_STZCK.svg"
+
+const pngFilename = createFilename('Hello World', 'png');
+// Returns: "HELLO_WORLD_STZCK.png"
+
+// For empty input
+const fallbackFilename = createFilename('', 'svg');
+// Returns: "STZCK.svg"
+```
+
 ## Type Definitions
 
 ### ProcessedSvg
@@ -649,4 +693,68 @@ interface User {
   aud: string;
   // Additional Supabase User properties
 }
+```
+
+### ExportControls
+
+Component for export controls with authentication-based access control.
+
+```typescript
+interface ExportControlsProps {
+  onCopyToPngClipboard: () => void;
+  onSaveAsSvg?: () => void;
+  onShare?: () => void;
+  isExporting: boolean;
+  showAllButtons?: boolean;
+}
+
+const ExportControls: React.FC<ExportControlsProps> = ({
+  onCopyToPngClipboard,
+  onSaveAsSvg,
+  onShare,
+  isExporting,
+  showAllButtons = false
+}) => {
+  // Authentication check for SVG export
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+  
+  // Handle disabled SVG export click (triggers auth modal)
+  const handleDisabledSvgClick = () => {
+    if (!isAuthenticated) {
+      window.dispatchEvent(new CustomEvent('auth:trigger-modal', {
+        detail: { view: AUTH_VIEWS.SIGN_IN, reason: 'svg_export' }
+      }));
+    }
+  };
+  
+  // Component implementation
+};
+```
+
+**Props:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `onCopyToPngClipboard` | `() => void` | Handler for PNG clipboard export (labeled as "Save PNG") |
+| `onSaveAsSvg` | `() => void` | Handler for SVG file export (requires authentication) |
+| `onShare` | `() => void` | Handler for share functionality (optional) |
+| `isExporting` | `boolean` | Whether export operation is in progress |
+| `showAllButtons` | `boolean` | Whether to show all export options (default: false) |
+
+**Features:**
+
+- **PNG Export**: Always available via clipboard with custom filename format
+- **SVG Export**: Authentication required, disabled state with sign-in prompt for unauthenticated users
+- **Custom Event System**: Triggers authentication modal when unauthenticated users click SVG export
+- **Responsive Design**: Consistent button styling and tooltips
+
+**Usage Example:**
+
+```tsx
+<ExportControls
+  onCopyToPngClipboard={() => copyToClipboard()} // Available to all users
+  onSaveAsSvg={() => exportSvg()}                // Requires authentication
+  isExporting={false}
+  showAllButtons={true}
+/>
 ``` 

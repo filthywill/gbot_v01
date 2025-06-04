@@ -88,13 +88,15 @@ For complete accessibility implementation details, see [Accessibility Guidelines
 
 ## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS
-- **State Management**: Zustand with persistence
+- **Frontend**: React 19, TypeScript 5.8, Tailwind CSS 3.4
+- **Router**: React Router DOM 7.5
+- **State Management**: Zustand 4.5 with persistence and optimizations
+- **UI Components**: Radix UI primitives with tree-shaking optimization
 - **Icons**: Lucide React (tree-shakeable, optimized)
 - **Authentication**: Supabase Auth with comprehensive security
 - **Database**: Supabase PostgreSQL with RLS
 - **Performance**: Hybrid SVG processing with conditional compilation
-- **Build Tool**: Vite 6 with enhanced tree-shaking and bundle analysis
+- **Build Tool**: Vite 6.2 with enhanced tree-shaking and bundle analysis
 - **Bundle Analysis**: Rollup Plugin Visualizer for optimization insights
 - **Deployment**: Vercel with CDN optimization
 

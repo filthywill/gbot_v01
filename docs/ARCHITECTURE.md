@@ -6,17 +6,21 @@ Stizack is a React-based web application built with TypeScript, designed to crea
 
 ## Tech Stack
 
-- **Frontend Framework**: React 18.3.1
-- **Build Tool**: Vite 5.4.2
-- **Language**: TypeScript 5.5.3
-- **State Management**: Zustand 5.0.3
+- **Frontend Framework**: React 19.1.0
+- **Build Tool**: Vite 6.2.2
+- **Language**: TypeScript 5.8.3
+- **State Management**: Zustand 4.5.7
 - **Styling**: Tailwind CSS 3.4.1
 - **UI Components**: 
   - Radix UI primitives
   - Shadcn UI components
   - Custom components
-- **Animation**: Framer Motion 12.5.0
-- **Icons**: Lucide React and React Icons
+- **Router**: React Router DOM 7.5.1
+- **Backend**: Supabase
+  - Authentication and database
+  - Real-time features
+  - Storage and APIs
+- **Icons**: Lucide React
 - **Security**: 
   - Content Security Policy (CSP)
   - Rate Limiting System
@@ -570,7 +574,47 @@ try {
 - Advanced error reporting system
 - Regular security audits and updates
 
+### Export Controls and File Generation
+The application provides comprehensive export functionality with authentication-based access control:
+
+#### Export Options
+- **Save PNG (Clipboard-based)**: Available to all users, uses optimized clipboard functionality with custom filename format "(input text)_STZCK.png"
+- **Save as SVG**: Requires authentication, downloads SVG file with custom filename format "(input text)_STZCK.svg"
+
+#### Authentication-Protected Features
+SVG export functionality is protected and requires user authentication:
+- **Authenticated users**: Can export SVG files directly
+- **Unauthenticated users**: See disabled SVG export button with tooltip, clicking triggers authentication modal
+- **Custom event system**: Uses DOM events to trigger authentication modal from export controls
+
+#### Export Implementation
+```typescript
+// Export controls with authentication check
+const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+
+// SVG export - authentication required
+{onSaveAsSvg && (
+  <button
+    onClick={isAuthenticated ? onSaveAsSvg : handleDisabledSvgClick}
+    disabled={isExporting}
+    className={isAuthenticated ? 'enabled-style' : 'disabled-style'}
+    title={isAuthenticated ? "Save as SVG" : "Sign in to save as SVG"}
+  >
+    SVG Export Icon
+  </button>
+)}
+
+// Custom filename generation
+const filename = createFilename(inputText, 'svg'); // "(input text)_STZCK.svg"
+```
+
+#### Filename Generation
+All exports use a standardized filename format:
+- **Format**: "(input text)_STZCK.{extension}"
+- **Sanitization**: Spaces converted to underscores, special characters removed
+- **Fallback**: "STZCK.{extension}" for empty input
+- **Length limiting**: Prevents excessively long filenames
+
 ---
 
-This documentation is a living document and will be updated as the project evolves. 
 This documentation is a living document and will be updated as the project evolves. 

@@ -1,6 +1,15 @@
 # Component Structure
 
-This document provides an overview of the component structure in the gbot_v01 application, focusing on the customization features.
+This document provides an overview of the component structure in the Stizack application, focusing on the customization features and current React 19 architecture.
+
+## Architecture Overview
+
+The application follows modern React 19 patterns with:
+- Functional components with TypeScript interfaces
+- Enhanced concurrent rendering capabilities  
+- Optimized state management with Zustand
+- Component composition over inheritance
+- Clear separation of concerns
 
 ## Customization Components
 
@@ -97,18 +106,19 @@ Key features:
 
 ## Performance Optimizations
 
-The application implements several performance optimizations:
+The application implements several React 19-compatible performance optimizations:
 
 1. **Component splitting**: Each control has its own focused component
 2. **Memoized event handlers**: Uses `useCallback` to prevent unnecessary re-renders
-3. **Dedicated property handlers**: Creates specific handlers for each property
-4. **Temporary state management**: Avoids creating history entries during interactions
-5. **Stable reference handling**: Prevents inline function creation during renders
-6. **Reusable control pattern**: Uses a single configurable component for consistent UI
-7. **Deferred change pattern**: Optimizes history entries from user interactions
-8. **Efficient event handling**: Separates immediate feedback from finalized changes
+3. **React 19 automatic optimizations**: Leverages React 19's improved rendering pipeline
+4. **Dedicated property handlers**: Creates specific handlers for each property
+5. **Temporary state management**: Avoids creating history entries during interactions
+6. **Stable reference handling**: Prevents inline function creation during renders
+7. **Reusable control pattern**: Uses a single configurable component for consistent UI
+8. **Deferred change pattern**: Optimizes history entries from user interactions
+9. **Efficient event handling**: Separates immediate feedback from finalized changes
 
-These optimizations help maintain responsive UI interactions even with complex customization options.
+These optimizations work with React 19's enhanced concurrent features to maintain responsive UI interactions even with complex customization options.
 
 ## Refactoring Benefits
 

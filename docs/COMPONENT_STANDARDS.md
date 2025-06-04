@@ -1,10 +1,10 @@
 # Component Standards Documentation
 
-This document outlines the standard patterns for components, control elements, and history management in the gbot_v01 application.
+This document outlines the standard patterns for components, control elements, and history management in the Stizack application, following React 19 best practices.
 
 ## Control Component Hierarchy
 
-The application uses a standardized three-tier approach for control components:
+The application uses a standardized three-tier approach for control components, optimized for React 19's enhanced rendering:
 
 ### 1. ControlContainer
 
@@ -416,4 +416,172 @@ Authentication components should be tested for:
 4. **Network Issues**: Test behavior with intermittent connectivity
 5. **Cache Behavior**: Verify proper cache usage and invalidation
 
-Following these standards ensures consistent UI behavior, maintainable code structure, and proper history tracking throughout the application. 
+Following these standards ensures consistent UI behavior, maintainable code structure, and proper history tracking throughout the application.
+
+## Authentication-Protected UI Patterns
+
+The application implements standardized patterns for UI components that require authentication, providing consistent user experience across features.
+
+### Protected Feature Pattern
+
+For features that require authentication but should remain visible to all users:
+
+```typescript
+interface ProtectedFeatureProps {
+  onAction?: () => void;
+  isProcessing?: boolean;
+  requiresAuth?: boolean;
+}
+
+const ProtectedFeature: React.FC<ProtectedFeatureProps> = ({
+  onAction,
+  isProcessing = false,
+  requiresAuth = true
+}) => {
+  // Authentication state check
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+  
+  // Handle disabled feature interaction
+  const handleDisabledClick = useCallback(() => {
+    if (!isAuthenticated && requiresAuth) {
+      // Trigger authentication modal via custom event
+      window.dispatchEvent(new CustomEvent('auth:trigger-modal', {
+        detail: {
+          view: AUTH_VIEWS.SIGN_IN,
+          reason: 'feature_access'
+        }
+      }));
+    }
+  }, [isAuthenticated, requiresAuth]);
+  
+  // Determine if feature is accessible
+  const isAccessible = !requiresAuth || isAuthenticated;
+  
+  return (
+    <button
+      onClick={isAccessible ? onAction : handleDisabledClick}
+      disabled={isProcessing}
+      className={cn(
+        "base-button-styles",
+        isAccessible 
+          ? "enabled-styles bg-primary hover:bg-primary-hover text-white"
+          : "disabled-styles bg-gray-400 hover:bg-gray-500 text-gray-200 cursor-pointer"
+      )}
+      title={
+        isAccessible 
+          ? "Feature available" 
+          : "Sign in to access this feature"
+      }
+      aria-label={
+        isAccessible 
+          ? "Execute feature action"
+          : "Sign in required to access feature"
+      }
+    >
+      <FeatureIcon aria-hidden="true" />
+    </button>
+  );
+};
+```
+
+### Key Implementation Guidelines
+
+#### 1. Authentication State Management
+- Always use `useAuthStore(state => state.isAuthenticated())` for consistency
+- Check authentication state in component, not parent
+- Use `useCallback` for event handlers to prevent unnecessary re-renders
+
+#### 2. Visual State Indicators
+- **Enabled State**: Primary colors, normal cursor, hover effects
+- **Disabled State**: Muted colors, pointer cursor (not disabled cursor)
+- **Tooltips**: Clear messaging about authentication requirement
+- **Icons**: Consistent iconography between enabled/disabled states
+
+#### 3. Interaction Patterns
+- **Authenticated Users**: Direct feature access
+- **Unauthenticated Users**: Trigger authentication flow
+- **Processing States**: Disable interaction during operations
+- **Error Handling**: Graceful fallbacks for authentication failures
+
+#### 4. Custom Event System
+```typescript
+// Standard event dispatch for authentication triggers
+const dispatchAuthTrigger = (reason: string, view: AuthModalView = AUTH_VIEWS.SIGN_IN) => {
+  window.dispatchEvent(new CustomEvent('auth:trigger-modal', {
+    detail: { view, reason }
+  }));
+};
+
+// Usage in components
+const handleAuthRequired = () => {
+  dispatchAuthTrigger('svg_export', AUTH_VIEWS.SIGN_IN);
+};
+```
+
+#### 5. Accessibility Considerations
+- Provide clear `aria-label` attributes for both states
+- Use `title` attributes for additional context
+- Ensure proper color contrast in disabled state
+- Maintain logical tab order regardless of authentication state
+
+### Usage Examples
+
+#### Export Controls Implementation
+```typescript
+// ExportControls with authentication protection
+<button
+  onClick={isAuthenticated ? onSaveAsSvg : handleDisabledSvgClick}
+  disabled={isExporting}
+  className={cn(
+    "export-button-base",
+    isAuthenticated 
+      ? "export-button-enabled" 
+      : "export-button-disabled"
+  )}
+  title={isAuthenticated ? "Save as SVG" : "Sign in to save as SVG"}
+>
+  <DocumentIcon aria-hidden="true" />
+</button>
+```
+
+#### Feature Toggle with Authentication
+```typescript
+// Feature that can be enabled/disabled with auth requirement
+const ProtectedToggle = ({ feature, onToggle, requiresAuth = false }) => {
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+  const canAccess = !requiresAuth || isAuthenticated;
+  
+  const handleToggle = () => {
+    if (canAccess) {
+      onToggle(!feature.enabled);
+    } else {
+      dispatchAuthTrigger('feature_toggle');
+    }
+  };
+  
+  return (
+    <div className={cn("toggle-container", !canAccess && "auth-required")}>
+      <button 
+        onClick={handleToggle}
+        disabled={feature.isUpdating}
+        aria-pressed={feature.enabled}
+      >
+        Toggle Feature
+      </button>
+      {!canAccess && (
+        <span className="auth-indicator">Sign in required</span>
+      )}
+    </div>
+  );
+};
+```
+
+### Testing Considerations
+
+When implementing authentication-protected UI:
+
+1. **Test both states**: Verify behavior for authenticated and unauthenticated users
+2. **Event dispatch**: Ensure custom events are properly dispatched and handled
+3. **Accessibility**: Test with screen readers and keyboard navigation
+4. **Visual states**: Verify proper styling and hover effects
+5. **Edge cases**: Handle loading states and authentication failures 

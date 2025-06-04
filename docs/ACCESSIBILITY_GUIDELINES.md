@@ -226,7 +226,7 @@ useEffect(() => {
 
 ### Automated Testing
 ```typescript
-// Include accessibility tests in component tests
+// Include accessibility tests in component tests - React 19 compatible
 import { render, screen } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
 

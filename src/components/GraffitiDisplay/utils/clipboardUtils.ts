@@ -1,6 +1,6 @@
 import { ProcessedSvg, CustomizationOptions } from '../../../types';
 import { createSvgString } from './pngExport';
-import { showSuccessMessage, isMobileDevice } from './exportUtils';
+import { showSuccessMessage, isMobileDevice, createFilename } from './exportUtils';
 
 /**
  * Shows a modal with the image for mobile devices
@@ -239,7 +239,7 @@ export const showImprovedMobileImageModal = (
     // Create a temporary link to download the image
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = 'graffiti.png';
+    link.download = createFilename(inputText, 'png');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -413,7 +413,7 @@ export const copyToPngClipboard = async (
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
             const alpha = data[(y * width + x) * 4 + 3]; // Alpha channel
-            if (alpha > 0) { // Non-transparent pixel
+            if (alpha !== undefined && alpha > 0) { // Non-transparent pixel
               minX = Math.min(minX, x);
               minY = Math.min(minY, y);
               maxX = Math.max(maxX, x);
@@ -517,7 +517,7 @@ export const copyToPngClipboard = async (
           else if (navigator.share && isMobile) {
             try {
               // Create a File object from the blob
-              const file = new File([pngBlob], 'graffiti.png', { type: pngBlob.type });
+              const file = new File([pngBlob], createFilename(inputText, 'png'), { type: pngBlob.type });
               
               // Check if we can share files
               if (navigator.canShare && navigator.canShare({ files: [file] })) {

@@ -5,22 +5,23 @@ import { CustomizationOptions } from '../../../types';
  */
 export const createFilename = (inputText: string, extension: 'svg' | 'png'): string => {
   if (!inputText || inputText.trim() === '') {
-    return `graff-default.${extension}`;
+    return `STZCK.${extension}`;
   }
   
   // Clean the input text to make it suitable for a filename
-  // Replace spaces with underscores and remove special characters
+  // Replace spaces with underscores and remove special characters except hyphens
   const cleanedText = inputText.trim()
     .replace(/\s+/g, '_')
     .replace(/[^\w\-]/g, '')
-    .toLowerCase();
+    .toUpperCase(); // Convert to uppercase to match STZCK branding
   
-  // Use the cleaned text for the filename, with a fallback if it's empty after cleaning
-  const filename = cleanedText ? `graff-${cleanedText}.${extension}` : `graff-design.${extension}`;
+  // Use the format: (input text)_STZCK
+  const filename = `${cleanedText}_STZCK.${extension}`;
   
   // Limit filename length to avoid excessively long filenames
-  if (filename.length > 50) {
-    return `${filename.substring(0, 46)}.${extension}`;
+  if (filename.length > 60) {
+    const maxTextLength = 60 - '_STZCK.'.length - extension.length;
+    return `${cleanedText.substring(0, maxTextLength)}_STZCK.${extension}`;
   }
   
   return filename;

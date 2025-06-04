@@ -135,6 +135,26 @@ function App() {
     });
   }, []);
 
+  // Listen for custom auth modal trigger events
+  React.useEffect(() => {
+    const handleAuthTrigger = (event: CustomEvent) => {
+      const { view, reason } = event.detail;
+      logger.debug('Auth modal triggered via custom event', { view, reason });
+      
+      // Set the modal view and open it
+      setAuthModalMode(view);
+      setShowAuthModal(true);
+    };
+
+    // Add event listener
+    window.addEventListener('auth:trigger-modal', handleAuthTrigger as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('auth:trigger-modal', handleAuthTrigger as EventListener);
+    };
+  }, [setAuthModalMode, setShowAuthModal]);
+
   return (
     <AppErrorBoundary onError={handleAppError}>
     <AuthProvider>
@@ -143,7 +163,7 @@ function App() {
         <VerificationBanner 
           onResumeVerification={handleResumeVerification} 
           forceShow={!!verificationEmail} 
-          email={verificationEmail || undefined}
+          {...(verificationEmail && { email: verificationEmail })}
           isAuthenticated={!!user} 
         />
         

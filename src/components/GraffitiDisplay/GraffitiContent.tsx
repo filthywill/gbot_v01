@@ -245,10 +245,9 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       {/* Export Controls */}
       <ExportControls
         onCopyToPngClipboard={copyToPngClipboard}
-        onSaveAsPng={saveAsPng}
         onSaveAsSvg={saveAsSvg}
         isExporting={isExporting}
-        showAllButtons={false} // Set to true to show all export buttons
+        showAllButtons={true}
       />
       
       <div ref={contentRef} className="graffiti-content" style={transformStyle}>

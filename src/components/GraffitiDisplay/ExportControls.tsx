@@ -1,8 +1,10 @@
 import React from 'react';
+import useAuthStore from '../../store/useAuthStore';
+import { AUTH_VIEWS } from '../../lib/auth/constants';
+import { Image, ArrowDown } from 'lucide-react';
 
 interface ExportControlsProps {
   onCopyToPngClipboard: () => void;
-  onSaveAsPng?: () => void;
   onSaveAsSvg?: () => void;
   onShare?: () => void;
   isExporting: boolean;
@@ -10,12 +12,11 @@ interface ExportControlsProps {
 }
 
 /**
- * Component for export controls (copy to clipboard, save as PNG, save as SVG)
+ * Component for export controls (Save PNG via clipboard, Save as SVG)
  * Uses z-40 to stay below modals (z-50) but above regular content
  */
 const ExportControls: React.FC<ExportControlsProps> = ({
   onCopyToPngClipboard,
-  onSaveAsPng,
   onSaveAsSvg,
   onShare,
   isExporting,
@@ -23,6 +24,22 @@ const ExportControls: React.FC<ExportControlsProps> = ({
 }) => {
   // Check if we're in development mode
   const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
+  
+  // Get authentication status
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+  
+  // Handle click on disabled SVG export button
+  const handleDisabledSvgClick = () => {
+    if (!isAuthenticated) {
+      // Dispatch custom event to trigger auth modal
+      window.dispatchEvent(new CustomEvent('auth:trigger-modal', {
+        detail: {
+          view: AUTH_VIEWS.SIGN_IN,
+          reason: 'svg_export'
+        }
+      }));
+    }
+  };
   
   return (
     <div className="absolute top-2 left-2 z-40 flex space-x-1">
@@ -52,79 +69,31 @@ const ExportControls: React.FC<ExportControlsProps> = ({
         </button>
       )}
 
-      {/* Copy to Clipboard Button */}
+      {/* Save PNG Button (via clipboard - better functionality) */}
       <button
         onClick={onCopyToPngClipboard}
         disabled={isExporting}
         className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
-        title="Copy to Clipboard"
+        title="Save PNG"
         style={{ width: '32px', height: '32px' }}
       >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="h-5 w-5" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
-          />
-        </svg>
+        <Image className="h-5 w-5"/>
       </button>
       
-      {/* PNG Export Button - Only shown if showAllButtons is true */}
-      {showAllButtons && onSaveAsPng && (
-        <button
-          onClick={onSaveAsPng}
-          disabled={isExporting}
-          className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
-          title="Save as PNG"
-          style={{ width: '32px', height: '32px' }}
-        >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" 
-            />
-          </svg>
-        </button>
-      )}
-      
-      {/* SVG Export Button - Shown if showAllButtons is true OR in development mode */}
+      {/* SVG Export Button - Shown if (showAllButtons is true OR in development mode) AND user is authenticated */}
       {(showAllButtons || isDev) && onSaveAsSvg && (
         <button
-          onClick={onSaveAsSvg}
+          onClick={isAuthenticated ? onSaveAsSvg : handleDisabledSvgClick}
           disabled={isExporting}
-          className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center"
-          title="Save as SVG"
+          className={`p-1 rounded-md shadow-md transition-colors duration-200 flex items-center justify-center ${
+            isAuthenticated 
+              ? 'bg-brand-primary-600 hover:bg-brand-primary-700 text-white' 
+              : 'bg-gray-400 hover:bg-gray-500 text-gray-200 cursor-pointer'
+          }`}
+          title={isAuthenticated ? "Save as SVG" : "Sign in to save as SVG"}
           style={{ width: '32px', height: '32px' }}
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
-            />
-          </svg>
+          <ArrowDown className="h-5 w-5"/>
         </button>
       )}
     </div>

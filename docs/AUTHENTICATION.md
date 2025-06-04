@@ -17,6 +17,7 @@
 13. [Tab Visibility Solution](#tab-visibility-solution)
 14. [Future Considerations](#future-considerations)
 15. [Password Security Features](#password-security-features)
+16. [Authentication-Protected Features](#authentication-protected-features)
 
 ## Overview
 
@@ -824,3 +825,98 @@ CREATE TABLE "security_audit_log" (
 ```
 
 This enables monitoring of sensitive operations like password changes, login attempts, and account creations.
+
+## Authentication-Protected Features
+
+The authentication system includes patterns for protecting specific application features behind user authentication.
+
+### SVG Export Protection
+
+SVG export functionality requires user authentication, providing a seamless user experience for both authenticated and unauthenticated users.
+
+#### Implementation Pattern
+
+```typescript
+// Component with authentication-protected feature
+const ExportControls: React.FC<ExportControlsProps> = ({
+  onSaveAsSvg,
+  // ... other props
+}) => {
+  // Check authentication status
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated());
+  
+  // Handle click on disabled feature (triggers sign-in)
+  const handleDisabledSvgClick = () => {
+    if (!isAuthenticated) {
+      // Dispatch custom event to trigger auth modal
+      window.dispatchEvent(new CustomEvent('auth:trigger-modal', {
+        detail: {
+          view: AUTH_VIEWS.SIGN_IN,
+          reason: 'svg_export'
+        }
+      }));
+    }
+  };
+  
+  return (
+    <button
+      onClick={isAuthenticated ? onSaveAsSvg : handleDisabledSvgClick}
+      disabled={isExporting}
+      className={`button-styles ${
+        isAuthenticated 
+          ? 'bg-primary hover:bg-primary-hover text-white' 
+          : 'bg-gray-400 hover:bg-gray-500 text-gray-200 cursor-pointer'
+      }`}
+      title={isAuthenticated ? "Save as SVG" : "Sign in to save as SVG"}
+    >
+      <SVGIcon />
+    </button>
+  );
+};
+```
+
+#### Custom Event System
+
+The app listens for authentication trigger events in the main App component:
+
+```typescript
+// App.tsx - Event listener for auth modal triggers
+React.useEffect(() => {
+  const handleAuthTrigger = (event: CustomEvent) => {
+    const { view, reason } = event.detail;
+    logger.debug('Auth modal triggered via custom event', { view, reason });
+    
+    // Set the modal view and open it
+    setAuthModalMode(view);
+    setShowAuthModal(true);
+  };
+
+  window.addEventListener('auth:trigger-modal', handleAuthTrigger as EventListener);
+
+  return () => {
+    window.removeEventListener('auth:trigger-modal', handleAuthTrigger as EventListener);
+  };
+}, [setAuthModalMode, setShowAuthModal]);
+```
+
+#### Benefits of This Pattern
+
+1. **User-Friendly**: Disabled features provide clear indication of authentication requirement
+2. **Seamless Flow**: Clicking disabled feature directly opens sign-in modal
+3. **Decoupled**: Components don't need direct access to modal state
+4. **Accessible**: Proper tooltips and visual states for screen readers
+5. **Consistent**: Reusable pattern for any authentication-protected feature
+
+#### Usage Guidelines
+
+Use this pattern when:
+- Feature requires authentication but should be visible to all users
+- You want to encourage sign-up/sign-in through feature discovery
+- The feature is valuable enough to justify the authentication requirement
+
+Implementation checklist:
+- [ ] Authentication state check using `useAuthStore`
+- [ ] Conditional click handlers and styling
+- [ ] Descriptive tooltips for both states
+- [ ] Custom event dispatch for unauthenticated users
+- [ ] Proper accessibility attributes
