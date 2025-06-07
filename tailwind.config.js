@@ -81,6 +81,7 @@ export default {
         },
       },
       screens: {
+        'sm': '600px',
         'custom700': '700px',
       },
       fontFamily: {

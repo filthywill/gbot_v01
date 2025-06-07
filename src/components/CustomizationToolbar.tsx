@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { STYLE_PRESETS, StylePreset } from '../data/stylePresets';
 import { StylePresetsPanel } from './StylePresetsPanel';
+import { SavedProjectsPanel } from './SavedProjectsPanel';
 import { Switch } from './ui/switch';
 import { ValueSlider } from './ui/value-slider';
 import { ColorPicker } from './ui/color-picker';
@@ -242,7 +243,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
   const sectionContainerClass = "p-0.5 rounded-md";
 
   return (
-    <div className="flex flex-col min-[600px]:flex-row min-[640px]:space-x-2 space-y-0 min-[600px]:space-y-0" role="region" aria-label="Graffiti customization controls">
+    <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0" role="region" aria-label="Graffiti customization controls">
       <div className={`${sectionContainerClass} flex-1`}>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger 
@@ -251,7 +252,9 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
             aria-controls="customization-panel"
             aria-label={`${isOpen ? 'Collapse' : 'Expand'} graffiti style options`}
           >
-            <span className="text-sm font-semibold text-control">Style Options</span>
+            <div className="flex items-center gap-2">
+              <h3 className="ui-heading ui-heading-panel text-control">STYLE OPTIONS</h3>
+            </div>
             <ChevronDown className={`h-4 w-4 text-control transform transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </CollapsibleTrigger>
           <CollapsibleContent 
@@ -333,6 +336,11 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
           options={customizationOptions}
           onPresetSelect={applyPreset}
         />
+      </div>
+
+      {/* Saved Projects */}
+      <div className={`${sectionContainerClass} flex-1`}>
+        <SavedProjectsPanel />
       </div>
 
       {/* Save Preset Dialog */}

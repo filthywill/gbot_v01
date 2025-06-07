@@ -215,6 +215,7 @@ const GraffitiContent: React.FC<GraffitiContentProps> = ({
       };
     }
   }, [contentWidth, contentHeight, scaleFactor, isReady, isAnimating, additionalScaleFactor]);
+
   
   // Skip rendering if no SVGs to display
   if (processedSvgs.length === 0) {

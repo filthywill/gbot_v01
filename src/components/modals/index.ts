@@ -7,4 +7,5 @@
 
 export { default as VerificationSuccessModal } from './VerificationSuccessModal';
 export { default as VerificationErrorModal } from './VerificationErrorModal';
-export { default as VerificationLoadingModal } from './VerificationLoadingModal'; 
+export { default as VerificationLoadingModal } from './VerificationLoadingModal';
+export { DeleteProjectModal } from './DeleteProjectModal'; 

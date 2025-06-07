@@ -34,6 +34,7 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
   onUndoRedo,
   inputText = ''
 }) => {
+
   // Add debug logging to help troubleshoot history props issues
   useEffect(() => {
     console.log('GraffitiDisplay received history props:', {
@@ -52,51 +53,26 @@ const GraffitiDisplay: React.FC<GraffitiDisplayProps> = ({
       });
       return;
     }
-    
-    try {
-      const newIndex = direction === 'undo' 
-        ? Math.max(0, currentHistoryIndex - 1)
-        : Math.min(customizationHistory.length - 1, currentHistoryIndex + 1);
-      
-      // Only trigger if the index actually changes
-      if (newIndex !== currentHistoryIndex) {
-        console.log(`${direction.charAt(0).toUpperCase() + direction.slice(1)} operation:`, {
-          direction,
-          fromIndex: currentHistoryIndex,
-          toIndex: newIndex,
-          fromState: currentHistoryIndex >= 0 && currentHistoryIndex < customizationHistory.length 
-            ? customizationHistory[currentHistoryIndex]?.presetId || 'custom state'
-            : 'invalid state',
-          toState: newIndex >= 0 && newIndex < customizationHistory.length
-            ? customizationHistory[newIndex]?.presetId || 'custom state'
-            : 'invalid state'
-        });
-        
-        onUndoRedo(newIndex);
-      } else {
-        console.log(`${direction} operation aborted - index would not change:`, {
-          currentIndex: currentHistoryIndex,
-          calculatedNewIndex: newIndex,
-          historyLength: customizationHistory.length
-        });
-      }
-    } catch (error) {
-      console.error(`Error during ${direction} operation:`, error);
-    }
-  }, [onUndoRedo, customizationHistory, currentHistoryIndex]);
 
-  // Get the current input text from history if available
-  const currentInputText = useMemo(() => {
-    // If direct inputText prop is provided, use it
-    if (inputText) return inputText;
-    
-    // Otherwise try to get it from history
-    if (customizationHistory.length > 0 && currentHistoryIndex >= 0 && currentHistoryIndex < customizationHistory.length) {
-      return customizationHistory[currentHistoryIndex].inputText || '';
+    // Calculate the new index
+    let newIndex: number;
+    if (direction === 'undo') {
+      newIndex = Math.max(0, currentHistoryIndex - 1);
+    } else {
+      newIndex = Math.min(customizationHistory.length - 1, currentHistoryIndex + 1);
     }
-    
-    return '';
-  }, [inputText, customizationHistory, currentHistoryIndex]);
+
+    // Only call if the index actually changed
+    if (newIndex !== currentHistoryIndex) {
+      console.log(`Undo/Redo: ${direction} from ${currentHistoryIndex} to ${newIndex}`);
+      onUndoRedo(newIndex);
+    } else {
+      console.log(`Undo/Redo: ${direction} blocked - already at ${direction === 'undo' ? 'beginning' : 'end'}`);
+    }
+  }, [onUndoRedo, customizationHistory.length, currentHistoryIndex]);
+
+  // Track current input text for display purposes
+  const currentInputText = inputText || '';
 
   // Memoize the GraffitiContent component to prevent unnecessary re-renders
   const memoizedContent = useMemo(() => {
