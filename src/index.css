@@ -112,8 +112,8 @@
 
   /* Control theme colors */
   --control-bg: rgba(113, 113, 122, 0.25); /* zinc-500 with opacity */
-  --control-text: rgb(228, 228, 231); /* zinc-200 */
-  --control-text-secondary: rgb(161, 161, 170); /* zinc-400 */
+  --control-text: rgb(255, 255, 255); /* zinc-200 */
+  --control-text-secondary: rgb(220, 220, 220); /* zinc-400 */
   --control-hover: rgba(82, 82, 91, 0.3); /* zinc-600 with opacity */
   --control-icon: rgb(113, 113, 122); /* zinc-500 */
   --control-switch-active: var(--brand-purple-600);
@@ -266,7 +266,7 @@
 }
 
 .slider-control-text {
-  @apply text-xs font-medium text-control-secondary;
+  @apply text-xs font-medium text-control;
 }
 
 @tailwind base;

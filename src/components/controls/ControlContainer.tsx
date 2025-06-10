@@ -66,7 +66,7 @@ export const ControlContainer: React.FC<ControlContainerProps> = ({
       className
     )}>
       {/* Header row with label and toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center">
           {hasToggle ? (
             <div className="w-9 h-6 flex items-center justify-start">

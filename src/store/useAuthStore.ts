@@ -223,19 +223,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
-      // Use our improved checkUserExists function which now uses OTP exclusively
-      const userExists = await checkUserExists(email);
-      if (userExists) {
-        logger.warn('Attempted to sign up with existing email:', email);
-        throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
-      }
+      /* 
+       * The pre-emptive checkUserExists() function is temporarily disabled.
+       * It relies on Supabase's OTP sign-in flow, which is currently disabled in the production environment, causing sign-ups to fail.
+       * The primary supabase.auth.signUp() call below has its own robust check for existing users, making this pre-emptive check redundant for now.
+       */
       
       // Method 2: Try to check email verification status as a backup check
       const { verified, error: verificationError } = await checkEmailVerificationStatus(email);
       
       // Log detailed information for debugging
       logger.debug('Email existence check results:', { 
-        otpCheck: userExists,
+        // otpCheck: userExists, // Temporarily disabled
         verificationCheck: {
           verified,
           error: verificationError
@@ -255,7 +254,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
         email,
         password,
         options: {
-          emailRedirectTo: undefined, // Disable link-based verification to ensure OTP is used
+          // emailRedirectTo is intentionally omitted to use the project's default email confirmation settings.
+          // This avoids issues with strict TypeScript type checks.
         }
       });
       

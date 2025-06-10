@@ -56,7 +56,7 @@ export const SavedProjectCard: React.FC<SavedProjectCardProps> = ({
       setIsEditing(false);
     }
   };
-
+  
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -90,23 +90,26 @@ export const SavedProjectCard: React.FC<SavedProjectCardProps> = ({
     // Shorter text gets a larger scale value (more "zoom") to fill the thumbnail space.
 
     if (textLength <= 0) return 1.1; // Default for no text
-    if (textLength <= 3) {
-      return 2.0; // Max zoom for 1-3 characters
+    if (textLength <= 4) {
+      return 1.3; // Max zoom for 1-3 characters
     }
-    if (textLength <= 5) {
-      return 1.15 // High zoom for 4-5 characters
+    if (textLength <= 6) {
+      return 1.4 // High zoom for 4-5 characters
+    }
+    if (textLength <= 8) {
+      return 1.5; // Medium zoom for 6-8 characters
     }
     if (textLength <= 9) {
-      return 1.1; // Medium zoom for 6-8 characters
+      return 1.6; // Medium zoom for 6-8 characters
     }
     if (textLength <= 10) {
-      return 1.25; // Low zoom for 9-12 characters
+      return 2.1; // Low zoom for 9-12 characters
     }
     if (textLength <= 12) {
-      return 1.4; // Low zoom for 9-12 characters
+      return 2.3; // Low zoom for 9-12 characters
     }
     if (textLength <= 18) {
-      return 2.2; // Low zoom for 9-12 characters
+      return 2.5; // Low zoom for 9-12 characters
     }
     // Default, minimal zoom for very long text (> 12 characters)
     return 1.1;
@@ -186,7 +189,7 @@ export const SavedProjectCard: React.FC<SavedProjectCardProps> = ({
             >
               <Edit2 className="w-3 h-3" />
             </button>
-          </div>
+        </div>
         )}
       </div>
       

@@ -195,7 +195,7 @@ function transformProject(data: ProjectRow): SavedProject {
     thumbnailUrl: data.thumbnail_url,
     createdAt: data.created_at || new Date().toISOString()
   };
-}
+} 
 
 // Optional: Function to permanently clean up project names in the database
 export const cleanupProjectNames = async (userId: string) => {

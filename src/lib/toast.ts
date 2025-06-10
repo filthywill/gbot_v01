@@ -46,7 +46,7 @@ export const showToast = (message: string, options: ToastOptions = {}) => {
     // Remove from DOM after animation
     setTimeout(() => {
       if (document.body.contains(toast)) {
-        document.body.removeChild(toast);
+      document.body.removeChild(toast);
       }
     }, 300);
   }, duration);
