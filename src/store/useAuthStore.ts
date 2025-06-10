@@ -223,18 +223,19 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ status: 'LOADING', error: null });
       
-      /* 
-       * The pre-emptive checkUserExists() function is temporarily disabled.
-       * It relies on Supabase's OTP sign-in flow, which is currently disabled in the production environment, causing sign-ups to fail.
-       * The primary supabase.auth.signUp() call below has its own robust check for existing users, making this pre-emptive check redundant for now.
-       */
+      // Use our improved checkUserExists function which now uses OTP exclusively
+      const userExists = await checkUserExists(email);
+      if (userExists) {
+        logger.warn('Attempted to sign up with existing email:', email);
+        throw new Error('This email is already registered or was previously used. Please use a different email address or sign in instead.');
+      }
       
       // Method 2: Try to check email verification status as a backup check
       const { verified, error: verificationError } = await checkEmailVerificationStatus(email);
       
       // Log detailed information for debugging
       logger.debug('Email existence check results:', { 
-        // otpCheck: userExists, // Temporarily disabled
+        otpCheck: userExists,
         verificationCheck: {
           verified,
           error: verificationError
@@ -253,10 +254,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          // emailRedirectTo is intentionally omitted to use the project's default email confirmation settings.
-          // This avoids issues with strict TypeScript type checks.
-        }
       });
       
       if (error) {
@@ -966,6 +963,9 @@ export const checkUserExists = async (email: string): Promise<boolean> => {
             logger.warn('Rate limit reached during email existence check:', error);
             useAuthStore.getState().setError("Too many sign-in attempts. Please try again later.");
             return false;
+          case 'otp_disabled':
+            logger.debug('User exists check: OTP is disabled, cannot check user. Allowing signup to proceed.');
+            return false; // OTP is disabled, so we can't check. Allow the signup to proceed.
           default:
             // Fall through to string-based checks
             break;
