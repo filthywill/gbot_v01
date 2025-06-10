@@ -68,6 +68,15 @@ CREATE TABLE public.user_feature_access (
     expiration_date TIMESTAMP WITH TIME ZONE
 );
 
+-- Create profiles table for public user data
+CREATE TABLE public.profiles (
+  id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  username TEXT UNIQUE,
+  avatar_url TEXT,
+  CONSTRAINT username_length CHECK (char_length(username) >= 3)
+);
+
 -- Add RLS policies
 -- Preset policies
 ALTER TABLE public.presets ENABLE ROW LEVEL SECURITY;
@@ -92,6 +101,18 @@ CREATE POLICY "Users can update their own presets" ON public.presets
 CREATE POLICY "Users can delete their own presets" ON public.presets
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Profiles policies
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles
+    FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own profile." ON public.profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile." ON public.profiles
+    FOR UPDATE USING (auth.uid() = id);
+
 -- User actions policies
 ALTER TABLE public.user_actions ENABLE ROW LEVEL SECURITY;
 
@@ -109,6 +130,20 @@ ALTER TABLE public.user_feature_access ENABLE ROW LEVEL SECURITY;
 -- Users can read their own feature access
 CREATE POLICY "Users can read their own feature access" ON public.user_feature_access
     FOR SELECT USING (auth.uid() = user_id);
+
+-- Function and Trigger to create a profile for new users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username)
+  VALUES (new.id, new.email);
+  return new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 ```
 
 ## Step 5: Configure Authentication Providers
