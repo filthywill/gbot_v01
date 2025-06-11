@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Save } from 'lucide-react';
+import { ChevronDown, ChevronUp, Save, Plus } from 'lucide-react';
 import { STYLE_PRESETS, StylePreset } from '../data/stylePresets';
-import { PresetGrid } from './PresetCard';
+import { PresetGrid, HorizontalPresetScroller } from './PresetCard';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Input } from './ui/input';
@@ -152,42 +152,38 @@ export const StylePresetsPanel: React.FC<StylePresetsPanelProps> = ({
           }
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-1.5 pb-0.5">
-          {/* Built-in Presets */}
-          <div className="mb-2 p-0.5 bg-control rounded-lg">
-            <h4 className="text-xs font-medium text-control mb-1 px-1"></h4>
-            <PresetGrid
-              presets={STYLE_PRESETS}
-              activePresetId={options.__presetId}
-              onPresetSelect={onPresetSelect}
-            />
+          <div className="mb-2 flex items-stretch gap-1.5">
+            {isDev && (
+              <Button
+                className="h-auto w-10 flex-shrink-0 bg-brand-neutral-600 p-0 text-white transition-colors hover:bg-brand-neutral-500 disabled:opacity-50"
+                onClick={() => setSavePresetDialogOpen(true)}
+                title="Save Preset"
+              >
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-white">
+                  <Plus className="h-2.5 w-2.5 text-brand-neutral-600" />
+                </div>
+              </Button>
+            )}
+            <div className="min-w-0 flex-1 rounded-lg bg-control p-0.5">
+              <HorizontalPresetScroller
+                presets={STYLE_PRESETS}
+                activePresetId={options.__presetId}
+                onPresetSelect={onPresetSelect}
+              />
+            </div>
           </div>
           
           {/* User Presets (Dev Mode Only) */}
           {isDev && userPresets.length > 0 && (
-            <div className="mt-2 mb-2 p-2 bg-control rounded-lg">
-              <h4 className="text-xs font-medium text-control mb-1.5 px-1">CUSTOM STYLES</h4>
-              <PresetGrid
+            <div className="mt-2 rounded-lg bg-control p-2">
+              <h4 className="mb-1.5 px-1 text-xs font-medium text-control">CUSTOM STYLES</h4>
+              <HorizontalPresetScroller
                 presets={userPresets}
                 activePresetId={options.__presetId}
                 onPresetSelect={onPresetSelect}
                 onPresetDelete={deleteUserPreset}
                 areDeletable={true}
               />
-            </div>
-          )}
-          
-          {/* Save Preset Button (Dev Mode Only) */}
-          {isDev && (
-            <div className="mt-3 flex justify-center">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-xs flex items-center gap-1.5 border-brand-primary-700 hover:bg-brand-primary-900 text-brand-primary-300"
-                onClick={() => setSavePresetDialogOpen(true)}
-              >
-                <Save className="w-3 h-3" />
-                <span>Save Current as Preset</span>
-              </Button>
             </div>
           )}
         </CollapsibleContent>

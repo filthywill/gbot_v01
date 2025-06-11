@@ -1,14 +1,13 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { StylePreset } from '../data/stylePresets';
 import { X, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
 
 interface PresetCardProps {
   preset: StylePreset;
   isActive: boolean;
   onClick: () => void;
-  onDelete?: (presetId: string) => void;
+  onDelete?: ((presetId: string) => void) | undefined;
   isDeletable?: boolean;
 }
 
@@ -250,10 +249,71 @@ ${Object.entries(nonDefaultSettings)
 
 PresetCard.displayName = 'PresetCard';
 
+// Horizontal scrolling container for preset cards
+export const HorizontalPresetScroller: React.FC<{
+  presets: StylePreset[];
+  activePresetId?: string | undefined;
+  onPresetSelect: (preset: StylePreset) => void;
+  onPresetDelete?: (presetId: string) => void;
+  areDeletable?: boolean;
+}> = memo(({ presets, activePresetId, onPresetSelect, onPresetDelete, areDeletable = false }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Check if we're in development mode
+  const isDev = import.meta.env.DEV || import.meta.env.VITE_APP_ENV !== 'production';
+
+  // Add event listeners for mouse wheel scrolling behavior
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleWheelScroll = (e: WheelEvent) => {
+      // If the user is scrolling vertically with the mouse wheel, scroll horizontally instead
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        scrollContainer.scrollLeft += e.deltaY;
+      }
+    };
+
+    scrollContainer.addEventListener('wheel', handleWheelScroll, { passive: false });
+    
+    // Cleanup event listeners on unmount
+    return () => {
+      scrollContainer.removeEventListener('wheel', handleWheelScroll);
+    };
+  }, [presets]); // Re-run if presets change
+
+  return (
+    <div className="relative">
+      {/* Scrollable container with a themed scrollbar */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex overflow-x-auto py-1 px-1 themed-scrollbar-horizontal"
+      >
+        <div className="flex gap-2 px-1">
+          {presets.map(preset => (
+            <div key={preset.id} className="flex-shrink-0" style={{ width: '90px' }}>
+              <PresetCard
+                preset={preset}
+                isActive={preset.id === activePresetId}
+                onClick={() => onPresetSelect(preset)}
+                onDelete={isDev && areDeletable ? onPresetDelete : undefined}
+                isDeletable={isDev && areDeletable}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+HorizontalPresetScroller.displayName = 'HorizontalPresetScroller';
+
 // Grid container
 export const PresetGrid: React.FC<{
   presets: StylePreset[];
-  activePresetId?: string;
+  activePresetId?: string | undefined;
   onPresetSelect: (preset: StylePreset) => void;
   onPresetDelete?: (presetId: string) => void;
   areDeletable?: boolean;

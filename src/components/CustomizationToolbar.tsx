@@ -244,7 +244,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
 
   return (
     <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0" role="region" aria-label="Graffiti customization controls">
-      <div className={`${sectionContainerClass} flex-1`}>
+      <div className={`${sectionContainerClass} flex-1 min-w-0`}>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger 
             className={`${sectionHeaderClass} bg-brand-gradient`}
@@ -331,7 +331,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
       </div>
 
       {/* Style Presets */}
-      <div className={`${sectionContainerClass} flex-1`}>
+      <div className={`${sectionContainerClass} flex-1 min-w-0`}>
         <StylePresetsPanel
           options={customizationOptions}
           onPresetSelect={applyPreset}
@@ -339,7 +339,7 @@ export const CustomizationToolbar: React.FC<CustomizationToolbarProps> = () => {
       </div>
 
       {/* Saved Projects */}
-      <div className={`${sectionContainerClass} flex-1`}>
+      <div className={`${sectionContainerClass} flex-1 min-w-0`}>
         <SavedProjectsPanel />
       </div>
 

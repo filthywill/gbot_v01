@@ -378,6 +378,42 @@
   background: var(--brand-primary-400);
 }
 
+/* Themed scrollbar for horizontal scrollers */
+.themed-scrollbar-horizontal {
+  scrollbar-width: thin; /* For Firefox */
+  scrollbar-color: var(--brand-primary-500) rgba(152, 65, 228, 0.1); /* For Firefox */
+}
+
+.themed-scrollbar-horizontal::-webkit-scrollbar {
+  height: 8px; /* Height of the horizontal scrollbar */
+}
+
+.themed-scrollbar-horizontal::-webkit-scrollbar-track {
+  background-color: var(--brand-primary-950); /* Very dark track for contrast */
+  border-radius: 10px;
+}
+
+.themed-scrollbar-horizontal::-webkit-scrollbar-thumb {
+  background-color: var(--brand-primary-600); /* Mid-range purple for the thumb */
+  border-radius: 10px;
+  border: 2px solid transparent; /* Use a transparent border */
+  background-clip: content-box;  /* Clip background to content area, creating padding */
+}
+
+.themed-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brand-primary-500); /* Brighter on hover */
+}
+
+/* Hide the scrollbar buttons (arrows) */
+.themed-scrollbar-horizontal::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Hide the corner piece */
+.themed-scrollbar-horizontal::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Tooltip styles */
 .tooltip {
   position: relative;
@@ -677,5 +713,15 @@
 @layer utilities {
   .animate-hardware {
     transform: translateZ(0);
+  }
+  
+  /* Hide scrollbar but maintain functionality */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
   }
 }
